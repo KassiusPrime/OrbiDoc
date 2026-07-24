@@ -1,0 +1,10 @@
+{
+  "name": "DocuTools Pro",
+  "description": "OCR, Chat IA, Transcrição de Áudio, Tradução, PDF e Conversão de Mídia",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
