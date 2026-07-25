@@ -199,12 +199,53 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('word');
   const [activeCategory, setActiveCategory] = useState<string>('docs');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [resourcesDropdownOpen, setResourcesDropdownOpen] = useState(false);
+
+  // PWA Install State & Listener
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [notification, setNotification] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [isThemeFontOpen, setIsThemeFontOpen] = useState(false);
+
+  // Capture PWA Install event
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setIsAppInstalled(true);
+      setDeferredPrompt(null);
+      showNotification('DocSwiss foi instalado no seu dispositivo com sucesso!', 'success');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleTriggerInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        showNotification('Instalação iniciada!', 'success');
+      }
+    } else {
+      setShowInstallModal(true);
+    }
+  };
 
   // Google & Microsoft User Profile States
   const [googleUser, setGoogleUser] = useState<GoogleUserProfile | null>(() => getStoredGoogleUser());
@@ -1109,100 +1150,193 @@ export default function App() {
       )}
 
       {/* Primary Header */}
-      <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-4 sm:px-6 z-40 flex-shrink-0 shadow-sm">
-        <div className="flex items-center gap-3 sm:gap-4">
+      <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-4 sm:px-6 z-40 flex-shrink-0 shadow-sm relative">
+        <div className="flex items-center gap-3 sm:gap-5">
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+            className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
             aria-label="Menu de Navegação"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
+          {/* Logo */}
           <div className="flex items-center gap-2">
             <DocSwissLogo size="md" showText={true} />
-            <span className="hidden sm:inline-block ml-2 text-[10px] font-semibold px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-full border border-indigo-200 dark:border-indigo-800">
-              Studio Office
-            </span>
+          </div>
+
+          {/* Category Selector Dropdown (Lista Suspensa de Módulos) */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setCategoryDropdownOpen(!categoryDropdownOpen);
+                setResourcesDropdownOpen(false);
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-xs font-bold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all shadow-xs"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="truncate max-w-[140px] sm:max-w-none">
+                {CATEGORIES.find((c) => c.id === activeCategory)?.title || 'Módulos'}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu (Pop-over) */}
+            <AnimatePresence>
+              {categoryDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                  className="absolute left-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1"
+                >
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Selecionar Módulo de Trabalho
+                  </div>
+                  {CATEGORIES.map((cat) => {
+                    const CatIcon = cat.icon;
+                    const isSelected = activeCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          setActiveCategory(cat.id);
+                          setActiveTab(cat.tools[0].id);
+                          setCategoryDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-left transition-all ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <CatIcon className="w-4 h-4 shrink-0" />
+                        <div>
+                          <div className="font-bold">{cat.title}</div>
+                          <div className={`text-[10px] ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
+                            {cat.tools.length} ferramentas
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-2">
-          {/* Active Model Indicator */}
-          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+          {/* Active Model Badge */}
+          <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
             <span>{currentEngine.emoji}</span>
             <span>{currentEngine.label}</span>
           </div>
 
-          {/* Baixar App Button */}
+          {/* Instalar App Button */}
           <button
-            onClick={() => setShowInstallModal(true)}
-            title="Como Baixar / Instalar o Aplicativo"
-            className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
+            onClick={handleTriggerInstall}
+            title="Instalar App DocSwiss no Celular ou PC"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-95"
           >
             <DownloadCloud className="w-4 h-4" />
-            <span className="hidden sm:inline">Baixar App</span>
+            <span className="hidden sm:inline">Instalar App</span>
           </button>
 
-          {/* History Vault Button */}
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
-              activeTab === 'history'
-                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            <span className="hidden sm:inline">Histórico</span>
-            {historyItems.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
-                {historyItems.length}
-              </span>
-            )}
-          </button>
+          {/* Resources Dropdown (Lista Suspensa de Recursos & Ferramentas) */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setResourcesDropdownOpen(!resourcesDropdownOpen);
+                setCategoryDropdownOpen(false);
+              }}
+              className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+            >
+              <Grid className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span className="hidden sm:inline">Recursos</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${resourcesDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-          {/* Theme & Font Customizer */}
-          <button
-            onClick={() => setIsThemeFontOpen(true)}
-            title="Aparência, Fontes e Layout"
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1 text-xs font-medium"
-          >
-            <SlidersHorizontal className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <span className="hidden xl:inline">Aparência</span>
-          </button>
+            {/* Dropdown Menu (Pop-over) */}
+            <AnimatePresence>
+              {resourcesDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                  className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1"
+                >
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Recursos Globais
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIsGoogleDriveOpen(true);
+                      setResourcesDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-left transition-colors"
+                  >
+                    <HardDrive className="w-4 h-4 text-amber-500" />
+                    <span>Google Drive Integrado</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('history');
+                      setResourcesDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-left transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <History className="w-4 h-4 text-indigo-500" />
+                      <span>Histórico Vault</span>
+                    </div>
+                    {historyItems.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+                        {historyItems.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsThemeFontOpen(true);
+                      setResourcesDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors"
+                  >
+                    <SlidersHorizontal className="w-4 h-4 text-slate-500" />
+                    <span>Aparência & Fontes</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowSettings(true);
+                      setResourcesDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors"
+                  >
+                    <Settings className="w-4 h-4 text-slate-500" />
+                    <span>Configurações do Sistema</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* Theme Toggle */}
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             title="Alternar Tema Claro / Escuro"
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
           >
             {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </button>
 
-          {/* Google Drive Button */}
-          <button
-            onClick={() => setIsGoogleDriveOpen(true)}
-            title="Abrir Google Drive Integrado"
-            className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-500/40 hover:bg-amber-500/20 transition-all"
-          >
-            <HardDrive className="w-4 h-4 text-amber-500" />
-            <span className="hidden lg:inline">Google Drive</span>
-          </button>
-
-          {/* Settings */}
-          <button
-            onClick={() => setShowSettings(true)}
-            title="Configurações"
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-
-          {/* Google & Microsoft Unified Auth Profile Badge */}
+          {/* User Profile Badge */}
           <GoogleProfileBadge
             user={googleUser}
             onUserChange={(user) => setGoogleUser(user)}
@@ -1210,7 +1344,6 @@ export default function App() {
             setMsUser={setMsUser}
             onNotification={showNotification}
           />
-
         </div>
       </header>
 
@@ -1336,47 +1469,34 @@ export default function App() {
         <main className="flex-1 overflow-y-auto bg-slate-100/60 dark:bg-slate-950 p-4 sm:p-8 lg:p-10 flex flex-col justify-between">
           <div className="max-w-7xl mx-auto w-full space-y-6">
             
-            {/* Mobile Category Quick Switcher Pills (Top Bar) */}
-            <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    setActiveCategory(cat.id);
-                    setActiveTab(cat.tools[0].id);
-                  }}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap min-h-[40px] border ${
-                    activeCategory === cat.id
-                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <cat.icon className="w-3.5 h-3.5" />
-                  <span>{cat.title}</span>
-                </button>
-              ))}
-            </div>
+            {/* Top Horizontal Tool Tabs Bar (Abas de Ferramentas do Módulo Ativo) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-2 shadow-xs flex items-center justify-between gap-2 overflow-x-auto scrollbar-none">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+                {CATEGORIES.find((c) => c.id === activeCategory)?.tools.map((tool) => {
+                  const ToolIcon = tool.icon;
+                  const isActive = activeTab === tool.id;
+                  return (
+                    <button
+                      key={tool.id}
+                      onClick={() => setActiveTab(tool.id)}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-all ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      <ToolIcon className="w-4 h-4" />
+                      <span>{tool.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            {/* Mobile Secondary Tool Selector Pills */}
-            <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
-              {CATEGORIES.find((c) => c.id === activeCategory)?.tools.map((tool) => {
-                const ToolIcon = tool.icon;
-                const isActive = activeTab === tool.id;
-                return (
-                  <button
-                    key={tool.id}
-                    onClick={() => setActiveTab(tool.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
-                      isActive
-                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold'
-                        : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <ToolIcon className="w-3.5 h-3.5" />
-                    <span>{tool.label}</span>
-                  </button>
-                );
-              })}
+              {/* Category Indicator Badge on Right */}
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Módulo: {CATEGORIES.find((c) => c.id === activeCategory)?.title}</span>
+              </div>
             </div>
 
             {/* Active Tool Workspace Render */}

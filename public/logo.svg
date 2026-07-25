@@ -1,84 +1,126 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- Background Gradient for Icon -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#f8fafc"/>
+    <!-- Background Dark Blue Gradient -->
+    <linearGradient id="bgBlueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3454"/>
+      <stop offset="50%" stop-color="#152642"/>
+      <stop offset="100%" stop-color="#0f1b30"/>
     </linearGradient>
 
-    <!-- Green Leaf / Document Ribbon Gradient -->
-    <linearGradient id="docGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#34d399"/>
-      <stop offset="50%" stop-color="#10b981"/>
-      <stop offset="100%" stop-color="#059669"/>
+    <!-- Outer Hexagon Frame Gradient -->
+    <linearGradient id="hexFrameGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a456e"/>
+      <stop offset="100%" stop-color="#1a2e4c"/>
     </linearGradient>
 
-    <!-- Dark Green Shadow Fold -->
-    <linearGradient id="docGreenFold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#047857"/>
-      <stop offset="100%" stop-color="#065f46"/>
+    <!-- Inner Hexagon Well Gradient -->
+    <linearGradient id="hexWellGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#13223b"/>
+      <stop offset="100%" stop-color="#1a2d4b"/>
     </linearGradient>
 
-    <!-- Hexagon Gradient -->
-    <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e293b"/>
-      <stop offset="100%" stop-color="#0f172a"/>
+    <!-- Green Fold Top Light -->
+    <linearGradient id="greenTopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#22c55e"/>
     </linearGradient>
 
-    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.15"/>
+    <!-- Green Fold Main Body -->
+    <linearGradient id="greenBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="50%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#15803d"/>
+    </linearGradient>
+
+    <!-- Green Swoosh Tail -->
+    <linearGradient id="greenSwooshGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#15803d"/>
+    </linearGradient>
+
+    <!-- Bevel & Shadow Filters -->
+    <filter id="softEmboss" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0a1220" flood-opacity="0.5"/>
+    </filter>
+
+    <filter id="plusShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.25"/>
     </filter>
   </defs>
 
-  <!-- App Icon Background Squircle -->
-  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
-  <rect width="504" height="504" x="4" y="4" rx="124" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+  <!-- App Icon Squircle Canvas Base -->
+  <rect width="512" height="512" rx="100" fill="url(#bgBlueGrad)"/>
 
-  <!-- Main Emblem Group with Shadow -->
-  <g filter="url(#softShadow)">
-    <!-- Rounded Hexagon Base -->
-    <path d="M 256 90 
-             L 370 156 
-             Q 380 162 380 174 
-             L 380 306 
-             Q 380 318 370 324 
-             L 256 390 
-             Q 246 396 236 390 
-             L 122 324 
-             Q 112 318 112 306 
-             L 112 174 
-             Q 112 162 122 156 
-             L 236 90 
-             Q 246 84 256 90 Z" 
-          fill="url(#hexGrad)"/>
+  <!-- Subtle App Icon Inner Border Highlight -->
+  <rect width="504" height="504" x="4" y="4" rx="96" fill="none" stroke="#385888" stroke-width="2.5" opacity="0.6"/>
 
-    <!-- Green Folded Sheet / Ribbon Inside Hexagon -->
-    <!-- Fold Back Part -->
-    <path d="M 170 200 
-             C 170 170, 210 145, 235 180 
-             L 250 295 
-             C 210 320, 170 280, 170 200 Z" 
-          fill="url(#docGreenFold)" opacity="0.85"/>
+  <!-- Centered Hexagon Emblem Group -->
+  <g filter="url(#softEmboss)">
+    <!-- Outer Hexagon Bevel Frame -->
+    <path d="M 256 95 
+             L 375 163.7 
+             Q 388 171.2 388 186.2 
+             L 388 325.8 
+             Q 388 340.8 375 348.3 
+             L 256 417 
+             Q 243 424.5 230 417 
+             L 111 348.3 
+             Q 98 340.8 98 325.8 
+             L 98 186.2 
+             Q 98 171.2 111 163.7 
+             L 230 95 
+             Q 243 87.5 256 95 Z" 
+          fill="url(#hexFrameGrad)" 
+          stroke="#3b5d92" 
+          stroke-width="3"/>
 
-    <!-- Green Ribbon Front Layer -->
-    <path d="M 160 215 
-             C 160 165, 225 130, 248 185 
-             C 265 225, 235 290, 280 310 
-             C 240 330, 185 315, 160 215 Z" 
-          fill="url(#docGreenGrad)"/>
+    <!-- Inner Hexagon Depressed Well -->
+    <path d="M 256 122 
+             L 352 177.4 
+             Q 362 183.2 362 194.7 
+             L 362 305.3 
+             Q 362 316.8 352 322.6 
+             L 256 378 
+             Q 246 383.8 236 378 
+             L 140 322.6 
+             Q 130 316.8 130 305.3 
+             L 130 194.7 
+             Q 130 183.2 140 177.4 
+             L 236 122 
+             Q 246 116.2 256 122 Z" 
+          fill="url(#hexWellGrad)" 
+          stroke="#111c2e" 
+          stroke-width="5"/>
 
-    <!-- Folded Paper Accent Curve -->
-    <path d="M 248 185 
-             C 230 220, 190 240, 230 300 
-             C 260 285, 260 220, 248 185 Z" 
-          fill="#6ee7b7" opacity="0.4"/>
+    <!-- Green Folded Document Page Symbol -->
+    <!-- Top folded corner flap -->
+    <path d="M 222 178 
+             C 215 140, 230 135, 238 142 
+             L 225 210 
+             Z" 
+          fill="url(#greenTopGrad)"/>
 
-    <!-- Plus Symbol (+) in Top Right of Hexagon -->
-    <g transform="translate(290, 140)">
-      <!-- Vertical bar -->
-      <rect x="20" y="0" width="16" height="48" rx="8" fill="#ffffff"/>
-      <!-- Horizontal bar -->
-      <rect x="4" y="16" width="48" height="16" rx="8" fill="#ffffff"/>
+    <!-- Main Green Geometric Ribbon / Folded Leaf -->
+    <path d="M 182 226 
+             L 238 142 
+             C 246 150, 252 200, 222 282 
+             C 205 328, 175 290, 182 226 Z" 
+          fill="url(#greenBodyGrad)"/>
+
+    <!-- Dynamic Curved Green Ribbon Swoosh to Right -->
+    <path d="M 182 226 
+             C 170 315, 235 348, 260 348 
+             C 320 348, 382 278, 382 278 
+             C 382 278, 320 328, 256 322 
+             C 208 318, 192 272, 182 226 Z" 
+          fill="url(#greenSwooshGrad)"/>
+
+    <!-- White Medical / Studio Plus Cross (+) Symbol in Top-Right -->
+    <g transform="translate(270, 155)" filter="url(#plusShadow)">
+      <!-- Vertical Rectangle -->
+      <rect x="25" y="0" width="22" height="66" rx="5" fill="#ffffff"/>
+      <!-- Horizontal Rectangle -->
+      <rect x="3" y="22" width="66" height="22" rx="5" fill="#ffffff"/>
     </g>
   </g>
 </svg>
