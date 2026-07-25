@@ -31,3 +31,25 @@ export function cleanMarkdownForExport(text: string): string {
     .replace(/`([^`]+)`/g, '$1')
     .trim();
 }
+
+/**
+ * Optimizes text carriage returns (CR / \r\n), fixes broken line-end hyphenations,
+ * trims trailing spaces, and eliminates redundant blank line clusters.
+ */
+export function optimizeLocalCR(text: string): string {
+  if (!text) return '';
+  return text
+    // Normalize Windows/Mac line endings (\r\n or \r -> \n)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // Rejoin words split by line-break hyphenation (e.g. "com-\nputador" -> "computador")
+    .replace(/(\w+)-\n([a-zà-úâ-ûã-õä-ü])/gi, '$1$2')
+    // Remove trailing spaces on each line
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    // Collapse 3 or more consecutive newlines into 2
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+

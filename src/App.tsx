@@ -36,7 +36,7 @@ import { OfficeSuiteHub } from './components/OfficeSuiteHub';
 import { OcrPreviewWorkspace } from './components/OcrPreviewWorkspace';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
-import { cleanAsterisks } from './lib/cleanText';
+import { cleanAsterisks, optimizeLocalCR } from './lib/cleanText';
 import { processFileOcr, OcrOptions } from './lib/ocrEngine';
 
 // Configuração do Worker do PDF.js
@@ -232,6 +232,58 @@ export default function App() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
+  }, []);
+
+  // Online/Offline PWA Listener
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      showNotification('Conexão com a internet reestabelecida!', 'success');
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      showNotification('Modo Offline ativado. O app continuará funcionando via cache PWA.', 'error');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Keyboard Shortcuts & Command Palette
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandQuery, setCommandQuery] = useState('');
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + K or Cmd + K: Open Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((prev) => !prev);
+      }
+      // Ctrl + Shift + L: Toggle theme
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+      }
+      // Escape: Close active modals
+      if (e.key === 'Escape') {
+        setShowCommandPalette(false);
+        setShowShortcutsModal(false);
+        setShowSettings(false);
+        setShowInstallModal(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const handleTriggerInstall = async () => {
@@ -497,6 +549,13 @@ export default function App() {
     });
     pdf.save(`${name || 'documento'}.pdf`);
     showNotification('Exportado como PDF');
+  };
+
+  const exportAsMd = (text: string, name: string) => {
+    const mdContent = text.startsWith('#') ? text : `# ${name || 'Documento DocSwiss'}\n\n${text}`;
+    const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
+    saveAs(blob, `${name || 'documento'}.md`);
+    showNotification('Exportado como Markdown (.md)');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1212,166 +1271,74 @@ export default function App() {
             <DocSwissLogo size="md" showText={true} />
           </div>
 
-          {/* Category Selector Dropdown (Lista Suspensa de Módulos) */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setCategoryDropdownOpen(!categoryDropdownOpen);
-                setResourcesDropdownOpen(false);
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-xs font-bold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all shadow-xs"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="truncate max-w-[140px] sm:max-w-none">
-                {CATEGORIES.find((c) => c.id === activeCategory)?.title || 'Módulos'}
-              </span>
-              <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Dropdown Menu (Pop-over) */}
-            <AnimatePresence>
-              {categoryDropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                  className="absolute left-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1"
-                >
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    Selecionar Módulo de Trabalho
-                  </div>
-                  {CATEGORIES.map((cat) => {
-                    const CatIcon = cat.icon;
-                    const isSelected = activeCategory === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          setActiveCategory(cat.id);
-                          setActiveTab(cat.tools[0].id);
-                          setCategoryDropdownOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-left transition-all ${
-                          isSelected
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        <CatIcon className="w-4 h-4 shrink-0" />
-                        <div>
-                          <div className="font-bold">{cat.title}</div>
-                          <div className={`text-[10px] ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
-                            {cat.tools.length} ferramentas
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* Active Tool Breadcrumb Badge */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-bold text-slate-900 dark:text-white">
+              {CATEGORIES.find((c) => c.tools.some((t) => t.id === activeTab))?.title || 'Módulo'}
+            </span>
+            <span className="text-slate-400">/</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+              {CATEGORIES.flatMap((c) => c.tools).find((t) => t.id === activeTab)?.label || 'Ferramenta'}
+            </span>
           </div>
         </div>
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-2">
-          {/* Active Model Badge */}
-          <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-            <span>{currentEngine.emoji}</span>
-            <span>{currentEngine.label}</span>
+          {/* Online/Offline Badge */}
+          <div
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
+              isOnline
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+            }`}
+            title={isOnline ? 'Conectado à internet' : 'Você está trabalhando offline via PWA cache'}
+          >
+            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span>{isOnline ? 'Online' : 'Modo Offline'}</span>
           </div>
+
+          {/* Command Palette Trigger */}
+          <button
+            onClick={() => setShowCommandPalette(true)}
+            title="Abrir Busca Rápida / Command Palette (Ctrl + K)"
+            className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 text-xs font-semibold"
+          >
+            <Terminal className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="hidden lg:inline text-slate-500">Buscar...</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-slate-500 font-mono">
+              Ctrl+K
+            </kbd>
+          </button>
+
+          {/* Keyboard Shortcuts Trigger */}
+          <button
+            onClick={() => setShowShortcutsModal(true)}
+            title="Ver Atalhos do Teclado (?)"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-xs font-bold"
+          >
+            <HelpCircle className="w-4 h-4 text-slate-500" />
+          </button>
 
           {/* Instalar App Button */}
           <button
             onClick={handleTriggerInstall}
             title="Instalar App DocSwiss no Celular ou PC"
-            className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-95"
+            className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-95"
           >
-            <DownloadCloud className="w-4 h-4" />
+            <DownloadCloud className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Instalar App</span>
           </button>
 
-          {/* Resources Dropdown (Lista Suspensa de Recursos & Ferramentas) */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setResourcesDropdownOpen(!resourcesDropdownOpen);
-                setCategoryDropdownOpen(false);
-              }}
-              className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-            >
-              <Grid className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span className="hidden sm:inline">Recursos</span>
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${resourcesDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Dropdown Menu (Pop-over) */}
-            <AnimatePresence>
-              {resourcesDropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                  className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1"
-                >
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    Recursos Globais
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setIsGoogleDriveOpen(true);
-                      setResourcesDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-left transition-colors"
-                  >
-                    <HardDrive className="w-4 h-4 text-amber-500" />
-                    <span>Google Drive Integrado</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab('history');
-                      setResourcesDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-left transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <History className="w-4 h-4 text-indigo-500" />
-                      <span>Histórico Vault</span>
-                    </div>
-                    {historyItems.length > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
-                        {historyItems.length}
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsThemeFontOpen(true);
-                      setResourcesDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors"
-                  >
-                    <SlidersHorizontal className="w-4 h-4 text-slate-500" />
-                    <span>Aparência & Fontes</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowSettings(true);
-                      setResourcesDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors"
-                  >
-                    <Settings className="w-4 h-4 text-slate-500" />
-                    <span>Configurações do Sistema</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* Settings Button */}
+          <button
+            onClick={() => setShowSettings(true)}
+            title="Configurações & Modelo de IA"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
 
           {/* Theme Toggle */}
           <button
@@ -1511,40 +1478,10 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Center Canvas View Area */}
-        <main className="flex-1 overflow-y-auto bg-slate-100/60 dark:bg-slate-950 p-4 sm:p-8 lg:p-10 flex flex-col justify-between">
-          <div className="max-w-7xl mx-auto w-full space-y-6">
+        {/* Center Canvas View Area - Spacious Full Workspace */}
+        <main className="flex-1 overflow-y-auto bg-slate-100/60 dark:bg-slate-950 p-3 sm:p-6 lg:p-8 flex flex-col justify-between">
+          <div className="max-w-7xl mx-auto w-full space-y-6 flex-1 flex flex-col">
             
-            {/* Top Horizontal Tool Tabs Bar (Abas de Ferramentas do Módulo Ativo) */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-2 shadow-xs flex items-center justify-between gap-2 overflow-x-auto scrollbar-none">
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
-                {CATEGORIES.find((c) => c.id === activeCategory)?.tools.map((tool) => {
-                  const ToolIcon = tool.icon;
-                  const isActive = activeTab === tool.id;
-                  return (
-                    <button
-                      key={tool.id}
-                      onClick={() => setActiveTab(tool.id)}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-all ${
-                        isActive
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]'
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      <ToolIcon className="w-4 h-4" />
-                      <span>{tool.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Category Indicator Badge on Right */}
-              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Módulo: {CATEGORIES.find((c) => c.id === activeCategory)?.title}</span>
-              </div>
-            </div>
-
             {/* Active Tool Workspace Render */}
             
             {/* 0. Central Office 365 & Microsoft Suite Hub */}
@@ -1572,6 +1509,10 @@ export default function App() {
                 }}
                 showNotification={showNotification}
                 setIsGoogleDriveOpen={setIsGoogleDriveOpen}
+                exportAsTxt={exportAsTxt}
+                exportAsDocx={exportAsDocx}
+                exportAsPdf={exportAsPdf}
+                exportAsMd={exportAsMd}
               />
             )}
 
@@ -1716,14 +1657,35 @@ export default function App() {
                     {/* Messages Box */}
                     <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-slate-100/40 dark:bg-slate-950/40 text-xs">
                       {chatMessages.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center space-y-2 py-12">
-                          <MessageSquare className="w-10 h-10 opacity-30" />
-                          <p className="text-slate-600 dark:text-slate-400 font-medium">Faça perguntas ou envie anexos para análise com Inteligência Artificial.</p>
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center space-y-4 py-8">
+                          <MessageSquare className="w-10 h-10 opacity-30 text-indigo-500" />
+                          <p className="text-slate-600 dark:text-slate-300 font-medium text-xs sm:text-sm">
+                            Faça perguntas ou envie anexos para análise com Inteligência Artificial.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg w-full pt-1">
+                            {[
+                              { text: '📊 Resumir documento ou PDF', prompt: 'Por favor, faça um resumo executivo estruturado com os pontos principais do documento.' },
+                              { text: '✉️ Escrever e-mail corporativo', prompt: 'Escreva um e-mail corporativo formal e bem estruturado abordando...' },
+                              { text: '📝 Criar ata de reunião', prompt: 'Crie uma ata de reunião organizada em tópicos: participantes, decisões tomadas e tarefas pendentes.' },
+                              { text: '🔍 Extrair insights e ações', prompt: 'Analise o texto e extraia os principais insights, alertas e ações recomendadas.' }
+                            ].map((chip, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setChatInput(chip.prompt)}
+                                className="text-left p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-all hover:shadow-sm"
+                              >
+                                {chip.text}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       ) : (
                         chatMessages.map((msg) => (
-                          <div
+                          <motion.div
                             key={msg.id}
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
                             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
@@ -1754,6 +1716,12 @@ export default function App() {
                                       <Copy className="w-3 h-3" /> Copiar
                                     </button>
                                     <button
+                                      onClick={() => exportAsMd(msg.content, 'Resposta_DocSwiss')}
+                                      className="hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold"
+                                    >
+                                      <FileOutput className="w-3 h-3" /> Markdown (.md)
+                                    </button>
+                                    <button
                                       onClick={() => openCustomPdf(msg.content, 'Resposta DocSwiss IA')}
                                       className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold"
                                     >
@@ -1765,17 +1733,22 @@ export default function App() {
                                 <div className="whitespace-pre-wrap">{msg.content}</div>
                               )}
                             </div>
-                          </div>
+                          </motion.div>
                         ))
                       )}
 
                       {isChatLoading && (
-                        <div className="flex justify-start">
+                        <motion.div
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
+                          className="flex justify-start"
+                        >
                           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-2xl flex items-center gap-2 text-slate-500">
                             <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
                             <span>Gerando resposta sem asteriscos...</span>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                     </div>
 
@@ -2153,6 +2126,111 @@ export default function App() {
                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold"
               >
                 Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Command Palette Modal (Ctrl + K) */}
+      {showCommandPalette && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl space-y-0">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
+              <Terminal className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <input
+                type="text"
+                autoFocus
+                value={commandQuery}
+                onChange={(e) => setCommandQuery(e.target.value)}
+                placeholder="Busca rápida de ferramentas e ações (ex: Word, OCR, Tema)..."
+                className="flex-1 bg-transparent border-none text-sm text-slate-900 dark:text-slate-100 focus:outline-none"
+              />
+              <kbd className="px-2 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 rounded text-slate-400 font-mono">
+                ESC
+              </kbd>
+            </div>
+            <div className="max-h-80 overflow-y-auto p-2 divide-y divide-slate-100 dark:divide-slate-800/50">
+              {[
+                { id: 'word', label: 'Word Pro (Editor DOCX)', cat: 'Documentos', icon: Edit3, action: () => { setActiveTab('word'); setShowCommandPalette(false); } },
+                { id: 'excel', label: 'Excel Pro (Planilhas)', cat: 'Documentos', icon: FileSpreadsheet, action: () => { setActiveTab('excel'); setShowCommandPalette(false); } },
+                { id: 'powerpoint', label: 'PowerPoint Pro (Apresentações)', cat: 'Documentos', icon: Presentation, action: () => { setActiveTab('powerpoint'); setShowCommandPalette(false); } },
+                { id: 'canva', label: 'Canva Design Studio', cat: 'Documentos', icon: PenTool, action: () => { setActiveTab('canva'); setShowCommandPalette(false); } },
+                { id: 'office', label: 'Central Microsoft Office 365', cat: 'Documentos', icon: Grid, action: () => { setActiveTab('office'); setShowCommandPalette(false); } },
+                { id: 'extract', label: 'Extrator OCR Pro (PDFs e Imagens)', cat: 'IA', icon: FileText, action: () => { setActiveTab('extract'); setShowCommandPalette(false); } },
+                { id: 'chat', label: 'Assistente IA Interativo', cat: 'IA', icon: Bot, action: () => { setActiveTab('chat'); setShowCommandPalette(false); } },
+                { id: 'compare', label: 'Arena de Modelos (Gemini, Claude, DeepSeek)', cat: 'IA', icon: SplitSquareHorizontal, action: () => { setActiveTab('compare'); setShowCommandPalette(false); } },
+                { id: 'ai', label: 'Studio de Texto (Traduzir, Resumir)', cat: 'IA', icon: Sparkles, action: () => { setActiveTab('ai'); setShowCommandPalette(false); } },
+                { id: 'audio', label: 'Audio Lab (TTS & STT)', cat: 'Mídia', icon: Volume2, action: () => { setActiveTab('audio'); setShowCommandPalette(false); } },
+                { id: 'image', label: 'Gerador Visual de Imagens', cat: 'Mídia', icon: ImageIcon, action: () => { setActiveTab('image'); setShowCommandPalette(false); } },
+                { id: 'history', label: 'Histórico Vault', cat: 'Registros', icon: History, action: () => { setActiveTab('history'); setShowCommandPalette(false); } },
+                { id: 'theme', label: 'Alternar Tema Claro / Escuro', cat: 'Geral', icon: theme === 'dark' ? Sun : Moon, action: () => { setTheme(t => t === 'dark' ? 'light' : 'dark'); setShowCommandPalette(false); } },
+                { id: 'shortcuts', label: 'Ver Atalhos do Teclado', cat: 'Geral', icon: HelpCircle, action: () => { setShowShortcutsModal(true); setShowCommandPalette(false); } },
+              ]
+                .filter(item => item.label.toLowerCase().includes(commandQuery.toLowerCase()) || item.cat.toLowerCase().includes(commandQuery.toLowerCase()))
+                .map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={item.action}
+                      className="w-full flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/80 rounded-xl text-left transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:scale-105 transition-transform">
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{item.label}</div>
+                          <div className="text-[10px] text-slate-400">{item.cat}</div>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts Reference Modal (?) */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                <Terminal className="w-5 h-5" />
+                <span>Atalhos do Teclado DocSwiss</span>
+              </div>
+              <button onClick={() => setShowShortcutsModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              {[
+                { key: 'Ctrl + K  ou  Cmd + K', desc: 'Abrir Busca Rápida / Command Palette' },
+                { key: 'Ctrl + Shift + L', desc: 'Alternar Tema Claro / Escuro' },
+                { key: 'Enter (na busca)', desc: 'Navegar para a ferramenta selecionada' },
+                { key: 'ESC', desc: 'Fechar modais e painéis ativos' },
+                { key: '?', desc: 'Abrir este painel de atalhos' },
+              ].map((shortcut, i) => (
+                <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">{shortcut.desc}</span>
+                  <kbd className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded font-mono text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                    {shortcut.key}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setShowShortcutsModal(false)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold"
+              >
+                Entendi
               </button>
             </div>
           </div>

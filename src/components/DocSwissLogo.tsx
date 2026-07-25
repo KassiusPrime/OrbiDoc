@@ -104,9 +104,6 @@ export const DocSwissLogo: React.FC<DocSwissLogoProps> = ({
             <span className="text-slate-900 dark:text-slate-100 font-extrabold">Doc</span>
             <span className="text-emerald-600 dark:text-emerald-400 font-black">Swiss</span>
           </div>
-          <span className={`text-slate-400 dark:text-slate-500 font-medium tracking-wider uppercase mt-0.5 ${dimensions.sub}`}>
-            Suite Profissional
-          </span>
         </div>
       )}
     </div>

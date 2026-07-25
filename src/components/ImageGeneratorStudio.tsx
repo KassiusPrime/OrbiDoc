@@ -150,11 +150,12 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     setIsSearchingStock(true);
     try {
       const encoded = encodeURIComponent(q);
+      const timestamp = Date.now();
       const photos = [
-        `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80&sig=${Math.random()}`,
-        `https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80&sig=${Math.random()}`,
-        `https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=800&q=80&sig=${Math.random()}`,
-        `https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=800&q=80&sig=${Math.random()}`
+        `https://image.pollinations.ai/prompt/stock%20photo%20of%20${encoded}%204k%20photography?width=800&height=500&nologo=true&seed=${timestamp + 1}`,
+        `https://image.pollinations.ai/prompt/realistic%20photo%20of%20${encoded}%20hd%20detail?width=800&height=500&nologo=true&seed=${timestamp + 2}`,
+        `https://image.pollinations.ai/prompt/professional%20photography%20${encoded}%20studio%20light?width=800&height=500&nologo=true&seed=${timestamp + 3}`,
+        `https://image.pollinations.ai/prompt/cinematic%20shot%20of%20${encoded}%20natural%20lighting?width=800&height=500&nologo=true&seed=${timestamp + 4}`
       ];
       setStockPhotos(photos);
       showNotification(`Fotos encontradas para "${q}"`, 'success');
@@ -203,8 +204,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Ex: 'Um dragão cristalino voando sobre uma cidade futurista em neon ao entardecer'..."
-              className="w-full h-32 p-3.5 text-sm font-semibold text-slate-900 bg-white border-2 border-slate-300 rounded-2xl outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-200 resize-none placeholder:text-slate-400 shadow-inner"
-              style={{ color: '#0f172a', backgroundColor: '#ffffff' }}
+              className="w-full h-32 p-3.5 text-sm font-semibold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded-2xl outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-200 resize-none placeholder:text-slate-400 shadow-inner"
             />
 
             {/* Exemplo de Prompts */}

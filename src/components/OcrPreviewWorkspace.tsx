@@ -1,11 +1,14 @@
 import React, { useState, useRef } from 'react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import { 
   FileText, Upload, Loader2, Copy, FileOutput, Send, Tag, Eye, 
   ZoomIn, ZoomOut, RotateCw, Maximize2, Trash2, Plus, X, Search,
-  Check, File, Image as ImageIcon, Sparkles, Filter, SlidersHorizontal
+  Check, File, Image as ImageIcon, Sparkles, Filter, SlidersHorizontal, RefreshCw, Archive
 } from 'lucide-react';
 import { OcrItem } from '../types';
 import { processFileOcr, OcrOptions } from '../lib/ocrEngine';
+import { optimizeLocalCR } from '../lib/cleanText';
 
 export interface OcrPreviewWorkspaceProps {
   items?: OcrItem[];
@@ -20,6 +23,7 @@ export interface OcrPreviewWorkspaceProps {
   exportAsTxt?: (text: string, name: string) => void;
   exportAsDocx?: (text: string, name: string) => void;
   exportAsPdf?: (text: string, name: string) => void;
+  exportAsMd?: (text: string, name: string) => void;
   onOpenCustomPdf?: (text: string, fileName: string) => void;
   setIsGoogleDriveOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -55,6 +59,7 @@ export const OcrPreviewWorkspace: React.FC<OcrPreviewWorkspaceProps> = ({
   exportAsTxt = () => {},
   exportAsDocx = () => {},
   exportAsPdf = () => {},
+  exportAsMd,
   onOpenCustomPdf,
   setIsGoogleDriveOpen,
 }) => {
@@ -139,6 +144,40 @@ export const OcrPreviewWorkspace: React.FC<OcrPreviewWorkspaceProps> = ({
     }
 
     e.target.value = '';
+  };
+
+  const exportBatchZip = async () => {
+    if (items.length === 0) {
+      notify('Nenhum documento disponível para exportar em lote.', 'error');
+      return;
+    }
+
+    const zip = new JSZip();
+    const folder = zip.folder('DocSwiss_OCR_Batch');
+
+    let addedCount = 0;
+    items.forEach((item, index) => {
+      if (item.text) {
+        const baseName = item.fileName.replace(/\.[^/.]+$/, '');
+        folder?.file(`${baseName}_OCR_${index + 1}.txt`, item.text);
+        folder?.file(`${baseName}_OCR_${index + 1}.md`, `# ${item.fileName}\n\n${item.text}`);
+        addedCount++;
+      }
+    });
+
+    if (addedCount === 0) {
+      notify('Nenhum texto extraído encontrado para exportar.', 'error');
+      return;
+    }
+
+    notify('Gerando arquivo ZIP com lote de documentos...');
+    try {
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `DocSwiss_Lote_OCR_${new Date().toISOString().slice(0, 10)}.zip`);
+      notify(`Lote de ${addedCount} arquivo(s) baixado em arquivo .zip!`);
+    } catch (err) {
+      notify('Erro ao gerar pacote ZIP.', 'error');
+    }
   };
 
   const handleAddTag = (itemId: string, tagToAdd: string) => {
@@ -526,28 +565,60 @@ export const OcrPreviewWorkspace: React.FC<OcrPreviewWorkspaceProps> = ({
             {/* Export & Action Buttons */}
             {activeItem?.text && (
               <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex items-center justify-between pb-1">
+                  <span className="text-[11px] font-medium text-slate-500">Exportar & Otimizar:</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={exportBatchZip}
+                      className="text-[10px] bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold px-2 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-center gap-1 transition-all"
+                      title="Exportar todos os documentos e textos extraídos em um arquivo .ZIP"
+                    >
+                      <Archive className="w-3 h-3 text-indigo-500" /> Baixar Lote (.ZIP)
+                    </button>
+                    <button
+                      onClick={() => {
+                        const cleaned = optimizeLocalCR(activeItem.text);
+                        setItems((prev) =>
+                          prev.map((i) => (i.id === activeItem.id ? { ...i, text: cleaned } : i))
+                        );
+                        notify('Quebras de linha (CR) e hífens otimizados!');
+                      }}
+                      className="text-[10px] bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 transition-all"
+                      title="Ajustar quebras de linha (CR), eliminar hífens de fim de linha e limpar espaços sobressalentes"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Otimizar CR
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
                   <button
                     onClick={() => exportAsTxt(activeItem.text, activeItem.fileName)}
-                    className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1"
+                    className="py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1"
                   >
-                    <FileOutput className="w-3.5 h-3.5" /> TXT
+                    <FileOutput className="w-3 h-3" /> TXT
                   </button>
                   <button
                     onClick={() => exportAsDocx(activeItem.text, activeItem.fileName)}
-                    className="py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center justify-center gap-1"
+                    className="py-1.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center justify-center gap-1"
                   >
-                    <FileOutput className="w-3.5 h-3.5" /> DOCX
+                    <FileOutput className="w-3 h-3" /> DOCX
                   </button>
                   <button
                     onClick={() => exportAsPdf(activeItem.text, activeItem.fileName)}
-                    className="py-2 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center justify-center gap-1"
+                    className="py-1.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center justify-center gap-1"
                   >
-                    <FileOutput className="w-3.5 h-3.5" /> PDF
+                    <FileOutput className="w-3 h-3" /> PDF
+                  </button>
+                  <button
+                    onClick={() => exportAsMd ? exportAsMd(activeItem.text, activeItem.fileName) : exportAsTxt(activeItem.text, `${activeItem.fileName}.md`)}
+                    className="py-1.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 flex items-center justify-center gap-1"
+                  >
+                    <FileOutput className="w-3 h-3" /> MD
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 pt-1">
                   {onSendToChat && (
                     <button
                       onClick={() => onSendToChat(activeItem.text)}
