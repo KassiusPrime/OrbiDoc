@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Grid, Plus, Trash2, Download, FileSpreadsheet, Sparkles, Bold, Italic,
-  AlignLeft, AlignCenter, AlignRight, BarChart2, Calculator, RefreshCw
+  AlignLeft, AlignCenter, AlignRight, BarChart2, Calculator, RefreshCw, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as xlsx from 'xlsx';
@@ -17,6 +17,7 @@ interface ExcelSpreadsheetProps {
 
 const DEFAULT_COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const INITIAL_ROWS_COUNT = 15;
+const EXCEL_AUTOSAVE_KEY = 'docswiss_excel_autosave';
 
 export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
   onSaveToHistory,
@@ -25,6 +26,7 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
   const [sheetTitle, setSheetTitle] = useState('Planilha_Financeira.xlsx');
   const [cols, setCols] = useState<string[]>(DEFAULT_COLS);
   const [rowCount, setRowCount] = useState<number>(INITIAL_ROWS_COUNT);
+  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string | null>(null);
 
   // Grid Data: key is "A1", "B2" etc.
   const [gridData, setGridData] = useState<Record<string, ExcelCell>>(() => {
@@ -60,6 +62,56 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
       E5: { value: '=SUM(E2:E4)', bold: true, bgColor: '#fde047' },
     };
   });
+
+  // Load auto-saved spreadsheet on mount
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem(EXCEL_AUTOSAVE_KEY);
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed.gridData && Object.keys(parsed.gridData).length > 0) {
+          setGridData(parsed.gridData);
+        }
+        if (parsed.sheetTitle) {
+          setSheetTitle(parsed.sheetTitle);
+        }
+        if (parsed.cols && Array.isArray(parsed.cols)) {
+          setCols(parsed.cols);
+        }
+        if (parsed.rowCount && typeof parsed.rowCount === 'number') {
+          setRowCount(parsed.rowCount);
+        }
+        if (parsed.lastSaved) {
+          const timeStr = new Date(parsed.lastSaved).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          setLastAutoSaveTime(timeStr);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar autosave do Excel:', e);
+    }
+  }, []);
+
+  // Auto-save spreadsheet on data changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const now = Date.now();
+        localStorage.setItem(EXCEL_AUTOSAVE_KEY, JSON.stringify({
+          sheetTitle,
+          cols,
+          rowCount,
+          gridData,
+          lastSaved: now
+        }));
+        const timeStr = new Date(now).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        setLastAutoSaveTime(timeStr);
+      } catch (e) {
+        console.warn('Erro no autosave do Excel:', e);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [sheetTitle, cols, rowCount, gridData]);
 
   const [activeCellKey, setActiveCellKey] = useState<string>('A1');
   const [editingFormula, setEditingFormula] = useState<string>('');
@@ -316,8 +368,15 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
               onChange={(e) => setSheetTitle(e.target.value)}
               className="text-base font-bold text-slate-800 bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-emerald-400 px-2 py-0.5 rounded-lg outline-none w-full"
             />
-            <p className="text-xs text-slate-500 px-2">
-              {rowCount} Linhas • {cols.length} Colunas • Suporte a Fórmulas (=SUM, =AVERAGE)
+            <p className="text-xs text-slate-500 px-2 flex items-center gap-1.5 flex-wrap">
+              <span>{rowCount} Linhas</span>
+              <span>•</span>
+              <span>{cols.length} Colunas</span>
+              <span>•</span>
+              <span className="text-emerald-600 font-medium flex items-center gap-1">
+                <Check className="w-3 h-3 inline" />
+                {lastAutoSaveTime ? `Salvo às ${lastAutoSaveTime}` : 'Salvamento automático ativo'}
+              </span>
             </p>
           </div>
         </div>

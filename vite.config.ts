@@ -64,6 +64,8 @@ export default defineConfig({
         "logo.png",
         "favicon.ico",
         "apple-touch-icon.png",
+        "manifest.webmanifest",
+        "manifest.json"
       ],
 
       workbox: {
@@ -124,16 +126,18 @@ export default defineConfig({
       },
 
       manifest: {
+        id: "/",
         name: "DocSwiss",
         short_name: "DocSwiss",
         description:
-          "Canivete Suíço para OCR, IA, Transcrição de Áudio, Tradução, PDF e Edição de Documentos",
-        theme_color: "#6366f1",
-        background_color: "#ffffff",
+          "DocSwiss - Canivete Suíço para OCR, IA, Transcrição de Áudio, Tradução, PDF e Edição de Documentos",
+        theme_color: "#0f172a",
+        background_color: "#0f172a",
         display: "standalone",
         orientation: "portrait",
         start_url: "/",
         scope: "/",
+        prefer_related_applications: false,
 
         categories: [
           "productivity",
@@ -145,13 +149,25 @@ export default defineConfig({
             src: "/logo.png",
             sizes: "192x192",
             type: "image/png",
-            purpose: "any maskable",
+            purpose: "any",
+          },
+          {
+            src: "/logo.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
           },
           {
             src: "/logo.png",
             sizes: "512x512",
             type: "image/png",
-            purpose: "any maskable",
+            purpose: "any",
+          },
+          {
+            src: "/logo.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
           },
         ],
       },

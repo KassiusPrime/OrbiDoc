@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, FileOutput, Sparkles, Copy, Trash2, Eye, Edit3, Type, Heading1, Heading2,
@@ -28,6 +28,8 @@ interface GrammarError {
   index: number;
 }
 
+const WORD_AUTOSAVE_KEY = 'docswiss_word_autosave';
+
 export const WordEditor: React.FC<WordEditorProps> = ({
   initialContent = '',
   onSaveToHistory,
@@ -38,6 +40,49 @@ export const WordEditor: React.FC<WordEditorProps> = ({
   const [docTitle, setDocTitle] = useState('Novo Documento.docx');
   const [content, setContent] = useState(initialContent || '### Relatório Executivo e Proposta\n\nBem-vindo ao **Word Studio Pro**! Digite seu texto aqui ou utilize as ferramentas de IA para gerar conteúdos completos, relatórios e revisões.\n\n- Suporte a marcação e formatação rápida com alinhamento flexível\n- Exportação direta para **DOCX**, **PDF** e **TXT**\n- Revisão ortográfica e marcação de erros em tempo real\n');
   const [previewMode, setPreviewMode] = useState(false);
+  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string | null>(null);
+
+  // Auto-save load on mount
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem(WORD_AUTOSAVE_KEY);
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed.content && !initialContent) {
+          setContent(parsed.content);
+        }
+        if (parsed.docTitle) {
+          setDocTitle(parsed.docTitle);
+        }
+        if (parsed.lastSaved) {
+          const timeStr = new Date(parsed.lastSaved).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          setLastAutoSaveTime(timeStr);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar rascunho salvo do Word:', e);
+    }
+  }, [initialContent]);
+
+  // Auto-save on document change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const now = Date.now();
+        localStorage.setItem(WORD_AUTOSAVE_KEY, JSON.stringify({
+          docTitle,
+          content,
+          lastSaved: now
+        }));
+        const timeStr = new Date(now).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        setLastAutoSaveTime(timeStr);
+      } catch (e) {
+        console.warn('Erro ao salvar rascunho do Word:', e);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [docTitle, content]);
   
   // Text Styling States
   const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right' | 'justify'>('left');
@@ -358,8 +403,15 @@ export const WordEditor: React.FC<WordEditorProps> = ({
               onChange={(e) => setDocTitle(e.target.value)}
               className="text-base font-bold text-slate-800 dark:text-slate-100 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 border border-transparent focus:border-blue-400 px-2 py-0.5 rounded-lg outline-none w-full"
             />
-            <p className="text-xs text-slate-500 dark:text-slate-400 px-2">
-              {wordsCount} palavras • {charsCount} caracteres • ~{readingTimeMinutes} min de leitura
+            <p className="text-xs text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1.5 flex-wrap">
+              <span>{wordsCount} palavras</span>
+              <span>•</span>
+              <span>{charsCount} caracteres</span>
+              <span>•</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                <Check className="w-3 h-3 inline" />
+                {lastAutoSaveTime ? `Salvo às ${lastAutoSaveTime}` : 'Salvamento automático ativo'}
+              </span>
             </p>
           </div>
         </div>
