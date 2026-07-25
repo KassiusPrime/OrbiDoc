@@ -116,7 +116,7 @@ async function startServer() {
       // Fallback or Direct Gemini Handler
       if (ai) {
         const response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
+          model: "gemini-2.5-flash",
           contents: fullPrompt || "Olá",
           config: {
             temperature: 0.7,

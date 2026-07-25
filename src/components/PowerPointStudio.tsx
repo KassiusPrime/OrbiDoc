@@ -26,7 +26,7 @@ export const PowerPointStudio: React.FC<PowerPointStudioProps> = ({
   onSaveToHistory,
   showNotification = () => {},
   engineProvider = 'gemini',
-  engineModel = 'gemini-3.6-flash',
+  engineModel = 'gemini-2.5-flash',
 }) => {
   const [deck, setDeck] = useState<PresentationDeck>({
     id: 'deck-1',

@@ -45,7 +45,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 const ENGINES = [
   { id: 'claude', provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet', emoji: '🎯', description: 'Raciocínio complexo' },
   { id: 'deepseek', provider: 'openrouter', model: 'deepseek/deepseek-chat', label: 'DeepSeek V3', emoji: '🧠', description: 'Alta precisão' },
-  { id: 'gemini', provider: 'gemini', model: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', emoji: '💎', description: 'Ultra-rápido & nativo' },
+  { id: 'gemini', provider: 'gemini', model: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', emoji: '💎', description: 'Ultra-rápido & nativo' },
   { id: 'groq', provider: 'groq', model: 'llama-3.1-70b-versatile', label: 'Groq Llama 3.1', emoji: '⚡', description: 'Baixa latência' },
   { id: 'qwen', provider: 'openrouter', model: 'qwen/qwen-2.5-72b-instruct', label: 'Qwen 2.5 72B', emoji: '🚀', description: 'Multilíngue avançado' },
 ];
