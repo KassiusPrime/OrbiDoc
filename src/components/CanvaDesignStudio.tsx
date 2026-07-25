@@ -11,6 +11,8 @@ interface CanvaDesignStudioProps {
   onSaveToHistory?: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => void;
   showNotification?: (msg: string, type?: 'success' | 'error') => void;
   onSendToOcr?: (textOrImage: string) => void;
+  engineProvider?: string;
+  engineModel?: string;
 }
 
 type CanvasTool = 'pencil' | 'eraser' | 'rectangle' | 'circle' | 'line' | 'text' | 'star';

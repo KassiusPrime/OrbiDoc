@@ -32,6 +32,7 @@ interface GoogleDriveModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectFile: (file: File) => void;
+  onNotification?: (msg: string, type?: 'error' | 'success') => void;
 }
 
 export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({

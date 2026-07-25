@@ -10,6 +10,7 @@ export interface OcrOptions {
   language?: string; // 'por+eng', 'por', 'eng', 'es', 'fr', 'de'
   enhanceContrast?: boolean;
   forceOcrPdf?: boolean;
+  onProgress?: (progress: number) => void;
 }
 
 export interface OcrProgress {
@@ -254,21 +255,26 @@ export async function processFileOcr(
   options: OcrOptions = {},
   onProgress?: (p: OcrProgress) => void
 ): Promise<string> {
+  const combinedOnProgress = (p: OcrProgress) => {
+    if (onProgress) onProgress(p);
+    if (options.onProgress) options.onProgress(p.progress);
+  };
+
   const ext = file.name.split('.').pop()?.toLowerCase() || '';
 
   const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'tif'];
   const TEXT_EXTS = ['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts', 'jsx', 'tsx'];
 
   if (IMAGE_EXTS.includes(ext)) {
-    return extractTextFromImageAdvanced(file, options, onProgress);
+    return extractTextFromImageAdvanced(file, options, combinedOnProgress);
   }
 
   if (ext === 'pdf') {
-    return extractTextFromPdfAdvanced(file, options, onProgress);
+    return extractTextFromPdfAdvanced(file, options, combinedOnProgress);
   }
 
   if (TEXT_EXTS.includes(ext)) {
-    if (onProgress) onProgress({ progress: 100, statusText: 'Texto Lido' });
+    if (combinedOnProgress) combinedOnProgress({ progress: 100, statusText: 'Texto Lido' });
     return file.text();
   }
 

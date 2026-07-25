@@ -11,6 +11,8 @@ import { ExcelCell, HistoryItem } from '../types';
 interface ExcelSpreadsheetProps {
   onSaveToHistory?: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => void;
   showNotification?: (msg: string, type?: 'success' | 'error') => void;
+  engineProvider?: string;
+  engineModel?: string;
 }
 
 const DEFAULT_COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];

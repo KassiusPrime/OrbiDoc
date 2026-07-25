@@ -18,7 +18,7 @@ import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs';
 import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 
-import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem, OcrItem, ChatSession, GoogleUserProfile } from './types';
+import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem, OcrItem, ChatSession, GoogleUserProfile, MicrosoftUserProfile } from './types';
 import { HistoryVault } from './components/HistoryVault';
 import { WordEditor } from './components/WordEditor';
 import { ExcelSpreadsheet } from './components/ExcelSpreadsheet';
@@ -31,44 +31,64 @@ import { ThemeFontConfig } from './components/ThemeFontConfig';
 import { GoogleProfileBadge } from './components/GoogleProfileBadge';
 import { ChatHistoryVault } from './components/ChatHistoryVault';
 import { GoogleDriveModal } from './components/GoogleDriveModal';
+import { OfficeSuiteHub } from './components/OfficeSuiteHub';
+import { OcrPreviewWorkspace } from './components/OcrPreviewWorkspace';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
+import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
 import { cleanAsterisks } from './lib/cleanText';
 import { processFileOcr, OcrOptions } from './lib/ocrEngine';
 
 // Configuração do Worker do PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
+// Alphabetically ordered AI Engines by label
 const ENGINES = [
-  { id: 'gemini', provider: 'gemini', model: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', emoji: '💎', description: 'Ultra-rápido & nativo' },
+  { id: 'claude', provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet', emoji: '🎯', description: 'Raciocínio complexo' },
   { id: 'deepseek', provider: 'openrouter', model: 'deepseek/deepseek-chat', label: 'DeepSeek V3', emoji: '🧠', description: 'Alta precisão' },
-  { id: 'qwen', provider: 'openrouter', model: 'qwen/qwen-2.5-72b-instruct', label: 'Qwen 2.5 72B', emoji: '🚀', description: 'Multilíngue avançado' },
-  { id: 'claude', provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5', emoji: '🎯', description: 'Raciocínio complexo' },
+  { id: 'gemini', provider: 'gemini', model: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', emoji: '💎', description: 'Ultra-rápido & nativo' },
   { id: 'groq', provider: 'groq', model: 'llama-3.1-70b-versatile', label: 'Groq Llama 3.1', emoji: '⚡', description: 'Baixa latência' },
+  { id: 'qwen', provider: 'openrouter', model: 'qwen/qwen-2.5-72b-instruct', label: 'Qwen 2.5 72B', emoji: '🚀', description: 'Multilíngue avançado' },
 ];
 
+// Alphabetically ordered Languages (pt-br, inglês, mandarim, japonês, russo, coreano, espanhol, chinês, etc)
 const LANGUAGES = [
-  { code: 'en', name: 'English' }, { code: 'pt', name: 'Português' },
-  { code: 'es', name: 'Español' }, { code: 'fr', name: 'Français' },
-  { code: 'de', name: 'Deutsch' }, { code: 'it', name: 'Italiano' },
-  { code: 'ja', name: '日本語' }, { code: 'ko', name: '한국어' },
-  { code: 'zh', name: '中文' }, { code: 'ru', name: 'Русский' },
-  { code: 'ar', name: 'العربية' },
+  { code: 'de', name: 'Alemão' },
+  { code: 'ar', name: 'Árabe' },
+  { code: 'zh-CN', name: 'Chinês / Mandarim (Simplificado)' },
+  { code: 'zh-TW', name: 'Chinês / Mandarim (Tradicional)' },
+  { code: 'ko', name: 'Coreano' },
+  { code: 'es', name: 'Espanhol' },
+  { code: 'fr', name: 'Francês' },
+  { code: 'en', name: 'Inglês' },
+  { code: 'it', name: 'Italiano' },
+  { code: 'ja', name: 'Japonês' },
+  { code: 'pt-BR', name: 'Português (Brasil)' },
+  { code: 'ru', name: 'Russo' },
 ];
 
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'tif'];
 const TEXT_EXTENSIONS = ['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts', 'jsx', 'tsx'];
 
-// Tool Categories Structure for Clean Organized Navigation
+// Tool Categories Structure for Clean Organized Navigation (Alphabetical Order)
 const CATEGORIES = [
   {
     id: 'docs',
-    title: 'Documentos Pro',
+    title: 'Documentos & Office Pro',
     icon: FileText,
     tools: [
-      { id: 'word' as TabType, label: 'Word Pro', icon: Edit3, desc: 'Editor DOCX completo' },
+      { id: 'canva' as TabType, label: 'Canva Studio', icon: PenTool, desc: 'Design Visual Studio' },
+      { id: 'office' as TabType, label: 'Central Office 365', icon: Grid, desc: 'Hub Microsoft Office & Importação' },
       { id: 'excel' as TabType, label: 'Excel Pro', icon: FileSpreadsheet, desc: 'Planilhas & Fórmulas' },
       { id: 'powerpoint' as TabType, label: 'PowerPoint Pro', icon: Presentation, desc: 'Apresentações IA' },
-      { id: 'canva' as TabType, label: 'Canva Studio', icon: PenTool, desc: 'Design Visual Studio' },
+      { id: 'word' as TabType, label: 'Word Pro', icon: Edit3, desc: 'Editor DOCX completo' },
+    ],
+  },
+  {
+    id: 'vault',
+    title: 'Histórico & Registros',
+    icon: History,
+    tools: [
+      { id: 'history' as TabType, label: 'Histórico Vault', icon: History, desc: 'Registro de atividades' },
     ],
   },
   {
@@ -76,9 +96,9 @@ const CATEGORIES = [
     title: 'Inteligência Artificial',
     icon: Sparkles,
     tools: [
-      { id: 'extract' as TabType, label: 'Extrator OCR', icon: FileText, desc: 'Digitalize PDF e imagens' },
-      { id: 'chat' as TabType, label: 'Assistente IA', icon: Bot, desc: 'Chat interativo com arquivos' },
       { id: 'compare' as TabType, label: 'Arena de Modelos', icon: SplitSquareHorizontal, desc: 'Compare Gemini, DeepSeek e Claude' },
+      { id: 'chat' as TabType, label: 'Assistente IA', icon: Bot, desc: 'Chat interativo com arquivos' },
+      { id: 'extract' as TabType, label: 'Extrator OCR Pro', icon: FileText, desc: 'Digitalize PDF e imagens com preview & tags' },
       { id: 'ai' as TabType, label: 'Studio de Texto', icon: Sparkles, desc: 'Traduzir, resumir e corrigir' },
     ],
   },
@@ -87,16 +107,8 @@ const CATEGORIES = [
     title: 'Mídia & Voz',
     icon: Palette,
     tools: [
-      { id: 'image' as TabType, label: 'Gerador Visual', icon: ImageIcon, desc: 'Crie imagens incríveis' },
       { id: 'audio' as TabType, label: 'Audio Lab', icon: Volume2, desc: 'Sintetizador e transcrição de áudio' },
-    ],
-  },
-  {
-    id: 'vault',
-    title: 'Histórico',
-    icon: History,
-    tools: [
-      { id: 'history' as TabType, label: 'Histórico Vault', icon: History, desc: 'Registro de atividades' },
+      { id: 'image' as TabType, label: 'Gerador Visual', icon: ImageIcon, desc: 'Crie imagens incríveis' },
     ],
   },
 ];
@@ -193,8 +205,9 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [isThemeFontOpen, setIsThemeFontOpen] = useState(false);
 
-  // Google User Profile & Drive State
+  // Google & Microsoft User Profile States
   const [googleUser, setGoogleUser] = useState<GoogleUserProfile | null>(() => getStoredGoogleUser());
+  const [msUser, setMsUser] = useState<MicrosoftUserProfile | null>(() => getStoredMicrosoftUser());
 
   // Custom PDF Export Modal State
   const [isCustomPdfOpen, setIsCustomPdfOpen] = useState(false);
@@ -994,7 +1007,8 @@ export default function App() {
         isOpen={isCustomPdfOpen}
         onClose={() => setIsCustomPdfOpen(false)}
         initialText={pdfExportText}
-        documentTitle={pdfExportTitle}
+        defaultTitle={pdfExportTitle}
+        googleUser={googleUser}
         onNotification={showNotification}
       />
 
@@ -1192,11 +1206,12 @@ export default function App() {
             <Settings className="w-4 h-4" />
           </button>
 
-          {/* Google Login & Drive Profile Badge */}
+          {/* Google & Microsoft Unified Auth Profile Badge */}
           <GoogleProfileBadge
             user={googleUser}
-            onLoginSuccess={(user) => setGoogleUser(user)}
-            onLogout={() => setGoogleUser(null)}
+            onUserChange={(user) => setGoogleUser(user)}
+            msUser={msUser}
+            setMsUser={setMsUser}
             onNotification={showNotification}
           />
 
@@ -1375,248 +1390,32 @@ export default function App() {
 
             {/* Active Tool Workspace Render */}
             
-            {/* 1. OCR Extrator */}
+            {/* 0. Central Office 365 & Microsoft Suite Hub */}
+            {activeTab === 'office' && (
+              <OfficeSuiteHub
+                onOpenTool={(toolId: TabType) => setActiveTab(toolId)}
+                msUser={msUser}
+                setMsUser={setMsUser}
+                showNotification={showNotification}
+              />
+            )}
+
+            {/* 1. OCR Extrator Pro & Preview Workspace */}
             {activeTab === 'extract' && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-2xl space-y-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      Extrator de Texto & OCR (Multi-arquivos)
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Digitalize múltiplos arquivos em lote (fotos, PDFs, DOCX, tabelas) e gerencie os resultados em lista.
-                    </p>
-                  </div>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    accept=".png,.jpg,.jpeg,.gif,.pdf,.docx,.xlsx,.xls,.txt,.csv,.json"
-                    multiple
-                  />
-                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={() => setIsGoogleDriveOpen(true)}
-                      className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-semibold rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm flex items-center justify-center gap-2 transition-all min-h-[44px]"
-                    >
-                      <HardDrive className="w-4 h-4 text-amber-500" />
-                      Google Drive
-                    </button>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 sm:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all min-h-[44px]"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Upload Local
-                    </button>
-                  </div>
-                </div>
-
-                {/* Progress banner during active batch upload */}
-                {isProcessing && (
-                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
-                        Processando em lote: {fileName}...
-                      </span>
-                      <span>{progress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                      <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Batch Actions Bar when items exist */}
-                {ocrList.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-indigo-50/60 dark:bg-slate-950 border border-indigo-100 dark:border-slate-800 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-indigo-900 dark:text-indigo-300">
-                        {ocrList.length} documento{ocrList.length > 1 ? 's' : ''} em lista
-                      </span>
-                      <button
-                        onClick={() => setIsMonospace(!isMonospace)}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-mono border ${
-                          isMonospace ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                        }`}
-                      >
-                        {isMonospace ? 'Monospace' : 'Sans-Serif'}
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={copyAllOcrText}
-                        className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shadow-sm"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        Copiar Todos
-                      </button>
-                      <button
-                        onClick={() => exportAllOcr('txt')}
-                        className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shadow-sm"
-                      >
-                        <FileOutput className="w-3.5 h-3.5 text-slate-500" />
-                        Exportar Todos (TXT)
-                      </button>
-                      <button
-                        onClick={() => exportAllOcr('pdf')}
-                        className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900 flex items-center gap-1.5"
-                      >
-                        <FileOutput className="w-3.5 h-3.5" />
-                        PDF Unificado
-                      </button>
-                      <button
-                        onClick={() => {
-                          setAiText(extractedText);
-                          setActiveTab('ai');
-                        }}
-                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-sm"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Enviar Todos p/ Studio IA
-                      </button>
-                      <button
-                        onClick={clearAllOcrItems}
-                        className="px-2.5 py-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg border border-red-200 dark:border-red-900 flex items-center gap-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Limpar
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Empty State Dropzone */}
-                {ocrList.length === 0 && !isProcessing && (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl p-8 sm:p-12 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-950/40 transition-all group"
-                  >
-                    <Upload className="w-10 h-10 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 mx-auto mb-3 transition-colors" />
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Arraste múltiplos arquivos ou clique para selecionar</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Selecione vários PNG, JPG, PDF, DOCX, XLSX, TXT ao mesmo tempo</p>
-                  </div>
-                )}
-
-                {/* List of OCR Results */}
-                {ocrList.length > 0 && (
-                  <div className="space-y-3">
-                    {ocrList.map((item) => {
-                      const isExpanded = expandedOcrId === item.id;
-                      return (
-                        <div key={item.id} className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-950/40">
-                          {/* Item Header */}
-                          <div className="p-3.5 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800">
-                            <div
-                              onClick={() => setExpandedOcrId(isExpanded ? null : item.id)}
-                              className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-[200px]"
-                            >
-                              {item.status === 'processing' ? (
-                                <Loader2 className="w-4 h-4 text-indigo-600 animate-spin shrink-0" />
-                              ) : item.status === 'done' ? (
-                                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                              ) : (
-                                <X className="w-4 h-4 text-rose-600 shrink-0" />
-                              )}
-                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[240px] sm:max-w-[360px]">
-                                {item.fileName}
-                              </span>
-                              {item.status === 'processing' && (
-                                <span className="text-[11px] text-indigo-600 font-medium">({item.progress}%)</span>
-                              )}
-                              {item.status === 'error' && (
-                                <span className="text-[11px] text-rose-500 font-medium">Erro na leitura</span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                              {item.status === 'done' && (
-                                <>
-                                  <button
-                                    onClick={() => copyToClipboard(item.text)}
-                                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs"
-                                    title="Copiar texto"
-                                  >
-                                    <Copy className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => exportAsTxt(item.text, item.fileName)}
-                                    className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md text-[11px] font-semibold"
-                                  >
-                                    TXT
-                                  </button>
-                                  <button
-                                    onClick={() => exportAsDocx(item.text, item.fileName)}
-                                    className="px-2 py-1 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded-md text-[11px] font-semibold"
-                                  >
-                                    DOCX
-                                  </button>
-                                  <button
-                                    onClick={() => exportAsPdf(item.text, item.fileName)}
-                                    className="px-2 py-1 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 rounded-md text-[11px] font-semibold"
-                                  >
-                                    PDF
-                                  </button>
-                                  <button
-                                    onClick={() => openCustomPdf(item.text, item.fileName)}
-                                    className="px-2 py-1 bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800"
-                                    title="Exportar PDF com Estilo, Cabeçalho e Marca D'Água Personalizados"
-                                  >
-                                    PDF Pro
-                                  </button>
-                                  <button
-                                    onClick={() => handleSendOcrItemToChat(item)}
-                                    className="px-2 py-1 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 rounded-md text-[11px] font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1"
-                                    title="Conversar sobre este documento no Chat com IA"
-                                  >
-                                    <Bot className="w-3 h-3" />
-                                    Chat
-                                  </button>
-
-                                </>
-                              )}
-                              <button
-                                onClick={() => removeOcrItem(item.id)}
-                                className="p-1.5 hover:bg-rose-100 dark:hover:bg-rose-950/50 text-rose-500 rounded-lg text-xs"
-                                title="Remover item"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Item Content / Textarea */}
-                          {item.status === 'processing' && (
-                            <div className="p-3">
-                              <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                                <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${item.progress}%` }} />
-                              </div>
-                            </div>
-                          )}
-
-                          {item.status === 'done' && (
-                            <div className="p-3">
-                              <textarea
-                                value={item.text}
-                                onChange={(e) => updateOcrItemText(item.id, e.target.value)}
-                                className={`w-full ${isExpanded ? 'h-64' : 'h-32'} p-3.5 bg-white dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-sm sm:text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 leading-relaxed resize-y ${
-                                  isMonospace ? 'font-mono' : 'font-sans'
-                                }`}
-                                placeholder="Nenhum texto extraído..."
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <OcrPreviewWorkspace
+                ocrList={ocrList}
+                setOcrList={setOcrList}
+                onSendToChat={(text: string) => {
+                  setChatInput(text);
+                  setActiveTab('chat');
+                }}
+                onOpenCustomPdf={(text: string, _fileName: string) => {
+                  setAiText(text);
+                  setActiveTab('ai');
+                }}
+                showNotification={showNotification}
+                setIsGoogleDriveOpen={setIsGoogleDriveOpen}
+              />
             )}
 
             {/* 2. Word Pro */}
@@ -1730,11 +1529,14 @@ export default function App() {
                     <ChatHistoryVault
                       sessions={chatSessions}
                       activeSessionId={activeSessionId}
-                      onSelectSession={(session) => {
-                        setChatMessages(session.messages);
-                        setActiveSessionId(session.id);
-                        setChatSubTab('active');
-                        showNotification('Sessão de chat restaurada!');
+                      onSelectSession={(sessionId) => {
+                        const target = chatSessions.find((s) => s.id === sessionId);
+                        if (target) {
+                          setChatMessages(target.messages);
+                          setActiveSessionId(target.id);
+                          setChatSubTab('active');
+                          showNotification('Sessão de chat restaurada!');
+                        }
                       }}
                       onDeleteSession={(id) => {
                         const updated = chatSessions.filter(s => s.id !== id);
@@ -1747,9 +1549,8 @@ export default function App() {
                         localStorage.removeItem('docswiss_chat_sessions');
                         showNotification('Histórico de chats limpo com sucesso.');
                       }}
-                      onExportPdf={(session) => {
-                        const text = session.messages.map(m => `${m.role === 'user' ? 'Usuário' : 'DocSwiss'}: ${cleanAsterisks(m.content)}`).join('\n\n');
-                        openCustomPdf(text, session.title);
+                      onExportPdf={(sessionText, title) => {
+                        openCustomPdf(sessionText, title);
                       }}
                     />
                   </div>

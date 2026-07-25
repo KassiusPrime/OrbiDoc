@@ -1,4 +1,5 @@
 export type TabType = 
+  | 'office'
   | 'extract' 
   | 'word' 
   | 'excel' 
@@ -28,6 +29,9 @@ export interface OcrItem {
   progress: number;
   error?: string;
   timestamp: string;
+  fileUrl?: string;
+  fileType?: string;
+  tags?: string[];
 }
 
 export interface ChatFile {
@@ -77,6 +81,16 @@ export interface GoogleUserProfile {
   expiresAt?: number;
 }
 
+export interface MicrosoftUserProfile {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+  accessToken: string;
+  accountType: 'office365' | 'personal' | 'school';
+  expiresAt?: number;
+}
+
 export interface DriveFile {
   id: string;
   name: string;
@@ -90,6 +104,7 @@ export type AppThemeMode = 'auto' | 'light' | 'dark';
 export type AppFontFamily = 'sans' | 'serif' | 'mono' | 'dyslexic';
 export type AppFontSize = 'compact' | 'normal' | 'large';
 
+export interface HistoryRecord {
   id: string;
   type: 'ocr' | 'word' | 'excel' | 'powerpoint' | 'canva' | 'chat' | 'compare' | 'ai' | 'image' | 'audio';
   title: string;
@@ -97,7 +112,10 @@ export type AppFontSize = 'compact' | 'normal' | 'large';
   details?: string;
   mediaUrl?: string;
   timestamp: string;
+  tags?: string[];
 }
+
+export type HistoryItem = HistoryRecord;
 
 export interface EngineOption {
   id: string;

@@ -7,9 +7,10 @@ interface ChatHistoryVaultProps {
   sessions: ChatSession[];
   activeSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
-  onNewSession: () => void;
+  onNewSession?: () => void;
   onDeleteSession: (sessionId: string) => void;
-  onRenameSession: (sessionId: string, newTitle: string) => void;
+  onRenameSession?: (sessionId: string, newTitle: string) => void;
+  onClearAllSessions?: () => void;
   onExportPdf: (sessionText: string, title: string) => void;
 }
 
@@ -42,7 +43,7 @@ export const ChatHistoryVault: React.FC<ChatHistoryVaultProps> = ({
 
   const handleSaveRename = (sId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (editTitle.trim()) {
+    if (editTitle.trim() && onRenameSession) {
       onRenameSession(sId, editTitle.trim());
     }
     setEditingId(null);
