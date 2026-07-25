@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient for Icon -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+
+    <!-- Green Leaf / Document Ribbon Gradient -->
+    <linearGradient id="docGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+
+    <!-- Dark Green Shadow Fold -->
+    <linearGradient id="docGreenFold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#065f46"/>
+    </linearGradient>
+
+    <!-- Hexagon Gradient -->
+    <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- App Icon Background Squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  <rect width="504" height="504" x="4" y="4" rx="124" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+
+  <!-- Main Emblem Group with Shadow -->
+  <g filter="url(#softShadow)">
+    <!-- Rounded Hexagon Base -->
+    <path d="M 256 90 
+             L 370 156 
+             Q 380 162 380 174 
+             L 380 306 
+             Q 380 318 370 324 
+             L 256 390 
+             Q 246 396 236 390 
+             L 122 324 
+             Q 112 318 112 306 
+             L 112 174 
+             Q 112 162 122 156 
+             L 236 90 
+             Q 246 84 256 90 Z" 
+          fill="url(#hexGrad)"/>
+
+    <!-- Green Folded Sheet / Ribbon Inside Hexagon -->
+    <!-- Fold Back Part -->
+    <path d="M 170 200 
+             C 170 170, 210 145, 235 180 
+             L 250 295 
+             C 210 320, 170 280, 170 200 Z" 
+          fill="url(#docGreenFold)" opacity="0.85"/>
+
+    <!-- Green Ribbon Front Layer -->
+    <path d="M 160 215 
+             C 160 165, 225 130, 248 185 
+             C 265 225, 235 290, 280 310 
+             C 240 330, 185 315, 160 215 Z" 
+          fill="url(#docGreenGrad)"/>
+
+    <!-- Folded Paper Accent Curve -->
+    <path d="M 248 185 
+             C 230 220, 190 240, 230 300 
+             C 260 285, 260 220, 248 185 Z" 
+          fill="#6ee7b7" opacity="0.4"/>
+
+    <!-- Plus Symbol (+) in Top Right of Hexagon -->
+    <g transform="translate(290, 140)">
+      <!-- Vertical bar -->
+      <rect x="20" y="0" width="16" height="48" rx="8" fill="#ffffff"/>
+      <!-- Horizontal bar -->
+      <rect x="4" y="16" width="48" height="16" rx="8" fill="#ffffff"/>
+    </g>
+  </g>
+</svg>

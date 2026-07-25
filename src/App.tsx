@@ -19,6 +19,7 @@ import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 
 import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem, OcrItem, ChatSession, GoogleUserProfile, MicrosoftUserProfile } from './types';
+import { DocSwissLogo } from './components/DocSwissLogo';
 import { HistoryVault } from './components/HistoryVault';
 import { WordEditor } from './components/WordEditor';
 import { ExcelSpreadsheet } from './components/ExcelSpreadsheet';
@@ -908,12 +909,12 @@ export default function App() {
 
   if (showSplash) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 text-white transition-opacity duration-500">
-        <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-500/20 mb-4 animate-bounce">
-          <FileText className="w-10 h-10 text-white" />
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white transition-opacity duration-500">
+        <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl mb-6 animate-pulse">
+          <DocSwissLogo size="xl" showText={false} />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">DocSwiss</h1>
-        <p className="text-sm text-slate-400 mt-1 font-medium">Processamento e Criação de Documentos</p>
+        <DocSwissLogo size="lg" showText={true} />
+        <p className="text-sm text-slate-400 mt-3 font-medium tracking-wide">Digitalize, Crie e Edite Seus Documentos</p>
       </div>
     );
   }
@@ -1108,27 +1109,22 @@ export default function App() {
       )}
 
       {/* Primary Header */}
-      <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-3 sm:px-6 z-40 flex-shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
+      <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-4 sm:px-6 z-40 flex-shrink-0 shadow-sm">
+        <div className="flex items-center gap-3 sm:gap-4">
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+            className="md:hidden p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
             aria-label="Menu de Navegação"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-500/20">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">DocSwiss</span>
-              <span className="hidden sm:inline-block ml-2 text-[10px] font-semibold px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-full border border-indigo-200 dark:border-indigo-800">
-                Studio Office
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            <DocSwissLogo size="md" showText={true} />
+            <span className="hidden sm:inline-block ml-2 text-[10px] font-semibold px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-full border border-indigo-200 dark:border-indigo-800">
+              Studio Office
+            </span>
           </div>
         </div>
 
@@ -1284,13 +1280,8 @@ export default function App() {
               >
                 <div>
                   <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
-                        <FileText className="w-4 h-4" />
-                      </div>
-                      <span className="font-bold text-slate-900 dark:text-slate-100">DocuTools Pro</span>
-                    </div>
-                    <button onClick={() => setMobileMenuOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                    <DocSwissLogo size="md" showText={true} />
+                    <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
@@ -1333,7 +1324,7 @@ export default function App() {
 
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium text-center">
-                    DocuTools Pro v2.5 — Mobile Ready
+                    DocSwiss Studio Office — Pronto para Uso
                   </div>
                 </div>
               </motion.div>
@@ -1342,8 +1333,8 @@ export default function App() {
         </AnimatePresence>
 
         {/* Center Canvas View Area */}
-        <main className="flex-1 overflow-y-auto bg-slate-100/60 dark:bg-slate-950 p-3 sm:p-6 flex flex-col justify-between">
-          <div className="max-w-7xl mx-auto w-full space-y-4">
+        <main className="flex-1 overflow-y-auto bg-slate-100/60 dark:bg-slate-950 p-4 sm:p-8 lg:p-10 flex flex-col justify-between">
+          <div className="max-w-7xl mx-auto w-full space-y-6">
             
             {/* Mobile Category Quick Switcher Pills (Top Bar) */}
             <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
