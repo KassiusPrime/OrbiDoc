@@ -116,7 +116,7 @@ async function startServer() {
       // Fallback or Direct Gemini Handler
       if (ai) {
         const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.6-flash",
           contents: fullPrompt || "Olá",
           config: {
             temperature: 0.7,
@@ -155,7 +155,7 @@ async function startServer() {
       if (ai) {
         try {
           const response = await ai.models.generateImages({
-            model: "imagen-3.0-generate-002",
+            model: "imagen-3.0-generate-001",
             prompt: cleanPrompt,
             config: {
               numberOfImages: 1,
@@ -171,8 +171,8 @@ async function startServer() {
             res.json({ imageUrl, provider: "imagen-3" });
             return;
           }
-        } catch (imagenErr: any) {
-          console.warn("Imagen 3 generation failed, falling back to Pollinations / Unsplash:", imagenErr.message);
+        } catch {
+          // Silent fallback to Pollinations AI generator
         }
       }
 
@@ -183,7 +183,7 @@ async function startServer() {
 
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const imgRes = await fetch(pollinationsUrl, {
           headers: {
@@ -203,8 +203,8 @@ async function startServer() {
           res.json({ imageUrl, provider: "pollinations" });
           return;
         }
-      } catch (pollinationsErr: any) {
-        console.warn("Pollinations server proxy fetch failed, serving direct stream URL:", pollinationsErr.message);
+      } catch {
+        // Fallback silently to direct stream URL if proxy fetch times out or encounters network issue
       }
 
       // Option 3: Direct Pollinations stream URL (never fails for browser client)
@@ -234,7 +234,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*all", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

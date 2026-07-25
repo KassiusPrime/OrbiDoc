@@ -18,10 +18,27 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
-/* Estilos base */
-body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Estilos base de caixa de texto legível */
+input, textarea, select {
+  font-size: 0.9375rem; /* 15px */
+  line-height: 1.6;
+  color: #0f172a !important; /* Dark slate text in light mode */
+  background-color: #ffffff;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #64748b !important;
+  opacity: 0.8;
+}
+
+.dark input, .dark textarea, .dark select {
+  color: #f8fafc !important; /* Crisp white text in dark mode */
+  background-color: #020617; /* Deep slate dark background */
+}
+
+.dark input::placeholder, .dark textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 0.8;
 }
 
 /* Scrollbar */

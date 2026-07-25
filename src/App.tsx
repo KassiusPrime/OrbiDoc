@@ -3,9 +3,11 @@ import {
   FileText, Volume2, Upload, Loader2, Key, Wand2, Palette, DownloadCloud,
   ImagePlus, Mic, Send, Settings, Copy, FileOutput, Languages, Sparkles, X, 
   Check, Type, Bot, MessageSquare, Paperclip, Image as ImageIcon, FileVideo, 
-  File, Trash2, StopCircle, SplitSquareHorizontal, Sun, Moon, History,
+  File, Trash2, StopCircle, SplitSquareHorizontal, Sun, Moon, History, SlidersHorizontal,
   Activity, Cpu, ShieldCheck, Terminal, Monitor, ChevronRight, Layers, HelpCircle,
-  FileSpreadsheet, Presentation, PenTool, Edit3
+  FileSpreadsheet, Presentation, PenTool, Edit3, Menu, ChevronDown, ChevronUp, Grid, Sparkle,
+  Smartphone, Download, RefreshCw, CheckCircle2, AlertCircle, FileSearch, Layers3,
+  Eye, HardDrive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
@@ -16,13 +18,22 @@ import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs';
 import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 
-import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem } from './types';
+import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem, OcrItem, ChatSession, GoogleUserProfile } from './types';
 import { HistoryVault } from './components/HistoryVault';
 import { WordEditor } from './components/WordEditor';
 import { ExcelSpreadsheet } from './components/ExcelSpreadsheet';
 import { PowerPointStudio } from './components/PowerPointStudio';
 import { CanvaDesignStudio } from './components/CanvaDesignStudio';
 import { ImageGeneratorStudio } from './components/ImageGeneratorStudio';
+import { CleanMarkdown } from './components/CleanMarkdown';
+import { CustomPdfExportModal } from './components/CustomPdfExportModal';
+import { ThemeFontConfig } from './components/ThemeFontConfig';
+import { GoogleProfileBadge } from './components/GoogleProfileBadge';
+import { ChatHistoryVault } from './components/ChatHistoryVault';
+import { GoogleDriveModal } from './components/GoogleDriveModal';
+import { getStoredGoogleUser } from './services/googleAuthDrive';
+import { cleanAsterisks } from './lib/cleanText';
+import { processFileOcr, OcrOptions } from './lib/ocrEngine';
 
 // Configuração do Worker do PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -46,6 +57,49 @@ const LANGUAGES = [
 
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'tif'];
 const TEXT_EXTENSIONS = ['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts', 'jsx', 'tsx'];
+
+// Tool Categories Structure for Clean Organized Navigation
+const CATEGORIES = [
+  {
+    id: 'docs',
+    title: 'Documentos Pro',
+    icon: FileText,
+    tools: [
+      { id: 'word' as TabType, label: 'Word Pro', icon: Edit3, desc: 'Editor DOCX completo' },
+      { id: 'excel' as TabType, label: 'Excel Pro', icon: FileSpreadsheet, desc: 'Planilhas & Fórmulas' },
+      { id: 'powerpoint' as TabType, label: 'PowerPoint Pro', icon: Presentation, desc: 'Apresentações IA' },
+      { id: 'canva' as TabType, label: 'Canva Studio', icon: PenTool, desc: 'Design Visual Studio' },
+    ],
+  },
+  {
+    id: 'ai',
+    title: 'Inteligência Artificial',
+    icon: Sparkles,
+    tools: [
+      { id: 'extract' as TabType, label: 'Extrator OCR', icon: FileText, desc: 'Digitalize PDF e imagens' },
+      { id: 'chat' as TabType, label: 'Assistente IA', icon: Bot, desc: 'Chat interativo com arquivos' },
+      { id: 'compare' as TabType, label: 'Arena de Modelos', icon: SplitSquareHorizontal, desc: 'Compare Gemini, DeepSeek e Claude' },
+      { id: 'ai' as TabType, label: 'Studio de Texto', icon: Sparkles, desc: 'Traduzir, resumir e corrigir' },
+    ],
+  },
+  {
+    id: 'media',
+    title: 'Mídia & Voz',
+    icon: Palette,
+    tools: [
+      { id: 'image' as TabType, label: 'Gerador Visual', icon: ImageIcon, desc: 'Crie imagens incríveis' },
+      { id: 'audio' as TabType, label: 'Audio Lab', icon: Volume2, desc: 'Sintetizador e transcrição de áudio' },
+    ],
+  },
+  {
+    id: 'vault',
+    title: 'Histórico',
+    icon: History,
+    tools: [
+      { id: 'history' as TabType, label: 'Histórico Vault', icon: History, desc: 'Registro de atividades' },
+    ],
+  },
+];
 
 // API Proxy Helper
 async function sendToVercel(provider: string, model: string, messages: AiMessage[]) {
@@ -129,17 +183,57 @@ export async function extractTextFromFile(file: File, onProgress?: (p: number) =
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isFading, setIsFading] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('extract');
+  const [activeTab, setActiveTab] = useState<TabType>('word');
+  const [activeCategory, setActiveCategory] = useState<string>('docs');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [notification, setNotification] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [isThemeFontOpen, setIsThemeFontOpen] = useState(false);
+
+  // Google User Profile & Drive State
+  const [googleUser, setGoogleUser] = useState<GoogleUserProfile | null>(() => getStoredGoogleUser());
+
+  // Custom PDF Export Modal State
+  const [isCustomPdfOpen, setIsCustomPdfOpen] = useState(false);
+  const [pdfExportText, setPdfExportText] = useState('');
+  const [pdfExportTitle, setPdfExportTitle] = useState('Documento DocSwiss');
+
+  // Chat Sessions History State
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
+    try {
+      const saved = localStorage.getItem('docswiss_chat_sessions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.map((s: any) => ({
+          ...s,
+          messages: s.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          })),
+        }));
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [chatSubTab, setChatSubTab] = useState<'active' | 'history'>('active');
+
+  const openCustomPdf = (text: string, title = 'Documento DocSwiss') => {
+    setPdfExportText(text);
+    setPdfExportTitle(title);
+    setIsCustomPdfOpen(true);
+  };
 
   // Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('docutools_theme');
     if (saved === 'dark' || saved === 'light') return saved;
-    return 'dark'; // Default to sleek workstation dark theme
+    return 'light'; // Default to clean light theme for better accessibility
   });
 
   useEffect(() => {
@@ -150,6 +244,16 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  // Keep active category in sync with active tab
+  useEffect(() => {
+    for (const cat of CATEGORIES) {
+      if (cat.tools.some((t) => t.id === activeTab)) {
+        setActiveCategory(cat.id);
+        break;
+      }
+    }
+  }, [activeTab]);
 
   // History state
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>(() => {
@@ -168,7 +272,7 @@ export default function App() {
       timestamp: new Date().toISOString(),
     };
     setHistoryItems((prev) => {
-      const updated = [newItem, ...prev].slice(0, 100); // keep max 100 items
+      const updated = [newItem, ...prev].slice(0, 100);
       localStorage.setItem('docutools_history_v1', JSON.stringify(updated));
       return updated;
     });
@@ -228,10 +332,20 @@ export default function App() {
   const [translationEngine, setTranslationEngine] = useState(() => localStorage.getItem('docutools_engine') || 'gemini');
   const currentEngine = ENGINES.find((e) => e.id === translationEngine) || ENGINES[0];
 
+  // Google Drive & Enhanced OCR state
+  const [isGoogleDriveOpen, setIsGoogleDriveOpen] = useState(false);
+  const [ocrLanguage, setOcrLanguage] = useState<string>('por+eng');
+  const [ocrForcePdfOcr, setOcrForcePdfOcr] = useState<boolean>(false);
+  const [ocrEnhanceContrast, setOcrEnhanceContrast] = useState<boolean>(true);
+  const [viewingChatFileText, setViewingChatFileText] = useState<ChatFile | null>(null);
+
   // OCR state
+  const [ocrList, setOcrList] = useState<OcrItem[]>([]);
+  const [expandedOcrId, setExpandedOcrId] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState('');
   const [fileName, setFileName] = useState('');
   const [isMonospace, setIsMonospace] = useState(true);
+  const [showInstallModal, setShowInstallModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Chat state
@@ -276,7 +390,7 @@ export default function App() {
     const timer = setTimeout(() => {
       setIsFading(true);
       setTimeout(() => setShowSplash(false), 400);
-    }, 1500);
+    }, 1200);
     return () => clearTimeout(timer);
   }, []);
 
@@ -331,31 +445,198 @@ export default function App() {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+
+    const newItems: OcrItem[] = fileArray.map((file) => ({
+      id: Date.now() + Math.random().toString(36).substring(2, 7),
+      fileName: file.name,
+      fileSize: file.size,
+      text: '',
+      status: 'pending',
+      progress: 0,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    }));
+
+    setOcrList((prev) => [...newItems, ...prev]);
+    if (newItems.length > 0) {
+      setExpandedOcrId(newItems[0].id);
+    }
     setIsProcessing(true);
-    setProgress(0);
+
+    let completedCount = 0;
+
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      const item = newItems[i];
+
+      setFileName(file.name);
+
+      setOcrList((prev) =>
+        prev.map((o) => (o.id === item.id ? { ...o, status: 'processing', progress: 0 } : o))
+      );
+
+      try {
+        const text = await processFileOcr(
+          file,
+          {
+            language: ocrLanguage,
+            enhanceContrast: ocrEnhanceContrast,
+            forceOcrPdf: ocrForcePdfOcr,
+          },
+          (p) => {
+            setProgress(p.progress);
+            setOcrList((prev) =>
+              prev.map((o) => (o.id === item.id ? { ...o, progress: p.progress } : o))
+            );
+          }
+        );
+
+        setOcrList((prev) =>
+          prev.map((o) => (o.id === item.id ? { ...o, status: 'completed', text, progress: 100 } : o))
+        );
+
+        setExtractedText((prevText) => (prevText ? `${prevText}\n\n--- ${file.name} ---\n${text}` : text));
+        completedCount++;
+
+        saveHistoryItem({
+          type: 'ocr',
+          title: file.name,
+          summary: text.substring(0, 200) + (text.length > 200 ? '...' : ''),
+          details: text,
+        });
+      } catch (err) {
+        console.error(err);
+        setOcrList((prev) =>
+          prev.map((o) =>
+            o.id === item.id
+              ? { ...o, status: 'error', error: 'Falha ao processar arquivo.', progress: 100 }
+              : o
+          )
+        );
+      }
+    }
+
+    setIsProcessing(false);
+    setProgress(100);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (completedCount > 0) {
+      showNotification(`Leitura de ${completedCount} arquivo(s) concluída com sucesso!`);
+    } else {
+      showNotification('Falha no processamento dos arquivos.', 'error');
+    }
+  };
+
+  const updateOcrItemText = (id: string, newText: string) => {
+    setOcrList((prev) => prev.map((o) => (o.id === id ? { ...o, text: newText } : o)));
+  };
+
+  const removeOcrItem = (id: string) => {
+    setOcrList((prev) => prev.filter((o) => o.id !== id));
+  };
+
+  const clearAllOcrItems = () => {
+    setOcrList([]);
     setExtractedText('');
+    showNotification('Lista OCR limpa!');
+  };
 
-    try {
-      const text = await extractTextFromFile(file, (p) => setProgress(p));
-      setExtractedText(text);
-      showNotification('Leitura de documento concluída com sucesso!');
+  const copyAllOcrText = () => {
+    const completed = ocrList.filter((o) => o.status === 'completed' && o.text);
+    if (completed.length === 0) {
+      showNotification('Nenhum texto extraído para copiar.', 'error');
+      return;
+    }
+    const combined = completed.map((o) => `=== ${o.fileName} ===\n${o.text}`).join('\n\n');
+    copyToClipboard(combined);
+  };
 
-      // Save to history
-      saveHistoryItem({
-        type: 'ocr',
-        title: file.name,
-        summary: text.substring(0, 200) + (text.length > 200 ? '...' : ''),
-        details: text,
-      });
-    } catch (err) {
-      console.error(err);
-      showNotification('Falha no processamento do arquivo.', 'error');
-    } finally {
-      setIsProcessing(false);
-      setProgress(100);
+  const exportAllOcr = (format: 'txt' | 'docx' | 'pdf') => {
+    const completed = ocrList.filter((o) => o.status === 'completed' && o.text);
+    if (completed.length === 0) {
+      showNotification('Nenhum texto extraído para exportar.', 'error');
+      return;
+    }
+    const combined = completed.map((o) => `=== ${o.fileName} ===\n${o.text}`).join('\n\n');
+    const filename = `docswiss_ocr_lote_${new Date().toISOString().slice(0, 10)}`;
+    if (format === 'txt') exportAsTxt(combined, filename);
+    if (format === 'docx') exportAsDocx(combined, filename);
+    if (format === 'pdf') exportAsPdf(combined, filename);
+  };
+
+  const handleSendOcrItemToChat = (item: OcrItem) => {
+    const chatFile: ChatFile = {
+      name: item.fileName,
+      type: 'text/plain',
+      content: item.text,
+    };
+    setChatFiles((prev) => [...prev, chatFile]);
+    setActiveTab('chat');
+    showNotification(`Documento "${item.fileName}" anexado ao Chat! Digite sua pergunta.`);
+  };
+
+  const handleGoogleDriveFileSelect = async (file: File) => {
+    if (activeTab === 'chat') {
+      showNotification(`Importando "${file.name}" do Google Drive...`);
+      try {
+        const text = await processFileOcr(file, { language: ocrLanguage, enhanceContrast: true });
+        const chatFile: ChatFile = {
+          name: file.name,
+          type: file.type || 'application/pdf',
+          content: text,
+        };
+        setChatFiles((prev) => [...prev, chatFile]);
+        showNotification(`"${file.name}" do Google Drive anexado ao Chat!`);
+      } catch {
+        showNotification(`Erro ao importar "${file.name}"`, 'error');
+      }
+    } else {
+      setActiveTab('extract');
+      showNotification(`Processando "${file.name}" do Google Drive para OCR...`);
+      const newOcrItem: OcrItem = {
+        id: Date.now() + Math.random().toString(36).substring(2, 7),
+        fileName: file.name,
+        fileSize: file.size,
+        text: '',
+        status: 'processing',
+        progress: 0,
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      };
+      setOcrList((prev) => [newOcrItem, ...prev]);
+      setExpandedOcrId(newOcrItem.id);
+      setIsProcessing(true);
+
+      try {
+        const text = await processFileOcr(
+          file,
+          {
+            language: ocrLanguage,
+            enhanceContrast: ocrEnhanceContrast,
+            forceOcrPdf: ocrForcePdfOcr,
+          },
+          (p) => {
+            setProgress(p.progress);
+            setOcrList((prev) =>
+              prev.map((o) => (o.id === newOcrItem.id ? { ...o, progress: p.progress } : o))
+            );
+          }
+        );
+
+        setOcrList((prev) =>
+          prev.map((o) => (o.id === newOcrItem.id ? { ...o, status: 'completed', text, progress: 100 } : o))
+        );
+        setExtractedText((prevText) => (prevText ? `${prevText}\n\n--- ${file.name} ---\n${text}` : text));
+        showNotification(`"${file.name}" do Google Drive lido com sucesso!`);
+      } catch {
+        setOcrList((prev) =>
+          prev.map((o) => (o.id === newOcrItem.id ? { ...o, status: 'error', error: 'Falha ao ler.' } : o))
+        );
+        showNotification(`Erro no processamento de "${file.name}"`, 'error');
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -364,19 +645,27 @@ export default function App() {
     if (!files) return;
     for (const file of Array.from(files)) {
       try {
-        let content = '';
+        showNotification(`Lendo ${file.name}...`);
+        const extractedText = await processFileOcr(
+          file,
+          { language: ocrLanguage, enhanceContrast: true },
+          (p) => {
+            if (p.statusText) showNotification(`[${file.name}] ${p.statusText}`);
+          }
+        );
         let preview = '';
         if (file.type.startsWith('image/')) {
           const reader = new FileReader();
-          content = await new Promise((resolve) => {
+          preview = await new Promise((resolve) => {
             reader.onload = () => resolve(reader.result as string);
             reader.readAsDataURL(file);
           });
-          preview = content;
-        } else {
-          content = await extractTextFromFile(file, () => {});
         }
-        setChatFiles((prev) => [...prev, { name: file.name, type: file.type, content, preview }]);
+        setChatFiles((prev) => [
+          ...prev,
+          { name: file.name, type: file.type || 'application/pdf', content: extractedText, preview },
+        ]);
+        showNotification(`"${file.name}" anexado ao Chat!`);
       } catch {
         showNotification(`Erro ao anexar ${file.name}`, 'error');
       }
@@ -404,14 +693,15 @@ export default function App() {
       let prompt = userMsgContent;
       if (userMessage.files) {
         for (const file of userMessage.files) {
-          if (!file.type.startsWith('image/')) {
-            prompt += `\n\n[Anexo: ${file.name}]\n${file.content}\n[Fim anexo]`;
-          }
+          prompt += `\n\n[Arquivo Anexo (${file.name})]:\n${file.content}\n[Fim anexo]`;
         }
       }
 
       const messages: AiMessage[] = [
-        { role: 'system', content: 'Você é o assistente técnico DocuTools Workstation. Seja preciso, objetivo e profissional em português.' },
+        { 
+          role: 'system', 
+          content: 'Você é o assistente inteligente de análise documental do DocuTools. Analise cuidadosamente o conteúdo de quaisquer arquivos anexados na conversa para responder com dados precisos. Evite formatações excessivas com asteriscos, cerquilhas ou marcadores poluídos. Responda em português de maneira clara, estruturada e limpa.' 
+        },
         ...chatMessages.slice(-8).map((msg) => ({ role: msg.role, content: msg.content })),
         { role: 'user', content: prompt },
       ];
@@ -428,7 +718,6 @@ export default function App() {
         },
       ]);
 
-      // Save to History
       saveHistoryItem({
         type: 'chat',
         title: `Chat (${currentEngine.label})`,
@@ -444,7 +733,7 @@ export default function App() {
 
   const handleAiAction = async () => {
     if (!aiText.trim()) {
-      showNotification('Insira o texto no painel de entrada.', 'error');
+      showNotification('Insira o texto para processar.', 'error');
       return;
     }
     setIsAiWorking(true);
@@ -454,8 +743,10 @@ export default function App() {
       const prompts: Record<AiActionType, string> = {
         translate: `Traduza o texto para ${targetLangName} preservando a formatação:`,
         summarize: 'Elabore um resumo conciso com os pontos-chave:',
-        grammar: 'Corrija erros ortográficos e gramaticais com estilo profissional:',
+        grammar: 'Corrija erros ortográficos e gramaticais de forma profissional:',
         improve: 'Aprimore a clareza, tom e estrutura do texto:',
+        expand: 'Expanda o texto adicionando detalhes explicativos:',
+        rewrite: 'Reescreva o texto em linguagem mais clara e refinada:',
       };
 
       const messages: AiMessage[] = [
@@ -467,7 +758,6 @@ export default function App() {
       setAiResult(response);
       showNotification('Processamento concluído!');
 
-      // Save to History
       saveHistoryItem({
         type: 'ai',
         title: `Texto IA: ${aiAction.toUpperCase()}`,
@@ -487,7 +777,7 @@ export default function App() {
     setCompareResults([]);
 
     const modelsToTest = [
-      { id: 'Gemini 2.5', provider: 'gemini', model: 'gemini-2.5-flash' },
+      { id: 'Gemini 3.6', provider: 'gemini', model: 'gemini-3.6-flash' },
       { id: 'DeepSeek V3', provider: 'openrouter', model: 'deepseek/deepseek-chat' },
       { id: 'Claude 3.5', provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet' },
     ];
@@ -499,8 +789,8 @@ export default function App() {
           try {
             const answer = await sendToVercel(m.provider, m.model, messages);
             return { name: m.id, text: answer };
-          } catch (e: any) {
-            return { name: m.id, text: `⚠️ Não foi possível obter resposta do provedor.` };
+          } catch {
+            return { name: m.id, text: `⚠️ Indisponível no momento.` };
           }
         })
       );
@@ -517,58 +807,9 @@ export default function App() {
     }
   };
 
-  // Server-side backed image generation
-  const handleGenerateImage = async () => {
-    if (!imagePrompt.trim()) {
-      showNotification('Insira um prompt de descrição para a imagem.', 'error');
-      return;
-    }
-
-    setIsGeneratingImage(true);
-    setGeneratedImage('');
-
-    try {
-      let imageUrl = '';
-      try {
-        const response = await fetch('/api/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: imagePrompt }),
-        });
-
-        const data = await response.json();
-        if (response.ok && data.imageUrl) {
-          imageUrl = data.imageUrl;
-        }
-      } catch (apiErr) {
-        console.warn('API image generation failed, using direct Pollinations URL:', apiErr);
-      }
-
-      if (!imageUrl) {
-        imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt.trim())}?width=768&height=768&nologo=true&seed=${Date.now()}`;
-      }
-
-      setGeneratedImage(imageUrl);
-      showNotification('Imagem gerada com sucesso!');
-
-      // Save to History
-      saveHistoryItem({
-        type: 'image',
-        title: 'Imagem Gerada',
-        summary: imagePrompt,
-        mediaUrl: imageUrl,
-      });
-    } catch (err: any) {
-      console.error(err);
-      showNotification('Não foi possível gerar a imagem no momento.', 'error');
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
   const handleTTS = () => {
     if (!ttsText.trim()) {
-      showNotification('Insira o texto para ser lido.', 'error');
+      showNotification('Insira o texto para ser vocalizado.', 'error');
       return;
     }
     if (isSpeaking) {
@@ -590,7 +831,7 @@ export default function App() {
   const handleSTT = () => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
-      showNotification('Navegador não possui suporte a SpeechRecognition.', 'error');
+      showNotification('Navegador não possui suporte a reconhecimento de áudio.', 'error');
       return;
     }
     if (isRecording) {
@@ -634,8 +875,18 @@ export default function App() {
     setSttResult('');
     recognition.start();
     setIsRecording(true);
-    showNotification('Microfone ativo. Fale agora...');
+    showNotification('Microfone ligado. Pode falar...');
   };
+
+  // Find active tool details
+  let activeToolInfo = CATEGORIES[0].tools[0];
+  for (const cat of CATEGORIES) {
+    const found = cat.tools.find((t) => t.id === activeTab);
+    if (found) {
+      activeToolInfo = found;
+      break;
+    }
+  }
 
   // Text stats
   const currentText = activeTab === 'extract' ? extractedText : aiText;
@@ -644,566 +895,1044 @@ export default function App() {
 
   if (showSplash) {
     return (
-      <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-slate-100 transition-opacity duration-500 ${isFading ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/30">
-            <Cpu className="w-8 h-8 text-white animate-pulse" />
-          </div>
-          <span className="text-2xl font-bold font-mono tracking-tight">DocuTools Workstation</span>
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 text-white transition-opacity duration-500">
+        <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-500/20 mb-4 animate-bounce">
+          <FileText className="w-10 h-10 text-white" />
         </div>
-        <p className="text-xs text-slate-400 font-mono tracking-wide">
-          Carregando módulos de engenharia de documentos v2.5...
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">DocSwiss</h1>
+        <p className="text-sm text-slate-400 mt-1 font-medium">Processamento e Criação de Documentos</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans select-none overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
       
       {/* Toast Notification */}
       {notification && (
         <div
-          className={`fixed top-12 right-6 z-50 px-4 py-2.5 rounded-lg shadow-2xl border text-xs font-mono flex items-center gap-2 animate-[slideIn_0.2s_ease] ${
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-xl border text-sm font-medium flex items-center gap-2.5 animate-[slideIn_0.2s_ease] ${
             notification.type === 'success'
-              ? 'bg-slate-900 border-emerald-500/50 text-emerald-300'
-              : 'bg-slate-900 border-rose-500/50 text-rose-300'
+              ? 'bg-emerald-600 text-white border-emerald-500'
+              : 'bg-rose-600 text-white border-rose-500'
           }`}
         >
-          {notification.type === 'success' ? <Check className="w-4 h-4 text-emerald-400" /> : <X className="w-4 h-4 text-rose-400" />}
+          {notification.type === 'success' ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
           {notification.msg}
         </div>
       )}
 
       {/* Settings Modal */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
               <div className="flex items-center gap-2.5">
-                <Settings className="w-5 h-5 text-indigo-400" />
-                <h2 className="text-base font-bold text-slate-100">Painel de Configurações da Workstation</h2>
+                <Settings className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Configurações da Plataforma</h2>
               </div>
-              <button onClick={() => setShowSettings(false)} className="p-1 hover:bg-slate-800 rounded-lg text-slate-400">
+              <button onClick={() => setShowSettings(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-2">MODO VISUAL / TEMA</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setTheme('dark')}
-                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-medium border ${
-                      theme === 'dark' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <Moon className="w-4 h-4" /> Workstation Dark
-                  </button>
-                  <button
-                    onClick={() => setTheme('light')}
-                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-medium border ${
-                      theme === 'light' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <Sun className="w-4 h-4" /> Workstation Light
-                  </button>
-                </div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">APARÊNCIA E TIPOGRAFIA</label>
+                <button
+                  onClick={() => { setShowSettings(false); setIsThemeFontOpen(true); }}
+                  className="w-full py-3 px-4 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all"
+                >
+                  <SlidersHorizontal className="w-4 h-4" /> Customizar Cores, Fontes e Layout
+                </button>
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-2">MOTOR DE INTELIGÊNCIA ARTIFICIAL</label>
-                <div className="grid grid-cols-1 gap-2">
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">MOTOR DE IA PADRÃO</label>
+                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
                   {ENGINES.map((engine) => (
                     <button
                       key={engine.id}
                       onClick={() => setTranslationEngine(engine.id)}
                       className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
                         translationEngine === engine.id
-                          ? 'bg-indigo-600/10 border-indigo-500 text-indigo-300'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                          ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-600 text-indigo-900 dark:text-indigo-300 font-medium'
+                          : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-lg">{engine.emoji}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{engine.emoji}</span>
                         <div>
-                          <div className="text-xs font-bold text-slate-200">{engine.label}</div>
-                          <div className="text-[10px] text-slate-500">{engine.description}</div>
+                          <div className="text-xs font-bold">{engine.label}</div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-500">{engine.description}</div>
                         </div>
                       </div>
-                      {translationEngine === engine.id && <Check className="w-4 h-4 text-indigo-400" />}
+                      {translationEngine === engine.id && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-800 flex justify-end">
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
               <button
                 onClick={() => setShowSettings(false)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg"
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md"
               >
-                Salvar & Fechar
+                Salvar Configurações
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Titlebar Header */}
-      <header className="h-12 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 z-40 flex-shrink-0">
+      {/* Theme and Font Customization Modal */}
+      <ThemeFontConfig isOpen={isThemeFontOpen} onClose={() => setIsThemeFontOpen(false)} />
+
+      {/* Custom PDF Export Modal */}
+      <CustomPdfExportModal
+        isOpen={isCustomPdfOpen}
+        onClose={() => setIsCustomPdfOpen(false)}
+        initialText={pdfExportText}
+        documentTitle={pdfExportTitle}
+        onNotification={showNotification}
+      />
+
+
+      {/* Install / Download App Modal */}
+      {showInstallModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md">
+                  <DownloadCloud className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Como Baixar e Instalar o DocSwiss</h2>
+                  <p className="text-xs text-slate-500">Instalação no Celular/PC e Download do Projeto</p>
+                </div>
+              </div>
+              <button onClick={() => setShowInstallModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6 text-xs text-slate-700 dark:text-slate-300">
+              {/* Option 1: PWA Installation */}
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 p-4 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300 text-sm">
+                  <Smartphone className="w-4 h-4 text-emerald-600" />
+                  1. Instalar como Aplicativo Nativo (PWA - Celular e Computador)
+                </div>
+                <p className="leading-relaxed">
+                  O <strong>DocSwiss</strong> é um aplicativo PWA moderno. Você pode instalá-lo diretamente no seu dispositivo sem precisar de loja de aplicativos!
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-100 dark:border-emerald-900/40 space-y-1">
+                    <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> Android (Chrome)
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Abra o menu (<strong>⋮</strong>) no canto superior do Chrome → Toque em <strong>"Adicionar à Tela Inicial"</strong> ou <strong>"Instalar aplicativo"</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-100 dark:border-emerald-900/40 space-y-1">
+                    <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> iPhone (Safari)
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Toque no botão <strong>Compartilhar</strong> (quadrado com seta para cima) no Safari → Selecione <strong>"Adicionar à Tela de Início"</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-100 dark:border-emerald-900/40 space-y-1">
+                    <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                      <Monitor className="w-3.5 h-3.5 text-emerald-600" /> PC (Chrome/Edge)
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Clique no ícone de tela com seta na barra de endereço da URL (lado direito) ou no menu → <strong>"Instalar DocSwiss"</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 2: Export ZIP / GitHub */}
+              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 text-sm">
+                  <Download className="w-4 h-4 text-indigo-600" />
+                  2. Baixar o Código Fonte Completo (Arquivo ZIP / GitHub)
+                </div>
+                <p className="leading-relaxed">
+                  Se você deseja baixar os arquivos do projeto para abrir e editar no seu computador (VS Code, Node.js):
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400 pl-1">
+                  <li>No menu superior do <strong>Google AI Studio</strong> (canto superior direito da tela).</li>
+                  <li>Clique no botão de <strong>Compartilhar / Exportar</strong>.</li>
+                  <li>Selecione <strong>"Download ZIP"</strong> para salvar o arquivo compactado com todo o código fonte.</li>
+                  <li>Ou escolha <strong>"Export to GitHub"</strong> para salvar diretamente na sua conta do GitHub.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+              <button
+                onClick={() => setShowInstallModal(false)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md"
+              >
+                Entendi
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Primary Header */}
+      <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-3 sm:px-6 z-40 flex-shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-xs text-white shadow-md">
-              <Terminal className="w-4 h-4" />
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+            aria-label="Menu de Navegação"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-500/20">
+              <FileText className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold font-mono tracking-wider text-slate-100">DocuTools Workstation</span>
-              <span className="ml-2 text-[10px] font-mono px-1.5 py-0.2 bg-indigo-500/20 text-indigo-400 rounded border border-indigo-500/30">
-                PRO v2.5
+              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">DocSwiss</span>
+              <span className="hidden sm:inline-block ml-2 text-[10px] font-semibold px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-full border border-indigo-200 dark:border-indigo-800">
+                Studio Office
               </span>
             </div>
           </div>
-
-          <div className="hidden lg:flex items-center gap-2 ml-6 pl-6 border-l border-slate-800 text-[11px] font-mono text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Engine: <strong className="text-slate-200 font-normal">{currentEngine.label}</strong>
-            </span>
-            <span className="text-slate-700">|</span>
-            <span>OCR Worker: <strong className="text-slate-200 font-normal">Tesseract Ready</strong></span>
-          </div>
         </div>
 
+        {/* Header Right Actions */}
         <div className="flex items-center gap-2">
+          {/* Active Model Indicator */}
+          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+            <span>{currentEngine.emoji}</span>
+            <span>{currentEngine.label}</span>
+          </div>
+
+          {/* Baixar App Button */}
+          <button
+            onClick={() => setShowInstallModal(true)}
+            title="Como Baixar / Instalar o Aplicativo"
+            className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
+          >
+            <DownloadCloud className="w-4 h-4" />
+            <span className="hidden sm:inline">Baixar App</span>
+          </button>
+
+          {/* History Vault Button */}
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 border transition-all ${
+            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
               activeTab === 'history'
-                ? 'bg-indigo-600 border-indigo-500 text-white'
-                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
-            <History className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Histórico Vault</span>
+            <History className="w-4 h-4" />
+            <span className="hidden sm:inline">Histórico</span>
             {historyItems.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 text-[10px]">
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
                 {historyItems.length}
               </span>
             )}
           </button>
 
+          {/* Theme & Font Customizer */}
           <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title="Alternar Modo Escuro / Claro"
-            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200"
+            onClick={() => setIsThemeFontOpen(true)}
+            title="Aparência, Fontes e Layout"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1 text-xs font-medium"
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
+            <SlidersHorizontal className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="hidden xl:inline">Aparência</span>
           </button>
 
+          {/* Theme Toggle */}
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title="Alternar Tema Claro / Escuro"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+          </button>
+
+          {/* Google Drive Button */}
+          <button
+            onClick={() => setIsGoogleDriveOpen(true)}
+            title="Abrir Google Drive Integrado"
+            className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-500/40 hover:bg-amber-500/20 transition-all"
+          >
+            <HardDrive className="w-4 h-4 text-amber-500" />
+            <span className="hidden lg:inline">Google Drive</span>
+          </button>
+
+          {/* Settings */}
           <button
             onClick={() => setShowSettings(true)}
-            title="Configurações da Workstation"
-            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200"
+            title="Configurações"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
           >
             <Settings className="w-4 h-4" />
           </button>
+
+          {/* Google Login & Drive Profile Badge */}
+          <GoogleProfileBadge
+            user={googleUser}
+            onLoginSuccess={(user) => setGoogleUser(user)}
+            onLogout={() => setGoogleUser(null)}
+            onNotification={showNotification}
+          />
+
         </div>
       </header>
 
-      {/* Main Workstation Layout */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Main Workstation Container */}
+      <div className="flex flex-1 overflow-hidden relative">
         
-        {/* Left Side Dock Nav */}
-        <aside className="w-16 sm:w-56 bg-slate-950 border-r border-slate-800 flex flex-col justify-between p-2 flex-shrink-0">
-          <div className="space-y-1">
-            <div className="px-3 py-2 hidden sm:block text-[10px] font-mono font-semibold text-slate-500 tracking-wider">
-              MÓDULOS DE TRABALHO
-            </div>
-
-            {[
-              { id: 'extract' as TabType, label: 'OCR Workbench', icon: <FileText className="w-4 h-4" />, shortcut: '1' },
-              { id: 'word' as TabType, label: 'Word Pro', icon: <Edit3 className="w-4 h-4" />, shortcut: '2' },
-              { id: 'excel' as TabType, label: 'Excel Pro', icon: <FileSpreadsheet className="w-4 h-4" />, shortcut: '3' },
-              { id: 'powerpoint' as TabType, label: 'PowerPoint Pro', icon: <Presentation className="w-4 h-4" />, shortcut: '4' },
-              { id: 'canva' as TabType, label: 'Canva Studio', icon: <PenTool className="w-4 h-4" />, shortcut: '5' },
-              { id: 'image' as TabType, label: 'Gerador Visual', icon: <ImageIcon className="w-4 h-4" />, shortcut: '6' },
-              { id: 'chat' as TabType, label: 'Assistente IA', icon: <Bot className="w-4 h-4" />, shortcut: '7' },
-              { id: 'compare' as TabType, label: 'Arena de Modelos', icon: <SplitSquareHorizontal className="w-4 h-4" />, shortcut: '8' },
-              { id: 'ai' as TabType, label: 'Studio de Texto', icon: <Sparkles className="w-4 h-4" />, shortcut: '9' },
-              { id: 'audio' as TabType, label: 'Audio Lab', icon: <Volume2 className="w-4 h-4" />, shortcut: '0' },
-              { id: 'history' as TabType, label: 'Histórico Vault', icon: <History className="w-4 h-4" />, shortcut: 'H' },
-            ].map((nav) => (
-              <button
-                key={nav.id}
-                onClick={() => setActiveTab(nav.id)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                  activeTab === nav.id
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 border border-indigo-500/50'
-                    : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200 border border-transparent'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  {nav.icon}
-                  <span className="hidden sm:inline text-left">{nav.label}</span>
+        {/* PC Sidebar Navigation */}
+        <aside className="hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/80 flex-col justify-between p-3 flex-shrink-0 space-y-4 overflow-y-auto">
+          <div className="space-y-5">
+            {CATEGORIES.map((cat) => (
+              <div key={cat.id} className="space-y-1">
+                <div className="px-3 py-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <cat.icon className="w-3.5 h-3.5" />
+                  <span>{cat.title}</span>
                 </div>
-                <span className="hidden sm:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900/60 text-slate-500 border border-slate-800">
-                  {nav.shortcut}
-                </span>
-              </button>
+                {cat.tools.map((tool) => {
+                  const ToolIcon = tool.icon;
+                  const isActive = activeTab === tool.id;
+                  return (
+                    <button
+                      key={tool.id}
+                      onClick={() => setActiveTab(tool.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <ToolIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+                      <div className="text-left flex-1 min-w-0">
+                        <div className="truncate">{tool.label}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             ))}
           </div>
 
-          {/* Engine Status Widget */}
-          <div className="hidden sm:block p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-              <span>Status do Sistema</span>
-              <span className="text-emerald-400 font-bold">ONLINE</span>
+          {/* Sidebar Footer Info */}
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Plataforma Ativa</span>
             </div>
-            <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
-              <div className="bg-indigo-500 h-full w-full animate-pulse" />
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono">
-              IA Ativa: {currentEngine.label}
-            </div>
+            <div className="text-[10px] truncate">{currentEngine.label}</div>
           </div>
         </aside>
 
-        {/* Center Active Module Canvas */}
-        <main className="flex-1 overflow-y-auto bg-slate-900/40 p-4 sm:p-6 flex flex-col justify-between">
-          <div className="max-w-6xl mx-auto w-full space-y-6">
-            
-            {/* 1. OCR WORKBENCH */}
-            {activeTab === 'extract' && (
-              <div className="space-y-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-                    <div>
-                      <h2 className="text-base font-bold text-slate-100 flex items-center gap-2 font-mono">
-                        <FileText className="w-5 h-5 text-indigo-400" />
-                        OCR & Extrator de Documentos
-                      </h2>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Suporte completo para Imagens (PNG/JPG), PDF, DOCX Word e Planilhas Excel.
-                      </p>
-                    </div>
-
+        {/* Mobile Navigation Drawer Overlay */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="md:hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex justify-start"
+            >
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-72 bg-white dark:bg-slate-900 h-full p-4 space-y-6 overflow-y-auto border-r border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-4">
                     <div className="flex items-center gap-2">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        accept=".png,.jpg,.jpeg,.gif,.pdf,.docx,.xlsx,.xls,.txt,.csv,.json"
-                      />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg flex items-center gap-2 transition-all"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Carregar Arquivo
-                      </button>
-                    </div>
-                  </div>
-
-                  {isProcessing && (
-                    <div className="my-6 p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
-                      <div className="flex items-center justify-between text-xs font-mono text-slate-300">
-                        <span className="flex items-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                          Processando {fileName}...
-                        </span>
-                        <span>{progress}%</span>
+                      <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
+                        <FileText className="w-4 h-4" />
                       </div>
-                      <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                        <div className="bg-indigo-500 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
-                      </div>
+                      <span className="font-bold text-slate-900 dark:text-slate-100">DocuTools Pro</span>
                     </div>
-                  )}
-
-                  {!extractedText && !isProcessing && (
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="my-6 border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-2xl p-12 text-center cursor-pointer bg-slate-950/40 hover:bg-slate-950 transition-all group"
-                    >
-                      <Upload className="w-10 h-10 text-slate-600 group-hover:text-indigo-400 mx-auto mb-3 transition-colors" />
-                      <p className="text-sm font-semibold text-slate-300">Arraste e solte ou clique para enviar um arquivo</p>
-                      <p className="text-xs text-slate-500 mt-1 font-mono">Formatos suportados: PNG, JPG, PDF, DOCX, XLSX, TXT</p>
-                    </div>
-                  )}
-
-                  {extractedText && !isProcessing && (
-                    <div className="space-y-3 my-4">
-                      <div className="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-slate-400">VISUALIZAÇÃO:</span>
-                          <button
-                            onClick={() => setIsMonospace(!isMonospace)}
-                            className={`px-2 py-1 rounded text-xs font-mono border ${
-                              isMonospace ? 'bg-slate-800 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-800 text-slate-400'
-                            }`}
-                          >
-                            {isMonospace ? 'Fonte Monospace' : 'Fonte Sans'}
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => copyToClipboard(extractedText)}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-mono border border-slate-800 flex items-center gap-1.5"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            Copiar
-                          </button>
-                          <button
-                            onClick={() => {
-                              setAiText(extractedText);
-                              setActiveTab('ai');
-                            }}
-                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-mono flex items-center gap-1.5"
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            Enviar p/ Studio IA
-                          </button>
-                        </div>
-                      </div>
-
-                      <textarea
-                        value={extractedText}
-                        onChange={(e) => setExtractedText(e.target.value)}
-                        className={`w-full h-80 p-4 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed resize-y ${
-                          isMonospace ? 'font-mono' : 'font-sans'
-                        }`}
-                      />
-
-                      {/* Export Options */}
-                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
-                        <span className="text-xs font-mono text-slate-500 mr-2">EXPORTAR PARA:</span>
-                        <button
-                          onClick={() => exportAsTxt(extractedText, fileName)}
-                          className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-mono border border-slate-800 flex items-center gap-1.5"
-                        >
-                          <FileOutput className="w-3.5 h-3.5" /> TXT
-                        </button>
-                        <button
-                          onClick={() => exportAsDocx(extractedText, fileName)}
-                          className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-blue-400 rounded-lg text-xs font-mono border border-slate-800 flex items-center gap-1.5"
-                        >
-                          <FileOutput className="w-3.5 h-3.5" /> DOCX Word
-                        </button>
-                        <button
-                          onClick={() => exportAsPdf(extractedText, fileName)}
-                          className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-rose-400 rounded-lg text-xs font-mono border border-slate-800 flex items-center gap-1.5"
-                        >
-                          <FileOutput className="w-3.5 h-3.5" /> PDF Document
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 2. WORD PRO STUDIO */}
-            {activeTab === 'word' && (
-              <WordEditor
-                onSaveToHistory={saveHistoryItem}
-                onShowNotification={showNotification}
-              />
-            )}
-
-            {/* 3. EXCEL PRO SPREADSHEET */}
-            {activeTab === 'excel' && (
-              <ExcelSpreadsheet
-                onSaveToHistory={saveHistoryItem}
-                onShowNotification={showNotification}
-              />
-            )}
-
-            {/* 4. POWERPOINT PRO STUDIO */}
-            {activeTab === 'powerpoint' && (
-              <PowerPointStudio
-                onSaveToHistory={saveHistoryItem}
-                onShowNotification={showNotification}
-              />
-            )}
-
-            {/* 5. CANVA DESIGN STUDIO */}
-            {activeTab === 'canva' && (
-              <CanvaDesignStudio
-                onSaveToHistory={saveHistoryItem}
-                onShowNotification={showNotification}
-              />
-            )}
-
-            {/* 6. CHAT ASSISTANT */}
-            {activeTab === 'chat' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[calc(100vh-140px)]">
-                <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Bot className="w-5 h-5 text-indigo-400" />
-                    <div>
-                      <h2 className="text-xs font-bold text-slate-100 font-mono">Assistente Interativo IA</h2>
-                      <p className="text-[10px] text-slate-500 font-mono">Modelo Ativo: {currentEngine.label}</p>
-                    </div>
-                  </div>
-
-                  {chatMessages.length > 0 && (
-                    <button
-                      onClick={() => setChatMessages([])}
-                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-rose-400 rounded-lg text-xs font-mono border border-slate-800 flex items-center gap-1"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Limpar Chat
+                    <button onClick={() => setMobileMenuOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                      <X className="w-5 h-5" />
                     </button>
-                  )}
-                </div>
+                  </div>
 
-                {/* Messages Box */}
-                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/50 font-mono text-xs">
-                  {chatMessages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-slate-600 text-center space-y-2">
-                      <MessageSquare className="w-10 h-10 opacity-30" />
-                      <p className="text-slate-400">Digite uma mensagem ou anexe documentos/imagens para iniciar a análise.</p>
-                    </div>
-                  ) : (
-                    chatMessages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[85%] rounded-xl p-3.5 leading-relaxed ${
-                            msg.role === 'user'
-                              ? 'bg-indigo-600 text-white border border-indigo-500'
-                              : 'bg-slate-900 border border-slate-800 text-slate-200'
-                          }`}
-                        >
-                          {msg.files && msg.files.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-slate-800">
-                              {msg.files.map((f, i) => (
-                                <span key={i} className="text-[10px] bg-slate-950 px-2 py-0.5 rounded text-indigo-300 border border-slate-800 flex items-center gap-1">
-                                  <Paperclip className="w-3 h-3" />
-                                  {f.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          <div className="whitespace-pre-wrap">{msg.content}</div>
+                  <div className="space-y-5">
+                    {CATEGORIES.map((cat) => (
+                      <div key={cat.id} className="space-y-1">
+                        <div className="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                          <cat.icon className="w-3.5 h-3.5" />
+                          <span>{cat.title}</span>
                         </div>
+                        {cat.tools.map((tool) => {
+                          const ToolIcon = tool.icon;
+                          const isActive = activeTab === tool.id;
+                          return (
+                            <button
+                              key={tool.id}
+                              onClick={() => {
+                                setActiveTab(tool.id);
+                                setMobileMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-semibold min-h-[44px] ${
+                                isActive
+                                  ? 'bg-indigo-600 text-white shadow-md'
+                                  : 'text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/40'
+                              }`}
+                            >
+                              <ToolIcon className="w-4 h-4" />
+                              <div className="text-left">
+                                <div className="font-bold">{tool.label}</div>
+                                <div className="text-[10px] opacity-70 font-normal">{tool.desc}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
-                    ))
-                  )}
-
-                  {isChatLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center gap-2 text-slate-400">
-                        <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                        <span>Processando resposta com IA...</span>
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
 
-                {/* Attached Files Bar */}
-                {chatFiles.length > 0 && (
-                  <div className="p-2 bg-slate-950 border-t border-slate-800 flex flex-wrap gap-2">
-                    {chatFiles.map((file, idx) => (
-                      <span key={idx} className="text-xs bg-slate-900 border border-slate-800 text-indigo-300 px-2 py-1 rounded-lg flex items-center gap-1.5">
-                        <Paperclip className="w-3 h-3" />
-                        {file.name}
-                        <button onClick={() => setChatFiles(prev => prev.filter((_, i) => i !== idx))} className="hover:text-rose-400 ml-1">
-                          <X className="w-3 h-3" />
-                        </button>
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium text-center">
+                    DocuTools Pro v2.5 — Mobile Ready
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Center Canvas View Area */}
+        <main className="flex-1 overflow-y-auto bg-slate-100/60 dark:bg-slate-950 p-3 sm:p-6 flex flex-col justify-between">
+          <div className="max-w-7xl mx-auto w-full space-y-4">
+            
+            {/* Mobile Category Quick Switcher Pills (Top Bar) */}
+            <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    setActiveTab(cat.tools[0].id);
+                  }}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap min-h-[40px] border ${
+                    activeCategory === cat.id
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <cat.icon className="w-3.5 h-3.5" />
+                  <span>{cat.title}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Mobile Secondary Tool Selector Pills */}
+            <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+              {CATEGORIES.find((c) => c.id === activeCategory)?.tools.map((tool) => {
+                const ToolIcon = tool.icon;
+                const isActive = activeTab === tool.id;
+                return (
+                  <button
+                    key={tool.id}
+                    onClick={() => setActiveTab(tool.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+                      isActive
+                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold'
+                        : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <ToolIcon className="w-3.5 h-3.5" />
+                    <span>{tool.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active Tool Workspace Render */}
+            
+            {/* 1. OCR Extrator */}
+            {activeTab === 'extract' && (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-2xl space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      Extrator de Texto & OCR (Multi-arquivos)
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Digitalize múltiplos arquivos em lote (fotos, PDFs, DOCX, tabelas) e gerencie os resultados em lista.
+                    </p>
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".png,.jpg,.jpeg,.gif,.pdf,.docx,.xlsx,.xls,.txt,.csv,.json"
+                    multiple
+                  />
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => setIsGoogleDriveOpen(true)}
+                      className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-semibold rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm flex items-center justify-center gap-2 transition-all min-h-[44px]"
+                    >
+                      <HardDrive className="w-4 h-4 text-amber-500" />
+                      Google Drive
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 sm:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all min-h-[44px]"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Local
+                    </button>
+                  </div>
+                </div>
+
+                {/* Progress banner during active batch upload */}
+                {isProcessing && (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
+                        Processando em lote: {fileName}...
                       </span>
-                    ))}
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                      <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                    </div>
                   </div>
                 )}
 
-                {/* Input Controls */}
-                <div className="p-3 bg-slate-950 border-t border-slate-800 flex items-center gap-2">
-                  <input
-                    ref={chatFileInputRef}
-                    type="file"
-                    multiple
-                    onChange={handleChatFileUpload}
-                    className="hidden"
-                    accept=".png,.jpg,.jpeg,.pdf,.docx,.xlsx,.txt"
-                  />
-                  <button
-                    onClick={() => chatFileInputRef.current?.click()}
-                    title="Anexar arquivos ao chat"
-                    className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-xl border border-slate-800"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                  </button>
+                {/* Batch Actions Bar when items exist */}
+                {ocrList.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-indigo-50/60 dark:bg-slate-950 border border-indigo-100 dark:border-slate-800 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-indigo-900 dark:text-indigo-300">
+                        {ocrList.length} documento{ocrList.length > 1 ? 's' : ''} em lista
+                      </span>
+                      <button
+                        onClick={() => setIsMonospace(!isMonospace)}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-mono border ${
+                          isMonospace ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        {isMonospace ? 'Monospace' : 'Sans-Serif'}
+                      </button>
+                    </div>
 
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
-                    placeholder="Digite sua dúvida ou instrução técnica..."
-                    className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
-                  />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={copyAllOcrText}
+                        className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copiar Todos
+                      </button>
+                      <button
+                        onClick={() => exportAllOcr('txt')}
+                        className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shadow-sm"
+                      >
+                        <FileOutput className="w-3.5 h-3.5 text-slate-500" />
+                        Exportar Todos (TXT)
+                      </button>
+                      <button
+                        onClick={() => exportAllOcr('pdf')}
+                        className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900 flex items-center gap-1.5"
+                      >
+                        <FileOutput className="w-3.5 h-3.5" />
+                        PDF Unificado
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAiText(extractedText);
+                          setActiveTab('ai');
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Enviar Todos p/ Studio IA
+                      </button>
+                      <button
+                        onClick={clearAllOcrItems}
+                        className="px-2.5 py-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg border border-red-200 dark:border-red-900 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Limpar
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                  <button
-                    onClick={sendChatMessage}
-                    disabled={isChatLoading || (!chatInput.trim() && chatFiles.length === 0)}
-                    className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl disabled:opacity-50 transition-all"
+                {/* Empty State Dropzone */}
+                {ocrList.length === 0 && !isProcessing && (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl p-8 sm:p-12 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-950/40 transition-all group"
                   >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </div>
+                    <Upload className="w-10 h-10 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 mx-auto mb-3 transition-colors" />
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Arraste múltiplos arquivos ou clique para selecionar</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Selecione vários PNG, JPG, PDF, DOCX, XLSX, TXT ao mesmo tempo</p>
+                  </div>
+                )}
+
+                {/* List of OCR Results */}
+                {ocrList.length > 0 && (
+                  <div className="space-y-3">
+                    {ocrList.map((item) => {
+                      const isExpanded = expandedOcrId === item.id;
+                      return (
+                        <div key={item.id} className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-950/40">
+                          {/* Item Header */}
+                          <div className="p-3.5 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800">
+                            <div
+                              onClick={() => setExpandedOcrId(isExpanded ? null : item.id)}
+                              className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-[200px]"
+                            >
+                              {item.status === 'processing' ? (
+                                <Loader2 className="w-4 h-4 text-indigo-600 animate-spin shrink-0" />
+                              ) : item.status === 'done' ? (
+                                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                              ) : (
+                                <X className="w-4 h-4 text-rose-600 shrink-0" />
+                              )}
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[240px] sm:max-w-[360px]">
+                                {item.fileName}
+                              </span>
+                              {item.status === 'processing' && (
+                                <span className="text-[11px] text-indigo-600 font-medium">({item.progress}%)</span>
+                              )}
+                              {item.status === 'error' && (
+                                <span className="text-[11px] text-rose-500 font-medium">Erro na leitura</span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              {item.status === 'done' && (
+                                <>
+                                  <button
+                                    onClick={() => copyToClipboard(item.text)}
+                                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs"
+                                    title="Copiar texto"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => exportAsTxt(item.text, item.fileName)}
+                                    className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md text-[11px] font-semibold"
+                                  >
+                                    TXT
+                                  </button>
+                                  <button
+                                    onClick={() => exportAsDocx(item.text, item.fileName)}
+                                    className="px-2 py-1 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded-md text-[11px] font-semibold"
+                                  >
+                                    DOCX
+                                  </button>
+                                  <button
+                                    onClick={() => exportAsPdf(item.text, item.fileName)}
+                                    className="px-2 py-1 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 rounded-md text-[11px] font-semibold"
+                                  >
+                                    PDF
+                                  </button>
+                                  <button
+                                    onClick={() => openCustomPdf(item.text, item.fileName)}
+                                    className="px-2 py-1 bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800"
+                                    title="Exportar PDF com Estilo, Cabeçalho e Marca D'Água Personalizados"
+                                  >
+                                    PDF Pro
+                                  </button>
+                                  <button
+                                    onClick={() => handleSendOcrItemToChat(item)}
+                                    className="px-2 py-1 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 rounded-md text-[11px] font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1"
+                                    title="Conversar sobre este documento no Chat com IA"
+                                  >
+                                    <Bot className="w-3 h-3" />
+                                    Chat
+                                  </button>
+
+                                </>
+                              )}
+                              <button
+                                onClick={() => removeOcrItem(item.id)}
+                                className="p-1.5 hover:bg-rose-100 dark:hover:bg-rose-950/50 text-rose-500 rounded-lg text-xs"
+                                title="Remover item"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Item Content / Textarea */}
+                          {item.status === 'processing' && (
+                            <div className="p-3">
+                              <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${item.progress}%` }} />
+                              </div>
+                            </div>
+                          )}
+
+                          {item.status === 'done' && (
+                            <div className="p-3">
+                              <textarea
+                                value={item.text}
+                                onChange={(e) => updateOcrItemText(item.id, e.target.value)}
+                                className={`w-full ${isExpanded ? 'h-64' : 'h-32'} p-3.5 bg-white dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-sm sm:text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 leading-relaxed resize-y ${
+                                  isMonospace ? 'font-mono' : 'font-sans'
+                                }`}
+                                placeholder="Nenhum texto extraído..."
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 3. ARENA DE MODELOS */}
+            {/* 2. Word Pro */}
+            {activeTab === 'word' && (
+              <WordEditor
+                onSaveToHistory={saveHistoryItem}
+                showNotification={showNotification}
+                engineProvider={currentEngine.provider}
+                engineModel={currentEngine.model}
+              />
+            )}
+
+            {/* 3. Excel Pro */}
+            {activeTab === 'excel' && (
+              <ExcelSpreadsheet
+                onSaveToHistory={saveHistoryItem}
+                showNotification={showNotification}
+                engineProvider={currentEngine.provider}
+                engineModel={currentEngine.model}
+              />
+            )}
+
+            {/* 4. PowerPoint Pro */}
+            {activeTab === 'powerpoint' && (
+              <PowerPointStudio
+                onSaveToHistory={saveHistoryItem}
+                showNotification={showNotification}
+                engineProvider={currentEngine.provider}
+                engineModel={currentEngine.model}
+              />
+            )}
+
+            {/* 5. Canva Studio */}
+            {activeTab === 'canva' && (
+              <CanvaDesignStudio
+                onSaveToHistory={saveHistoryItem}
+                showNotification={showNotification}
+                engineProvider={currentEngine.provider}
+                engineModel={currentEngine.model}
+              />
+            )}
+
+            {/* 6. Assistente IA Chat */}
+            {activeTab === 'chat' && (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl flex flex-col h-[calc(100vh-170px)] sm:h-[calc(100vh-160px)]">
+                {/* Header & Sub-Tabs */}
+                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <Bot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                      <h2 className="text-xs font-bold text-slate-900 dark:text-slate-100">Assistente IA Interativo</h2>
+                      <p className="text-[11px] text-slate-500">{currentEngine.label}</p>
+                    </div>
+                  </div>
+
+                  {/* Sub-Tabs: Conversa Ativa vs Antigos Chats */}
+                  <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-slate-800/80 p-1 rounded-xl">
+                    <button
+                      onClick={() => setChatSubTab('active')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        chatSubTab === 'active'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      Conversa Ativa
+                    </button>
+                    <button
+                      onClick={() => setChatSubTab('history')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                        chatSubTab === 'history'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      Antigos Chats
+                      {chatSessions.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px]">
+                          {chatSessions.length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  {chatSubTab === 'active' && chatMessages.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const fullChatText = chatMessages.map(m => `${m.role === 'user' ? 'Usuário' : 'DocSwiss'}: ${cleanAsterisks(m.content)}`).join('\n\n');
+                          openCustomPdf(fullChatText, 'Conversa DocSwiss IA');
+                        }}
+                        className="px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-indigo-100 transition-all"
+                      >
+                        <FileOutput className="w-3.5 h-3.5" />
+                        PDF Customizado
+                      </button>
+                      <button
+                        onClick={() => setChatMessages([])}
+                        className="px-2.5 py-1.5 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-semibold flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Limpar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {chatSubTab === 'history' ? (
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <ChatHistoryVault
+                      sessions={chatSessions}
+                      activeSessionId={activeSessionId}
+                      onSelectSession={(session) => {
+                        setChatMessages(session.messages);
+                        setActiveSessionId(session.id);
+                        setChatSubTab('active');
+                        showNotification('Sessão de chat restaurada!');
+                      }}
+                      onDeleteSession={(id) => {
+                        const updated = chatSessions.filter(s => s.id !== id);
+                        setChatSessions(updated);
+                        localStorage.setItem('docswiss_chat_sessions', JSON.stringify(updated));
+                        showNotification('Sessão removida do histórico.');
+                      }}
+                      onClearAllSessions={() => {
+                        setChatSessions([]);
+                        localStorage.removeItem('docswiss_chat_sessions');
+                        showNotification('Histórico de chats limpo com sucesso.');
+                      }}
+                      onExportPdf={(session) => {
+                        const text = session.messages.map(m => `${m.role === 'user' ? 'Usuário' : 'DocSwiss'}: ${cleanAsterisks(m.content)}`).join('\n\n');
+                        openCustomPdf(text, session.title);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    {/* Messages Box */}
+                    <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-slate-100/40 dark:bg-slate-950/40 text-xs">
+                      {chatMessages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center space-y-2 py-12">
+                          <MessageSquare className="w-10 h-10 opacity-30" />
+                          <p className="text-slate-600 dark:text-slate-400 font-medium">Faça perguntas ou envie anexos para análise com Inteligência Artificial.</p>
+                        </div>
+                      ) : (
+                        chatMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[88%] rounded-2xl p-3.5 leading-relaxed ${
+                                msg.role === 'user'
+                                  ? 'bg-indigo-600 text-white shadow-md'
+                                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
+                              }`}
+                            >
+                              {msg.files && msg.files.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-white/20 dark:border-slate-800">
+                                  {msg.files.map((f, i) => (
+                                    <span key={i} className="text-[10px] bg-slate-900/10 dark:bg-slate-950 px-2 py-0.5 rounded text-indigo-200 dark:text-indigo-300 flex items-center gap-1">
+                                      <Paperclip className="w-3 h-3" />
+                                      {f.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {msg.role === 'assistant' ? (
+                                <div>
+                                  <CleanMarkdown content={msg.content} />
+                                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2 text-[10px]">
+                                    <button
+                                      onClick={() => copyToClipboard(cleanAsterisks(msg.content))}
+                                      className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-slate-500"
+                                    >
+                                      <Copy className="w-3 h-3" /> Copiar
+                                    </button>
+                                    <button
+                                      onClick={() => openCustomPdf(msg.content, 'Resposta DocSwiss IA')}
+                                      className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold"
+                                    >
+                                      <FileOutput className="w-3 h-3" /> Exportar PDF
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="whitespace-pre-wrap">{msg.content}</div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+
+                      {isChatLoading && (
+                        <div className="flex justify-start">
+                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-2xl flex items-center gap-2 text-slate-500">
+                            <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
+                            <span>Gerando resposta sem asteriscos...</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Attached Files */}
+                    {chatFiles.length > 0 && (
+                      <div className="p-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2">
+                        {chatFiles.map((file, idx) => (
+                          <span key={idx} className="text-xs bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                            <Paperclip className="w-3 h-3" />
+                            <span className="max-w-[120px] truncate">{file.name}</span>
+                            <button onClick={() => setViewingChatFileText(file)} className="hover:text-indigo-600 dark:hover:text-indigo-300" title="Ver texto lido do arquivo">
+                              <Eye className="w-3.5 h-3.5 text-indigo-500" />
+                            </button>
+                            <button onClick={() => setChatFiles(prev => prev.filter((_, i) => i !== idx))} className="hover:text-rose-500" title="Remover anexo">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Input Bar */}
+                    <div className="p-3 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2">
+                      <input
+                        ref={chatFileInputRef}
+                        type="file"
+                        multiple
+                        onChange={handleChatFileUpload}
+                        className="hidden"
+                        accept=".png,.jpg,.jpeg,.pdf,.docx,.xlsx,.txt"
+                      />
+                      <button
+                        onClick={() => setIsGoogleDriveOpen(true)}
+                        title="Anexar arquivo do Google Drive"
+                        className="p-2.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded-xl border border-amber-200 dark:border-amber-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      >
+                        <HardDrive className="w-4 h-4 text-amber-500" />
+                      </button>
+
+                      <button
+                        onClick={() => chatFileInputRef.current?.click()}
+                        title="Anexar arquivo local"
+                        className="p-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl border border-slate-200 dark:border-slate-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
+                        placeholder="Digite sua mensagem aqui..."
+                        className="flex-1 px-4 py-3 bg-white dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-sm sm:text-base text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 min-h-[48px]"
+                      />
+
+                      <button
+                        onClick={sendChatMessage}
+                        disabled={isChatLoading || (!chatInput.trim() && chatFiles.length === 0)}
+                        className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl disabled:opacity-50 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center shadow-md"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+
+            {/* 7. Arena de Modelos */}
             {activeTab === 'compare' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-                <div className="pb-4 border-b border-slate-800">
-                  <h2 className="text-base font-bold text-slate-100 flex items-center gap-2 font-mono">
-                    <SplitSquareHorizontal className="w-5 h-5 text-amber-400" />
-                    Arena Multi-Modelo Simultânea
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-2xl space-y-4">
+                <div className="pb-3 border-b border-slate-200 dark:border-slate-800">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <SplitSquareHorizontal className="w-5 h-5 text-amber-500" />
+                    Arena Multi-Modelo
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Avalie respostas em tempo real comparando Gemini 3.6 Flash, DeepSeek V3 e Claude 3.5 Sonnet.
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Compare respostas simultâneas do Gemini 3.6 Flash, DeepSeek V3 e Claude 3.5 Sonnet.
                   </p>
                 </div>
 
                 <textarea
                   value={comparePrompt}
                   onChange={(e) => setComparePrompt(e.target.value)}
-                  placeholder="Insira o prompt ou pergunta de teste para os modelos..."
-                  className="w-full h-28 p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                  placeholder="Insira o teste para disparar para todos os modelos..."
+                  className="w-full h-32 p-3.5 bg-white dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-sm sm:text-base text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 leading-relaxed"
                 />
 
                 <button
                   onClick={handleCompare}
                   disabled={isComparing || !comparePrompt.trim()}
-                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all font-mono"
+                  className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-50 transition-all min-h-[44px]"
                 >
                   {isComparing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-                  {isComparing ? 'Aguardando respostas simultâneas...' : 'Disparar Prompt para a Arena'}
+                  {isComparing ? 'Aguardando respostas simultâneas...' : 'Disparar para a Arena'}
                 </button>
 
                 {compareResults.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                     {compareResults.map((res, i) => (
-                      <div key={i} className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+                      <div key={i} className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2 flex flex-col justify-between shadow-sm">
                         <div>
-                          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                            <span className="text-xs font-bold text-indigo-300 font-mono">{res.name}</span>
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{res.name}</span>
                             <button
                               onClick={() => copyToClipboard(res.text)}
-                              className="text-slate-500 hover:text-slate-300"
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                             >
                               <Copy className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                          <div className="text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto mt-2">
-                            {res.text}
+                          <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed max-h-80 overflow-y-auto mt-2">
+                            <CleanMarkdown content={res.text} />
                           </div>
                         </div>
                       </div>
@@ -1213,19 +1942,19 @@ export default function App() {
               </div>
             )}
 
-            {/* 4. AI TEXT STUDIO */}
+            {/* 8. Studio de Texto IA */}
             {activeTab === 'ai' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-                <div className="pb-4 border-b border-slate-800 flex items-center justify-between">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-2xl space-y-4">
+                <div className="pb-3 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-bold text-slate-100 flex items-center gap-2 font-mono">
-                      <Sparkles className="w-5 h-5 text-purple-400" />
-                      Studio de Processamento de Texto
+                    <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      Studio de Texto IA
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">Tradução, Resumo, Correção Gramatical e Refinamento de Escrita</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tradução, Resumo, Correção Gramatical e Aprimoramento</p>
                   </div>
 
-                  <div className="flex gap-1.5 bg-slate-950 p-1 border border-slate-800 rounded-xl">
+                  <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-950 p-1 border border-slate-200 dark:border-slate-800 rounded-xl w-full sm:w-auto">
                     {[
                       { id: 'translate' as const, label: 'Traduzir' },
                       { id: 'summarize' as const, label: 'Resumir' },
@@ -1235,10 +1964,10 @@ export default function App() {
                       <button
                         key={act.id}
                         onClick={() => setAiAction(act.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
+                        className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all min-h-[36px] ${
                           aiAction === act.id
-                            ? 'bg-purple-600 text-white shadow-md'
-                            : 'text-slate-400 hover:text-slate-200'
+                            ? 'bg-purple-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                         }`}
                       >
                         {act.label}
@@ -1249,11 +1978,11 @@ export default function App() {
 
                 {aiAction === 'translate' && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-slate-400">IDIOMA DE DESTINO:</span>
+                    <span className="text-xs font-semibold text-slate-500">Idioma Destino:</span>
                     <select
                       value={targetLang}
                       onChange={(e) => setTargetLang(e.target.value)}
-                      className="px-3 py-1.5 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg font-mono focus:outline-none focus:border-indigo-500"
+                      className="px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
                     >
                       {LANGUAGES.map((l) => (
                         <option key={l.code} value={l.code}>
@@ -1268,72 +1997,83 @@ export default function App() {
                   value={aiText}
                   onChange={(e) => setAiText(e.target.value)}
                   placeholder="Insira o texto fonte aqui..."
-                  className="w-full h-40 p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                  className="w-full h-44 p-3.5 bg-white dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-sm sm:text-base text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 leading-relaxed"
                 />
 
                 <button
                   onClick={handleAiAction}
                   disabled={isAiWorking || !aiText.trim()}
-                  className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all font-mono"
+                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-50 transition-all min-h-[44px]"
                 >
                   {isAiWorking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                  {isAiWorking ? 'Processando texto com IA...' : 'Executar Processamento'}
+                  {isAiWorking ? 'Processando...' : 'Executar Processamento'}
                 </button>
 
                 {aiResult && (
-                  <div className="pt-4 border-t border-slate-800 space-y-2">
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-semibold text-purple-300">RESULTADO DA IA:</span>
-                      <button
-                        onClick={() => copyToClipboard(aiResult)}
-                        className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded text-xs font-mono border border-slate-800 flex items-center gap-1"
-                      >
-                        <Copy className="w-3 h-3" />
-                        Copiar
-                      </button>
+                      <span className="text-xs font-bold text-purple-700 dark:text-purple-300">Resultado:</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => copyToClipboard(cleanAsterisks(aiResult))}
+                          className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold border border-slate-200 dark:border-slate-700 flex items-center gap-1 hover:bg-slate-200"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          Copiar
+                        </button>
+                        <button
+                          onClick={() => openCustomPdf(aiResult, `Resultado IA - ${aiAction.toUpperCase()}`)}
+                          className="px-2.5 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 rounded text-xs font-bold border border-purple-200 dark:border-purple-800 flex items-center gap-1 hover:bg-purple-200 transition-all"
+                        >
+                          <FileOutput className="w-3.5 h-3.5" />
+                          PDF Customizado
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 font-mono whitespace-pre-wrap leading-relaxed">
-                      {aiResult}
+                    <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-slate-100 leading-relaxed">
+                      <CleanMarkdown content={aiResult} />
                     </div>
                   </div>
                 )}
+
               </div>
             )}
 
-            {/* 5. VISUAL STUDIO */}
+            {/* 9. Gerador Visual Studio */}
             {activeTab === 'image' && (
               <ImageGeneratorStudio
                 onSaveToHistory={saveHistoryItem}
-                onShowNotification={showNotification}
+                showNotification={showNotification}
+                engineProvider={currentEngine.provider}
               />
             )}
 
-            {/* 6. AUDIO LAB */}
+            {/* 10. Audio Lab */}
             {activeTab === 'audio' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-                <div className="pb-4 border-b border-slate-800 flex items-center justify-between">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-2xl space-y-4">
+                <div className="pb-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                   <div>
-                    <h2 className="text-base font-bold text-slate-100 flex items-center gap-2 font-mono">
-                      <Volume2 className="w-5 h-5 text-cyan-400" />
+                    <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <Volume2 className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                       Laboratório de Áudio
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">Síntese de Voz (TTS) e Reconhecimento de Áudio (STT)</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Síntese de Voz (TTS) e Transcrição (STT)</p>
                   </div>
 
-                  <div className="flex gap-1.5 bg-slate-950 p-1 border border-slate-800 rounded-xl">
+                  <div className="flex gap-1 bg-slate-100 dark:bg-slate-950 p-1 border border-slate-200 dark:border-slate-800 rounded-xl">
                     <button
                       onClick={() => setAudioSubTab('tts')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium ${
-                        audioSubTab === 'tts' ? 'bg-cyan-600 text-white' : 'text-slate-400'
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                        audioSubTab === 'tts' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       Texto → Fala
                     </button>
                     <button
                       onClick={() => setAudioSubTab('stt')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium ${
-                        audioSubTab === 'stt' ? 'bg-cyan-600 text-white' : 'text-slate-400'
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                        audioSubTab === 'stt' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       Fala → Texto
@@ -1347,13 +2087,13 @@ export default function App() {
                       value={ttsText}
                       onChange={(e) => setTtsText(e.target.value)}
                       placeholder="Insira o texto para ser vocalizado em Português..."
-                      className="w-full h-32 p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                      className="w-full h-36 p-3.5 bg-white dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-sm sm:text-base text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 leading-relaxed"
                     />
 
                     <button
                       onClick={handleTTS}
-                      className={`w-full py-2.5 rounded-xl font-mono text-xs font-semibold flex items-center justify-center gap-2 shadow-lg transition-all ${
-                        isSpeaking ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-cyan-600 hover:bg-cyan-500 text-white'
+                      className={`w-full py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md transition-all min-h-[44px] ${
+                        isSpeaking ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-cyan-600 hover:bg-cyan-700 text-white'
                       }`}
                     >
                       {isSpeaking ? <StopCircle className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -1366,22 +2106,22 @@ export default function App() {
                   <div className="space-y-4">
                     <button
                       onClick={handleSTT}
-                      className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${
+                      className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all min-h-[120px] ${
                         isRecording
-                          ? 'border-rose-500 bg-rose-500/10 text-rose-300'
-                          : 'border-slate-800 bg-slate-950 hover:border-cyan-500/50 text-slate-300'
+                          ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 hover:border-cyan-500 text-slate-700 dark:text-slate-300'
                       }`}
                     >
-                      <div className={`p-3 rounded-full ${isRecording ? 'bg-rose-500 animate-pulse text-white' : 'bg-cyan-600 text-white'}`}>
+                      <div className={`p-3 rounded-full ${isRecording ? 'bg-rose-600 animate-pulse text-white' : 'bg-cyan-600 text-white'}`}>
                         <Mic className="w-6 h-6" />
                       </div>
-                      <span className="text-xs font-mono">
-                        {isRecording ? 'Gravando áudio... Clique para finalizar.' : 'Clique para ativar a escuta do microfone'}
+                      <span className="text-xs font-semibold">
+                        {isRecording ? 'Gravando áudio... Clique para finalizar.' : 'Clique para gravar pelo microfone'}
                       </span>
                     </button>
 
                     {sttResult && (
-                      <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 font-mono whitespace-pre-wrap">
+                      <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-slate-100 whitespace-pre-wrap">
                         {sttResult}
                       </div>
                     )}
@@ -1390,7 +2130,7 @@ export default function App() {
               </div>
             )}
 
-            {/* 7. HISTÓRICO VAULT */}
+            {/* 11. Histórico Vault */}
             {activeTab === 'history' && (
               <HistoryVault
                 items={historyItems}
@@ -1403,23 +2143,63 @@ export default function App() {
 
           </div>
 
-          {/* Bottom Statusbar Metrics */}
-          <footer className="mt-6 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-slate-500 gap-2">
+          {/* Footer Metrics */}
+          <footer className="mt-6 pt-3 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 gap-2">
             <div className="flex items-center gap-4">
-              <span>Palavras: <strong className="text-slate-300 font-normal">{wordCount}</strong></span>
-              <span>Caracteres: <strong className="text-slate-300 font-normal">{charCount}</strong></span>
-              <span>Histórico: <strong className="text-slate-300 font-normal">{historyItems.length} entradas</strong></span>
+              <span>Palavras: <strong className="text-slate-700 dark:text-slate-300 font-bold">{wordCount}</strong></span>
+              <span>Caracteres: <strong className="text-slate-700 dark:text-slate-300 font-bold">{charCount}</strong></span>
+              <span>Histórico: <strong className="text-slate-700 dark:text-slate-300 font-bold">{historyItems.length} itens</strong></span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 text-slate-400">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Sessão Segura Vercel Proxy
-              </span>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>DocSwiss Workspace</span>
             </div>
           </footer>
         </main>
       </div>
+      {/* Google Drive Integration Modal */}
+      <GoogleDriveModal
+        isOpen={isGoogleDriveOpen}
+        onClose={() => setIsGoogleDriveOpen(false)}
+        onSelectFile={handleGoogleDriveFileSelect}
+        onNotification={showNotification}
+      />
+
+      {/* Modal to view extracted text of attached chat file */}
+      {viewingChatFileText && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                <FileText className="w-5 h-5" />
+                <span>Texto Extraído: {viewingChatFileText.name}</span>
+              </div>
+              <button onClick={() => setViewingChatFileText(null)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-mono whitespace-pre-wrap text-slate-800 dark:text-slate-200">
+              {viewingChatFileText.content || '(Arquivo sem conteúdo de texto visível ou em processamento)'}
+            </div>
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                onClick={() => copyToClipboard(viewingChatFileText.content)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copiar Texto
+              </button>
+              <button
+                onClick={() => setViewingChatFileText(null)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

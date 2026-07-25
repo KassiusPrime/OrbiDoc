@@ -23,7 +23,7 @@ export const WordEditor: React.FC<WordEditorProps> = ({
   onSaveToHistory,
   showNotification = () => {},
   engineProvider = 'gemini',
-  engineModel = 'gemini-2.5-flash',
+  engineModel = 'gemini-3.6-flash',
 }) => {
   const [docTitle, setDocTitle] = useState('Novo Documento.docx');
   const [content, setContent] = useState(initialContent || '### Relatório Executivo e Proposta\n\nBem-vindo ao **Word Studio Pro**! Digite seu texto aqui ou utilize as ferramentas de IA para gerar conteúdos completos, relatórios e revisões.\n\n- Suporte a marcação e formatação rápida\n- Exportação direta para **DOCX**, **PDF** e **TXT**\n- Copiloto com Inteligência Artificial integrada\n');

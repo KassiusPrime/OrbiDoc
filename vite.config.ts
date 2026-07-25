@@ -124,10 +124,10 @@ export default defineConfig({
       },
 
       manifest: {
-        name: "DocuTools Pro",
-        short_name: "DocuTools",
+        name: "DocSwiss",
+        short_name: "DocSwiss",
         description:
-          "OCR, IA, Transcrição de Áudio, Tradução, PDF e Conversão de Mídia",
+          "Canivete Suíço para OCR, IA, Transcrição de Áudio, Tradução, PDF e Edição de Documentos",
         theme_color: "#6366f1",
         background_color: "#ffffff",
         display: "standalone",

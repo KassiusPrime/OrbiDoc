@@ -19,6 +19,17 @@ export interface AiMessage {
   content: string;
 }
 
+export interface OcrItem {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  text: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  progress: number;
+  error?: string;
+  timestamp: string;
+}
+
 export interface ChatFile {
   name: string;
   type: string;
@@ -34,7 +45,51 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-export interface HistoryItem {
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+  modelUsed?: string;
+}
+
+export interface PdfExportOptions {
+  title: string;
+  subtitle?: string;
+  author?: string;
+  fontFamily: 'helvetica' | 'times' | 'courier';
+  fontSize: number; // 10, 12, 14, 16
+  margin: 'narrow' | 'normal' | 'wide'; // 10, 15, 25mm
+  themeColor: 'indigo' | 'swiss-red' | 'emerald' | 'slate' | 'navy';
+  showPageNumbers: boolean;
+  showDate: boolean;
+  watermark?: string;
+  lineSpacing: number; // 1.2, 1.5, 2.0
+}
+
+export interface GoogleUserProfile {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+  accessToken: string;
+  expiresAt?: number;
+}
+
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;
+  webViewLink?: string;
+  size?: string;
+}
+
+export type AppThemeMode = 'auto' | 'light' | 'dark';
+export type AppFontFamily = 'sans' | 'serif' | 'mono' | 'dyslexic';
+export type AppFontSize = 'compact' | 'normal' | 'large';
+
   id: string;
   type: 'ocr' | 'word' | 'excel' | 'powerpoint' | 'canva' | 'chat' | 'compare' | 'ai' | 'image' | 'audio';
   title: string;
