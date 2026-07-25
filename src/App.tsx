@@ -1069,8 +1069,8 @@ export default function App() {
                   <DownloadCloud className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Como Baixar e Instalar o DocSwiss</h2>
-                  <p className="text-xs text-slate-500">Instalação no Celular/PC e Download do Projeto</p>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Instalar o Aplicativo Nativo DocSwiss (WebAPK)</h2>
+                  <p className="text-xs text-slate-500">Instalação direta no Celular/PC e Download do Projeto</p>
                 </div>
               </div>
               <button onClick={() => setShowInstallModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
@@ -1080,22 +1080,42 @@ export default function App() {
 
             <div className="space-y-6 text-xs text-slate-700 dark:text-slate-300">
               {/* Option 1: PWA Installation */}
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 p-4 rounded-xl space-y-3">
-                <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300 text-sm">
-                  <Smartphone className="w-4 h-4 text-emerald-600" />
-                  1. Instalar como Aplicativo Nativo (PWA - Celular e Computador)
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 p-4 rounded-xl space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300 text-sm">
+                    <Smartphone className="w-4 h-4 text-emerald-600" />
+                    1. Instalar Aplicativo Nativo (WebAPK - Celular e Computador)
+                  </div>
+                  {deferredPrompt && (
+                    <button
+                      onClick={async () => {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        if (outcome === 'accepted') {
+                          setDeferredPrompt(null);
+                          setShowInstallModal(false);
+                          showNotification('Instalação do aplicativo iniciada!', 'success');
+                        }
+                      }}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center gap-1.5"
+                    >
+                      <DownloadCloud className="w-4 h-4" />
+                      Instalar Aplicativo Agora
+                    </button>
+                  )}
                 </div>
+
                 <p className="leading-relaxed">
-                  O <strong>DocSwiss</strong> é um aplicativo PWA moderno. Você pode instalá-lo diretamente no seu dispositivo sem precisar de loja de aplicativos!
+                  O <strong>DocSwiss</strong> suporta instalação WebAPK nativa no Android e PWA standalone no iOS e PC. Ao instalar, o sistema cria o app nativo no seu dispositivo com ícone próprio na tela inicial e gaveta de apps, funcionando em tela cheia e com alta velocidade.
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-100 dark:border-emerald-900/40 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
                       <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> Android (Chrome)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Abra o menu (<strong>⋮</strong>) no canto superior do Chrome → Toque em <strong>"Adicionar à Tela Inicial"</strong> ou <strong>"Instalar aplicativo"</strong>.
+                      Abra o menu (<strong>⋮</strong>) no canto superior do Chrome → Toque em <strong>"Instalar aplicativo"</strong>. O Android gerará o WebAPK nativo.
                     </p>
                   </div>
 
@@ -1104,16 +1124,16 @@ export default function App() {
                       <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> iPhone (Safari)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Toque no botão <strong>Compartilhar</strong> (quadrado com seta para cima) no Safari → Selecione <strong>"Adicionar à Tela de Início"</strong>.
+                      Toque no botão <strong>Compartilhar</strong> (quadrado com seta para cima) no Safari → Selecione <strong>"Adicionar à Tela de Início"</strong> para instalar o App.
                     </p>
                   </div>
 
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-100 dark:border-emerald-900/40 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                      <Monitor className="w-3.5 h-3.5 text-emerald-600" /> PC (Chrome/Edge)
+                      <Monitor className="w-3.5 h-3.5 text-emerald-600" /> PC (Chrome / Edge)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Clique no ícone de tela com seta na barra de endereço da URL (lado direito) ou no menu → <strong>"Instalar DocSwiss"</strong>.
+                      Clique no ícone de tela com seta na barra de endereço (canto direito da URL) → <strong>"Instalar DocSwiss"</strong>.
                     </p>
                   </div>
                 </div>
