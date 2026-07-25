@@ -62,6 +62,8 @@ export default defineConfig({
 
       includeAssets: [
         "logo.png",
+        "logo-192.png",
+        "logo-512.png",
         "favicon.ico",
         "apple-touch-icon.png",
         "manifest.webmanifest",
@@ -146,25 +148,25 @@ export default defineConfig({
 
         icons: [
           {
-            src: "/logo.png",
+            src: "/logo-192.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any",
           },
           {
-            src: "/logo.png",
+            src: "/logo-192.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "maskable",
           },
           {
-            src: "/logo.png",
+            src: "/logo-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any",
           },
           {
-            src: "/logo.png",
+            src: "/logo-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",

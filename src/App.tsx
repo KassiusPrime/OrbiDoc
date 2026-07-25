@@ -7,7 +7,7 @@ import {
   Activity, Cpu, ShieldCheck, Terminal, Monitor, ChevronRight, Layers, HelpCircle,
   FileSpreadsheet, Presentation, PenTool, Edit3, Menu, ChevronDown, ChevronUp, Grid, Sparkle,
   Smartphone, Download, RefreshCw, CheckCircle2, AlertCircle, FileSearch, Layers3,
-  Eye, HardDrive
+  Eye, HardDrive, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
@@ -1086,27 +1086,53 @@ export default function App() {
                     <Smartphone className="w-4 h-4 text-emerald-600" />
                     1. Instalar Aplicativo Nativo (WebAPK - Celular e Computador)
                   </div>
-                  {deferredPrompt && (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={async () => {
-                        deferredPrompt.prompt();
-                        const { outcome } = await deferredPrompt.userChoice;
-                        if (outcome === 'accepted') {
-                          setDeferredPrompt(null);
-                          setShowInstallModal(false);
-                          showNotification('Instalação do aplicativo iniciada!', 'success');
-                        }
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center gap-1.5"
+                      onClick={() => window.open(window.location.href, '_blank')}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center gap-1.5"
                     >
-                      <DownloadCloud className="w-4 h-4" />
-                      Instalar Aplicativo Agora
+                      <ExternalLink className="w-4 h-4" />
+                      Abrir em Nova Aba para Instalar
                     </button>
-                  )}
+
+                    {deferredPrompt && (
+                      <button
+                        onClick={async () => {
+                          deferredPrompt.prompt();
+                          const { outcome } = await deferredPrompt.userChoice;
+                          if (outcome === 'accepted') {
+                            setDeferredPrompt(null);
+                            setShowInstallModal(false);
+                            showNotification('Instalação do aplicativo iniciada!', 'success');
+                          }
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center gap-1.5"
+                      >
+                        <DownloadCloud className="w-4 h-4" />
+                        Instalar Aplicativo Agora
+                      </button>
+                    )}
+                  </div>
                 </div>
 
+                {/* Important notice when inside iframe */}
+                {typeof window !== 'undefined' && window.self !== window.top && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed space-y-1">
+                    <div className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      Aviso Importante do Navegador (iFrame)
+                    </div>
+                    <p>
+                      Você está visualizando o app dentro do quadro incorporado do editor. O Google Chrome, Edge e Safari <strong>bloqueiam a instalação de WebAPKs dentro de quadros (iframes)</strong> por política de segurança.
+                    </p>
+                    <p className="font-semibold text-amber-950 dark:text-amber-100">
+                      👉 Clique no botão azul "Abrir em Nova Aba para Instalar" acima. Ao abrir em uma nova janela, o seu navegador ativará o menu nativo <strong>"Instalar aplicativo"</strong> imediatamente!
+                    </p>
+                  </div>
+                )}
+
                 <p className="leading-relaxed">
-                  O <strong>DocSwiss</strong> suporta instalação WebAPK nativa no Android e PWA standalone no iOS e PC. Ao instalar, o sistema cria o app nativo no seu dispositivo com ícone próprio na tela inicial e gaveta de apps, funcionando em tela cheia e com alta velocidade.
+                  O <strong>DocSwiss</strong> é configurado com PWA / WebAPK nativo. Ao instalar, o Android gerará um <strong>WebAPK real</strong> com ícone próprio na gaveta de aplicativos e tela de início, sem atalho de navegador, funcionando em tela cheia com máxima velocidade offline.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
@@ -1115,7 +1141,7 @@ export default function App() {
                       <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> Android (Chrome)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Abra o menu (<strong>⋮</strong>) no canto superior do Chrome → Toque em <strong>"Instalar aplicativo"</strong>. O Android gerará o WebAPK nativo.
+                      Na nova aba, abra o menu (<strong>⋮</strong>) do Chrome → Toque em <strong>"Instalar aplicativo"</strong>. O Android criará o WebAPK nativo com ícone próprio.
                     </p>
                   </div>
 
@@ -1124,7 +1150,7 @@ export default function App() {
                       <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> iPhone (Safari)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Toque no botão <strong>Compartilhar</strong> (quadrado com seta para cima) no Safari → Selecione <strong>"Adicionar à Tela de Início"</strong> para instalar o App.
+                      Na nova aba no Safari, toque em <strong>Compartilhar</strong> (quadrado com seta) → Selecione <strong>"Adicionar à Tela de Início"</strong>.
                     </p>
                   </div>
 
@@ -1133,7 +1159,7 @@ export default function App() {
                       <Monitor className="w-3.5 h-3.5 text-emerald-600" /> PC (Chrome / Edge)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Clique no ícone de tela com seta na barra de endereço (canto direito da URL) → <strong>"Instalar DocSwiss"</strong>.
+                      Na nova aba, clique no ícone de tela na barra de endereço (canto direito da URL) → <strong>"Instalar DocSwiss"</strong>.
                     </p>
                   </div>
                 </div>
