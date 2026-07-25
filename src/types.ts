@@ -151,5 +151,6 @@ export interface ExcelCell {
   align?: 'left' | 'center' | 'right';
   bgColor?: string;
   textColor?: string;
+  fontFamily?: string;
 }
 

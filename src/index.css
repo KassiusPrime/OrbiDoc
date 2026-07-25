@@ -1,6 +1,24 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700&display=swap');
 
 @variant dark (&:where(.dark, .dark *));
+
+/* Font family classes for user-requested fonts */
+.font-calibri {
+  font-family: Calibri, Carlito, Aptos, 'Segoe UI', sans-serif;
+}
+
+.font-league-spartan {
+  font-family: 'League Spartan', sans-serif;
+}
+
+.font-arial {
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.font-times {
+  font-family: 'Times New Roman', Times, Georgia, serif;
+}
 
 /* Animações customizadas */
 @keyframes loading {

@@ -65,6 +65,63 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
   const [editingFormula, setEditingFormula] = useState<string>('');
   const [showChartModal, setShowChartModal] = useState(false);
 
+  // Apply Auto-Sum formula to the current active cell
+  const applyAutoSum = () => {
+    if (!activeCellKey) return;
+    const colMatch = activeCellKey.match(/[A-Z]+/)?.[0] || 'A';
+    const rowMatch = parseInt(activeCellKey.match(/[0-9]+/)?.[0] || '1', 10);
+
+    if (rowMatch > 1) {
+      const startCell = `${colMatch}1`;
+      const endCell = `${colMatch}${rowMatch - 1}`;
+      const autoFormula = `=SUM(${startCell}:${endCell})`;
+      handleCellChange(activeCellKey, autoFormula);
+      showNotification(`Fórmula de auto-soma ${autoFormula} inserida em ${activeCellKey}`, 'success');
+    } else {
+      showNotification('Selecione uma célula abaixo dos seus dados para aplicar a Auto-Soma.', 'error');
+    }
+  };
+
+  // Format active grid as table with themes
+  const formatAsTable = (theme: 'emerald' | 'blue' | 'slate' | 'purple') => {
+    const themeColors = {
+      emerald: { header: '#059669', headerText: '#ffffff', zebra: '#ecfdf5', altZebra: '#ffffff' },
+      blue: { header: '#2563eb', headerText: '#ffffff', zebra: '#eff6ff', altZebra: '#ffffff' },
+      slate: { header: '#334155', headerText: '#ffffff', zebra: '#f8fafc', altZebra: '#ffffff' },
+      purple: { header: '#7c3aed', headerText: '#ffffff', zebra: '#faf5ff', altZebra: '#ffffff' },
+    }[theme];
+
+    setGridData(prev => {
+      const updated = { ...prev };
+      // Format top row (1)
+      cols.forEach(c => {
+        const k = `${c}1`;
+        updated[k] = {
+          ...(updated[k] || { value: '' }),
+          bold: true,
+          bgColor: themeColors.header,
+          textColor: themeColors.headerText,
+          align: 'center',
+        };
+      });
+
+      // Format data rows with zebra stripes
+      for (let r = 2; r <= Math.min(rowCount, 10); r++) {
+        cols.forEach(c => {
+          const k = `${c}${r}`;
+          updated[k] = {
+            ...(updated[k] || { value: '' }),
+            bgColor: r % 2 === 0 ? themeColors.zebra : themeColors.altZebra,
+          };
+        });
+      }
+
+      return updated;
+    });
+
+    showNotification(`Tabela formatada com o tema ${theme.toUpperCase()}!`, 'success');
+  };
+
   // Evaluate cell value or formula
   const evaluateCell = (key: string, data: Record<string, ExcelCell>, visited = new Set<string>()): string => {
     const cell = data[key];
@@ -160,6 +217,22 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
     setGridData(prev => ({
       ...prev,
       [activeCellKey]: { ...(prev[activeCellKey] || {}), bgColor: color }
+    }));
+  };
+
+  const setCellTextColor = (color: string) => {
+    if (!activeCellKey) return;
+    setGridData(prev => ({
+      ...prev,
+      [activeCellKey]: { ...(prev[activeCellKey] || {}), textColor: color }
+    }));
+  };
+
+  const setCellFontFamily = (font: string) => {
+    if (!activeCellKey) return;
+    setGridData(prev => ({
+      ...prev,
+      [activeCellKey]: { ...(prev[activeCellKey] || {}), fontFamily: font }
     }));
   };
 
@@ -289,8 +362,8 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
       </div>
 
       {/* Toolbar & Formula Bar */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-2 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 border-r border-slate-200 pr-2">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-2.5 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 border-r border-slate-200 pr-2 flex-wrap">
           <button
             onClick={toggleBold}
             className={`p-2 rounded-lg text-xs font-bold ${
@@ -301,20 +374,82 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
             <Bold className="w-4 h-4" />
           </button>
 
-          <div className="flex gap-1 ml-1">
+          {/* Font Selector */}
+          <select
+            value={gridData[activeCellKey]?.fontFamily || 'font-sans'}
+            onChange={(e) => setCellFontFamily(e.target.value)}
+            className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-transparent outline-none"
+            title="Fonte da célula"
+          >
+            <option value="font-calibri">Calibri</option>
+            <option value="font-league-spartan">League Spartan</option>
+            <option value="font-arial">Arial</option>
+            <option value="font-times">Times New Roman</option>
+            <option value="font-sans">Sans-serif</option>
+            <option value="font-serif">Serif</option>
+            <option value="font-mono">Monospaced</option>
+          </select>
+
+          {/* Auto-Sum Button */}
+          <button
+            onClick={applyAutoSum}
+            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-emerald-200"
+            title="Auto-Soma de valores superiores"
+          >
+            <Calculator className="w-3.5 h-3.5" />
+            Auto-Soma
+          </button>
+
+          {/* Format as Table Themes */}
+          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200">
+            <span className="text-[10px] font-bold text-slate-500 uppercase px-1">Tabela:</span>
+            {[
+              { id: 'emerald', label: 'Verde', bg: 'bg-emerald-600' },
+              { id: 'blue', label: 'Azul', bg: 'bg-blue-600' },
+              { id: 'slate', label: 'Cinza', bg: 'bg-slate-700' },
+              { id: 'purple', label: 'Roxo', bg: 'bg-purple-600' },
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => formatAsTable(t.id as any)}
+                className={`w-4 h-4 rounded-full ${t.bg} hover:scale-125 transition-transform`}
+                title={`Formatar como tabela (${t.label})`}
+              />
+            ))}
+          </div>
+
+          {/* Background & Text Colors */}
+          <div className="flex items-center gap-1 ml-1">
+            <span className="text-[10px] font-bold text-slate-400">Fundo:</span>
             {['#ffffff', '#e0f2fe', '#dcfce7', '#fef08a', '#f3e8ff'].map(c => (
               <button
                 key={c}
                 onClick={() => setCellColor(c)}
-                className="w-5 h-5 rounded-md border border-slate-300"
+                className="w-4 h-4 rounded-md border border-slate-300"
                 style={{ backgroundColor: c }}
+                title="Cor de fundo"
               />
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1 ml-1">
+            <span className="text-[10px] font-bold text-slate-400">Texto:</span>
+            {['#0f172a', '#2563eb', '#dc2626', '#16a34a', '#7c3aed'].map(tc => (
+              <button
+                key={tc}
+                onClick={() => setCellTextColor(tc)}
+                className="w-4 h-4 rounded-md border border-slate-300 font-bold text-[9px] flex items-center justify-center"
+                style={{ backgroundColor: tc, color: '#ffffff' }}
+                title="Cor do texto"
+              >
+                A
+              </button>
             ))}
           </div>
         </div>
 
         {/* Active Cell Formula Input */}
-        <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+        <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
           <span className="font-mono font-bold text-xs text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
             {activeCellKey}
           </span>
@@ -370,7 +505,10 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
                           value={isActive ? cellData.value || '' : displayVal}
                           onChange={(e) => handleCellChange(cellKey, e.target.value)}
                           onFocus={() => setActiveCellKey(cellKey)}
-                          className={`w-full py-2 px-3 bg-transparent border-none outline-none text-slate-800 font-sans ${
+                          style={{ color: cellData.textColor || 'inherit' }}
+                          className={`w-full py-2 px-3 bg-transparent border-none outline-none ${
+                            cellData.fontFamily || 'font-sans'
+                          } ${
                             cellData.bold ? 'font-bold' : 'font-normal'
                           } ${
                             cellData.align === 'center' ? 'text-center' : cellData.align === 'right' ? 'text-right' : 'text-left'
