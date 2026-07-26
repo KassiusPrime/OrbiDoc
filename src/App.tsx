@@ -35,6 +35,7 @@ import { GoogleDriveModal } from './components/GoogleDriveModal';
 import { OfficeSuiteHub } from './components/OfficeSuiteHub';
 import { OcrPreviewWorkspace } from './components/OcrPreviewWorkspace';
 import { ProjectsHub } from './components/ProjectsHub';
+import { BrowserGuideModal } from './components/BrowserGuideModal';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
 import { cleanAsterisks, optimizeLocalCR } from './lib/cleanText';
@@ -209,10 +210,30 @@ export default function App() {
   // PWA Install State & Listener
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [showBrowserGuide, setShowBrowserGuide] = useState(false);
+  const [notification, setNotification] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  const showNotification = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 3000);
+  }, []);
+
+  const handleTriggerInstall = useCallback(() => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          showNotification('DocSwiss instalado com sucesso!', 'success');
+        }
+        setDeferredPrompt(null);
+      });
+    } else {
+      setShowBrowserGuide(true);
+    }
+  }, [deferredPrompt, showNotification]);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [notification, setNotification] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [isThemeFontOpen, setIsThemeFontOpen] = useState(false);
 
@@ -283,25 +304,13 @@ export default function App() {
         setShowShortcutsModal(false);
         setShowSettings(false);
         setShowInstallModal(false);
+        setShowBrowserGuide(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const handleTriggerInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-        showNotification('Instalação iniciada!', 'success');
-      }
-    } else {
-      setShowInstallModal(true);
-    }
-  };
 
   // Google & Microsoft User Profile States
   const [googleUser, setGoogleUser] = useState<GoogleUserProfile | null>(() => getStoredGoogleUser());
@@ -491,11 +500,6 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [sttResult, setSttResult] = useState('');
   const recognitionRef = useRef<any>(null);
-
-  const showNotification = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 3000);
-  }, []);
 
   const handleOpenProject = useCallback((project: SavedProject) => {
     setActiveProject(project);
@@ -2390,6 +2394,14 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Browser & PWA Installation Guide Modal */}
+      <BrowserGuideModal
+        isOpen={showBrowserGuide}
+        onClose={() => setShowBrowserGuide(false)}
+        deferredPrompt={deferredPrompt}
+        onTriggerInstall={handleTriggerInstall}
+      />
     </div>
   );
 }
