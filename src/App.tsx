@@ -7,7 +7,7 @@ import {
   Activity, Cpu, ShieldCheck, Terminal, Monitor, ChevronRight, Layers, HelpCircle,
   FileSpreadsheet, Presentation, PenTool, Edit3, Menu, ChevronDown, ChevronUp, Grid, Sparkle,
   Smartphone, Download, RefreshCw, CheckCircle2, AlertCircle, FileSearch, Layers3,
-  Eye, HardDrive, ExternalLink
+  Eye, HardDrive, ExternalLink, ArrowLeft, FolderKanban, Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
@@ -18,7 +18,7 @@ import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs';
 import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 
-import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem, OcrItem, ChatSession, GoogleUserProfile, MicrosoftUserProfile } from './types';
+import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem, OcrItem, ChatSession, GoogleUserProfile, MicrosoftUserProfile, SavedProject } from './types';
 import { DocSwissLogo } from './components/DocSwissLogo';
 import { HistoryVault } from './components/HistoryVault';
 import { WordEditor } from './components/WordEditor';
@@ -34,6 +34,7 @@ import { ChatHistoryVault } from './components/ChatHistoryVault';
 import { GoogleDriveModal } from './components/GoogleDriveModal';
 import { OfficeSuiteHub } from './components/OfficeSuiteHub';
 import { OcrPreviewWorkspace } from './components/OcrPreviewWorkspace';
+import { ProjectsHub } from './components/ProjectsHub';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
 import { cleanAsterisks, optimizeLocalCR } from './lib/cleanText';
@@ -77,6 +78,7 @@ const CATEGORIES = [
     title: 'Documentos & Office Pro',
     icon: FileText,
     tools: [
+      { id: 'projects' as TabType, label: 'Meus Projetos (Canva)', icon: FolderKanban, desc: 'Painel Estilo Canva de Projetos Salvos' },
       { id: 'canva' as TabType, label: 'Canva Studio', icon: PenTool, desc: 'Design Visual Studio' },
       { id: 'office' as TabType, label: 'Central Office 365', icon: Grid, desc: 'Hub Microsoft Office & Importação' },
       { id: 'excel' as TabType, label: 'Excel Pro', icon: FileSpreadsheet, desc: 'Planilhas & Fórmulas' },
@@ -196,7 +198,9 @@ export async function extractTextFromFile(file: File, onProgress?: (p: number) =
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isFading, setIsFading] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('word');
+  const [activeTab, setActiveTab] = useState<TabType>('projects');
+  const [activeDocumentTitle, setActiveDocumentTitle] = useState<string>('Novo Documento Sem Título');
+  const [activeProject, setActiveProject] = useState<SavedProject | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('docs');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
@@ -492,6 +496,29 @@ export default function App() {
     setNotification({ msg, type });
     setTimeout(() => setNotification(null), 3000);
   }, []);
+
+  const handleOpenProject = useCallback((project: SavedProject) => {
+    setActiveProject(project);
+    setActiveDocumentTitle(project.title);
+    setActiveTab(project.type);
+    showNotification(`Projeto "${project.title}" aberto em página dedicada!`);
+  }, [showNotification]);
+
+  const handleCreateNewProject = useCallback((type: 'word' | 'excel' | 'powerpoint' | 'canva' | 'extract' | 'chat') => {
+    const labels: Record<string, string> = {
+      word: 'Novo Documento Word Pro',
+      excel: 'Nova Planilha Excel Pro',
+      powerpoint: 'Nova Apresentação PowerPoint',
+      canva: 'Novo Design Canva Studio',
+      extract: 'Novo Escaneamento OCR',
+      chat: 'Novo Chat IA'
+    };
+    const title = `${labels[type] || 'Novo Projeto'} ${new Date().toLocaleDateString('pt-BR')}`;
+    setActiveDocumentTitle(title);
+    setActiveProject(null);
+    setActiveTab(type as TabType);
+    showNotification(`Criado: ${title}`);
+  }, [showNotification]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1138,7 +1165,7 @@ export default function App() {
             </div>
 
             <div className="space-y-6 text-xs text-slate-700 dark:text-slate-300">
-              {/* Option 1: PWA Installation */}
+              {/* Option 1: PWA / WebAPK Installation */}
               <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 p-4 rounded-xl space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300 text-sm">
@@ -1179,19 +1206,19 @@ export default function App() {
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed space-y-1">
                     <div className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
                       <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                      Aviso Importante do Navegador (iFrame)
+                      Aviso sobre 'Criar Atalho' vs 'Instalar App' (iFrame)
                     </div>
                     <p>
-                      Você está visualizando o app dentro do quadro incorporado do editor. O Google Chrome, Edge e Safari <strong>bloqueiam a instalação de WebAPKs dentro de quadros (iframes)</strong> por política de segurança.
+                      Você está dentro do quadro incorporado do editor. O Google Chrome <strong>bloqueia instalações de WebAPK em quadros incorporados (iframes)</strong> e exibe apenas "Criar atalho".
                     </p>
                     <p className="font-semibold text-amber-950 dark:text-amber-100">
-                      👉 Clique no botão azul "Abrir em Nova Aba para Instalar" acima. Ao abrir em uma nova janela, o seu navegador ativará o menu nativo <strong>"Instalar aplicativo"</strong> imediatamente!
+                      👉 Clique no botão "Abrir em Nova Aba para Instalar" acima! Ao abrir na aba principal, o Chrome liberará o instalador do <strong>WebAPK Nativo</strong> com ícone próprio na sua gaveta de aplicativos.
                     </p>
                   </div>
                 )}
 
                 <p className="leading-relaxed">
-                  O <strong>DocSwiss</strong> é configurado com PWA / WebAPK nativo. Ao instalar, o Android gerará um <strong>WebAPK real</strong> com ícone próprio na gaveta de aplicativos e tela de início, sem atalho de navegador, funcionando em tela cheia com máxima velocidade offline.
+                  O <strong>DocSwiss</strong> é configurado com PWA / WebAPK de última geração. No Android, quando você seleciona "Adicionar à tela de início" ou "Instalar", o Google gera automaticamente um <strong>WebAPK nativo</strong> no seu celular com ícone próprio e funcionamento em tela cheia offline!
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
@@ -1200,7 +1227,7 @@ export default function App() {
                       <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> Android (Chrome)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Na nova aba, abra o menu (<strong>⋮</strong>) do Chrome → Toque em <strong>"Instalar aplicativo"</strong>. O Android criará o WebAPK nativo com ícone próprio.
+                      Na nova aba no Chrome → abra o menu (<strong>⋮</strong>) → toque em <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong>. O Android criará o WebAPK automaticamente!
                     </p>
                   </div>
 
@@ -1224,14 +1251,60 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Option 2: Export ZIP / GitHub */}
-              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl space-y-2">
-                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 text-sm">
-                  <Download className="w-4 h-4 text-indigo-600" />
-                  2. Baixar o Código Fonte Completo (Arquivo ZIP / GitHub)
+              {/* Option 2: Converter em APK Android (PWABuilder / Web2APK) */}
+              <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 p-4 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 font-bold text-indigo-900 dark:text-indigo-200 text-sm">
+                  <Smartphone className="w-4 h-4 text-indigo-600" />
+                  2. Converter em APK Android (.apk / .aab) via PWABuilder / Web2APK
                 </div>
                 <p className="leading-relaxed">
-                  Se você deseja baixar os arquivos do projeto para abrir e editar no seu computador (VS Code, Node.js):
+                  Deseja gerar um pacote <strong>.APK instalável</strong> ou arquivo para publicar na Google Play Store? O DocSwiss inclui manifesto WebManifest completo, suporte a ícones maskable e Service Worker otimizado.
+                </p>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      const appUrl = window.location.href;
+                      window.open(`https://www.pwabuilder.com/url?url=${encodeURIComponent(appUrl)}`, '_blank');
+                    }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Gerar APK no PWABuilder
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href);
+                      showNotification('URL do WebApp copiada para a área de transferência!', 'success');
+                    }}
+                    className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copiar URL do App
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      saveAs('/manifest.json', 'docswiss-manifest.json');
+                      showNotification('Manifesto WebManifest baixado com sucesso!');
+                    }}
+                    className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
+                  >
+                    <Download className="w-4 h-4" />
+                    Baixar Manifest.json
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 3: Export ZIP / GitHub */}
+              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 text-sm">
+                  <Download className="w-4 h-4 text-slate-600" />
+                  3. Baixar o Código Fonte Completo (Arquivo ZIP / GitHub)
+                </div>
+                <p className="leading-relaxed">
+                  Se você deseja baixar os arquivos do projeto para abrir e editar no seu computador (VS Code, Node.js) ou compilar seu próprio APK via Android Studio (Trusted Web Activity):
                 </p>
                 <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400 pl-1">
                   <li>No menu superior do <strong>Google AI Studio</strong> (canto superior direito da tela).</li>
@@ -1483,6 +1556,86 @@ export default function App() {
           <div className="max-w-7xl mx-auto w-full space-y-6 flex-1 flex flex-col">
             
             {/* Active Tool Workspace Render */}
+
+            {/* Dedicated Document Header Bar for standalone editor experience */}
+            {['word', 'excel', 'powerpoint', 'canva', 'extract'].includes(activeTab) && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2"
+              >
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    onClick={() => setActiveTab('projects')}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-slate-200/80 dark:border-slate-700 active:scale-95 shadow-sm"
+                  >
+                    <ArrowLeft className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span>← Voltar aos Meus Projetos</span>
+                  </button>
+
+                  <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
+
+                  <div className="flex items-center gap-2">
+                    {activeTab === 'word' && <Edit3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+                    {activeTab === 'excel' && <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+                    {activeTab === 'powerpoint' && <Presentation className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
+                    {activeTab === 'canva' && <PenTool className="w-5 h-5 text-purple-600 dark:text-purple-400" />}
+                    {activeTab === 'extract' && <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />}
+
+                    <input
+                      type="text"
+                      value={activeDocumentTitle}
+                      onChange={(e) => setActiveDocumentTitle(e.target.value)}
+                      placeholder="Nome do Documento..."
+                      className="bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 border border-transparent focus:border-indigo-500 focus:outline-none transition-all min-w-[180px] sm:min-w-[240px]"
+                    />
+
+                    <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                      Salvo localmente
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => {
+                      saveHistoryItem({
+                        type: 'ocr',
+                        title: activeDocumentTitle,
+                        summary: `Documento [${activeDocumentTitle}] editado no ${activeTab.toUpperCase()}`,
+                        details: `Edição em modo de página dedicada.`
+                      });
+                      showNotification(`Projeto "${activeDocumentTitle}" salvo no Vault!`);
+                    }}
+                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    Salvar Projeto
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('chat');
+                      showNotification('Assistente IA aberto para auxiliar neste documento.');
+                    }}
+                    className="px-3.5 py-2 bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  >
+                    <Bot className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                    Assistente IA
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* -1. Hub de Projetos (Dashboard Estilo Canva) */}
+            {activeTab === 'projects' && (
+              <ProjectsHub
+                onOpenProject={handleOpenProject}
+                onCreateNewProject={handleCreateNewProject}
+                showNotification={showNotification}
+              />
+            )}
             
             {/* 0. Central Office 365 & Microsoft Suite Hub */}
             {activeTab === 'office' && (
@@ -2152,6 +2305,7 @@ export default function App() {
             </div>
             <div className="max-h-80 overflow-y-auto p-2 divide-y divide-slate-100 dark:divide-slate-800/50">
               {[
+                { id: 'projects', label: 'Meus Projetos (Painel Estilo Canva)', cat: 'Documentos', icon: FolderKanban, action: () => { setActiveTab('projects'); setShowCommandPalette(false); } },
                 { id: 'word', label: 'Word Pro (Editor DOCX)', cat: 'Documentos', icon: Edit3, action: () => { setActiveTab('word'); setShowCommandPalette(false); } },
                 { id: 'excel', label: 'Excel Pro (Planilhas)', cat: 'Documentos', icon: FileSpreadsheet, action: () => { setActiveTab('excel'); setShowCommandPalette(false); } },
                 { id: 'powerpoint', label: 'PowerPoint Pro (Apresentações)', cat: 'Documentos', icon: Presentation, action: () => { setActiveTab('powerpoint'); setShowCommandPalette(false); } },

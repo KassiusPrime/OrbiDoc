@@ -1,4 +1,5 @@
 export type TabType = 
+  | 'projects'
   | 'office'
   | 'extract' 
   | 'word' 
@@ -89,6 +90,18 @@ export interface MicrosoftUserProfile {
   accessToken: string;
   accountType: 'office365' | 'personal' | 'school';
   expiresAt?: number;
+}
+
+export interface SavedProject {
+  id: string;
+  title: string;
+  type: 'word' | 'excel' | 'powerpoint' | 'canva' | 'extract' | 'chat';
+  updatedAt: string;
+  createdAt: string;
+  previewSnippet?: string;
+  thumbnailColor?: string;
+  tags?: string[];
+  content?: any;
 }
 
 export interface DriveFile {
