@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "DocSwiss",
-  "short_name": "DocSwiss",
-  "description": "DocSwiss - Canivete Suíço para OCR, IA, Transcrição de Áudio, Tradução, PDF e Edição de Documentos",
+  "name": "DocPlus+",
+  "short_name": "DocPlus+",
+  "description": "DocPlus+ - Suite Completa para OCR, IA, Transcrição de Áudio, Tradução, PDF e Edição de Documentos",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

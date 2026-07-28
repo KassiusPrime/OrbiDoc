@@ -166,7 +166,7 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-bold text-indigo-200">
               <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-              DocSwiss Studio — Meus Projetos & Arquivos
+              DocPlus+ Studio — Meus Projetos & Arquivos
             </div>
             
             <div className="flex items-center gap-2 text-xs text-slate-300 bg-black/20 px-3 py-1 rounded-full border border-white/10">

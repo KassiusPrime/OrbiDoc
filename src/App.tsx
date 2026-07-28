@@ -19,7 +19,7 @@ import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 
 import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem, OcrItem, ChatSession, GoogleUserProfile, MicrosoftUserProfile, SavedProject } from './types';
-import { DocSwissLogo } from './components/DocSwissLogo';
+import { DocPlusLogo } from './components/DocPlusLogo';
 import { HistoryVault } from './components/HistoryVault';
 import { WordEditor } from './components/WordEditor';
 import { ExcelSpreadsheet } from './components/ExcelSpreadsheet';
@@ -223,7 +223,7 @@ export default function App() {
       deferredPrompt.prompt();
       deferredPrompt.userChoice.then((choiceResult: any) => {
         if (choiceResult.outcome === 'accepted') {
-          showNotification('DocSwiss instalado com sucesso!', 'success');
+          showNotification('DocPlus+ instalado com sucesso!', 'success');
         }
         setDeferredPrompt(null);
       });
@@ -247,7 +247,7 @@ export default function App() {
     const handleAppInstalled = () => {
       setIsAppInstalled(true);
       setDeferredPrompt(null);
-      showNotification('DocSwiss foi instalado no seu dispositivo com sucesso!', 'success');
+      showNotification('DocPlus+ foi instalado no seu dispositivo com sucesso!', 'success');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -319,12 +319,12 @@ export default function App() {
   // Custom PDF Export Modal State
   const [isCustomPdfOpen, setIsCustomPdfOpen] = useState(false);
   const [pdfExportText, setPdfExportText] = useState('');
-  const [pdfExportTitle, setPdfExportTitle] = useState('Documento DocSwiss');
+  const [pdfExportTitle, setPdfExportTitle] = useState('Documento DocPlus+');
 
   // Chat Sessions History State
   const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
     try {
-      const saved = localStorage.getItem('docswiss_chat_sessions');
+      const saved = localStorage.getItem('docplus_chat_sessions') || localStorage.getItem('docswiss_chat_sessions');
       if (saved) {
         const parsed = JSON.parse(saved);
         return parsed.map((s: any) => ({
@@ -343,7 +343,7 @@ export default function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'active' | 'history'>('active');
 
-  const openCustomPdf = (text: string, title = 'Documento DocSwiss') => {
+  const openCustomPdf = (text: string, title = 'Documento DocPlus+') => {
     setPdfExportText(text);
     setPdfExportTitle(title);
     setIsCustomPdfOpen(true);
@@ -583,7 +583,7 @@ export default function App() {
   };
 
   const exportAsMd = (text: string, name: string) => {
-    const mdContent = text.startsWith('#') ? text : `# ${name || 'Documento DocSwiss'}\n\n${text}`;
+    const mdContent = text.startsWith('#') ? text : `# ${name || 'Documento DocPlus+'}\n\n${text}`;
     const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
     saveAs(blob, `${name || 'documento'}.md`);
     showNotification('Exportado como Markdown (.md)');
@@ -1042,9 +1042,9 @@ export default function App() {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white transition-opacity duration-500">
         <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl mb-6 animate-pulse">
-          <DocSwissLogo size="xl" showText={false} />
+          <DocPlusLogo size="xl" showText={false} />
         </div>
-        <DocSwissLogo size="lg" showText={true} />
+        <DocPlusLogo size="lg" showText={true} />
         <p className="text-sm text-slate-400 mt-3 font-medium tracking-wide">Digitalize, Crie e Edite Seus Documentos</p>
       </div>
     );
@@ -1159,7 +1159,7 @@ export default function App() {
                   <DownloadCloud className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Instalar o Aplicativo Nativo DocSwiss (WebAPK)</h2>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Instalar o Aplicativo Nativo DocPlus+ (WebAPK)</h2>
                   <p className="text-xs text-slate-500">Instalação direta no Celular/PC e Download do Projeto</p>
                 </div>
               </div>
@@ -1222,7 +1222,7 @@ export default function App() {
                 )}
 
                 <p className="leading-relaxed">
-                  O <strong>DocSwiss</strong> é configurado com PWA / WebAPK de última geração. No Android, quando você seleciona "Adicionar à tela de início" ou "Instalar", o Google gera automaticamente um <strong>WebAPK nativo</strong> no seu celular com ícone próprio e funcionamento em tela cheia offline!
+                  O <strong>DocPlus+</strong> é configurado com PWA / WebAPK de última geração. No Android, quando você seleciona "Adicionar à tela de início" ou "Instalar", o Google gera automaticamente um <strong>WebAPK nativo</strong> no seu celular com ícone próprio e funcionamento em tela cheia offline!
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
@@ -1249,7 +1249,7 @@ export default function App() {
                       <Monitor className="w-3.5 h-3.5 text-emerald-600" /> PC (Chrome / Edge)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Na nova aba, clique no ícone de tela na barra de endereço (canto direito da URL) → <strong>"Instalar DocSwiss"</strong>.
+                      Na nova aba, clique no ícone de tela na barra de endereço (canto direito da URL) → <strong>"Instalar DocPlus+"</strong>.
                     </p>
                   </div>
                 </div>
@@ -1262,7 +1262,7 @@ export default function App() {
                   2. Converter em APK Android (.apk / .aab) via PWABuilder / Web2APK
                 </div>
                 <p className="leading-relaxed">
-                  Deseja gerar um pacote <strong>.APK instalável</strong> ou arquivo para publicar na Google Play Store? O DocSwiss inclui manifesto WebManifest completo, suporte a ícones maskable e Service Worker otimizado.
+                  Deseja gerar um pacote <strong>.APK instalável</strong> ou arquivo para publicar na Google Play Store? O DocPlus+ inclui manifesto WebManifest completo, suporte a ícones maskable e Service Worker otimizado.
                 </p>
 
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -1345,7 +1345,7 @@ export default function App() {
 
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <DocSwissLogo size="md" showText={true} />
+            <DocPlusLogo size="md" showText={true} />
           </div>
 
           {/* Active Tool Breadcrumb Badge */}
@@ -1401,7 +1401,7 @@ export default function App() {
           {/* Instalar App Button */}
           <button
             onClick={handleTriggerInstall}
-            title="Instalar App DocSwiss no Celular ou PC"
+            title="Instalar App DocPlus+ no Celular ou PC"
             className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-95"
           >
             <DownloadCloud className="w-3.5 h-3.5" />
@@ -1503,7 +1503,7 @@ export default function App() {
               >
                 <div>
                   <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-4">
-                    <DocSwissLogo size="md" showText={true} />
+                    <DocPlusLogo size="md" showText={true} />
                     <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                       <X className="w-5 h-5" />
                     </button>
@@ -1547,7 +1547,7 @@ export default function App() {
 
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium text-center">
-                    DocSwiss Studio Office — Pronto para Uso
+                    DocPlus+ Studio Office — Pronto para Uso
                   </div>
                 </div>
               </motion.div>
@@ -1760,8 +1760,8 @@ export default function App() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
-                          const fullChatText = chatMessages.map(m => `${m.role === 'user' ? 'Usuário' : 'DocSwiss'}: ${cleanAsterisks(m.content)}`).join('\n\n');
-                          openCustomPdf(fullChatText, 'Conversa DocSwiss IA');
+                          const fullChatText = chatMessages.map(m => `${m.role === 'user' ? 'Usuário' : 'DocPlus+'}: ${cleanAsterisks(m.content)}`).join('\n\n');
+                          openCustomPdf(fullChatText, 'Conversa DocPlus+ IA');
                         }}
                         className="px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-indigo-100 transition-all"
                       >
@@ -1796,11 +1796,12 @@ export default function App() {
                       onDeleteSession={(id) => {
                         const updated = chatSessions.filter(s => s.id !== id);
                         setChatSessions(updated);
-                        localStorage.setItem('docswiss_chat_sessions', JSON.stringify(updated));
+                        localStorage.setItem('docplus_chat_sessions', JSON.stringify(updated));
                         showNotification('Sessão removida do histórico.');
                       }}
                       onClearAllSessions={() => {
                         setChatSessions([]);
+                        localStorage.removeItem('docplus_chat_sessions');
                         localStorage.removeItem('docswiss_chat_sessions');
                         showNotification('Histórico de chats limpo com sucesso.');
                       }}
@@ -1873,13 +1874,13 @@ export default function App() {
                                       <Copy className="w-3 h-3" /> Copiar
                                     </button>
                                     <button
-                                      onClick={() => exportAsMd(msg.content, 'Resposta_DocSwiss')}
+                                      onClick={() => exportAsMd(msg.content, 'Resposta_DocPlus')}
                                       className="hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold"
                                     >
                                       <FileOutput className="w-3 h-3" /> Markdown (.md)
                                     </button>
                                     <button
-                                      onClick={() => openCustomPdf(msg.content, 'Resposta DocSwiss IA')}
+                                      onClick={() => openCustomPdf(msg.content, 'Resposta DocPlus+ IA')}
                                       className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold"
                                     >
                                       <FileOutput className="w-3 h-3" /> Exportar PDF
@@ -2241,7 +2242,7 @@ export default function App() {
 
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>DocSwiss Workspace</span>
+              <span>DocPlus+ Workspace</span>
             </div>
           </footer>
         </main>
@@ -2359,7 +2360,7 @@ export default function App() {
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
                 <Terminal className="w-5 h-5" />
-                <span>Atalhos do Teclado DocSwiss</span>
+                <span>Atalhos do Teclado DocPlus+</span>
               </div>
               <button onClick={() => setShowShortcutsModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
                 <X className="w-5 h-5" />

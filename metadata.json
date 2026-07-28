@@ -1,5 +1,5 @@
 {
-  "name": "DocSwiss",
+  "name": "DocPlus+",
   "description": "OCR multi-arquivos, Chat IA, Transcrição de Áudio, Tradução, PDF e Editor de Documentos",
   "requestFramePermissions": [
     "microphone"

@@ -19,13 +19,13 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
   isOpen,
   onClose,
   initialText,
-  defaultTitle = 'Documento DocSwiss',
+  defaultTitle = 'Documento DocPlus+',
   googleUser,
   onNotification,
 }) => {
   const [title, setTitle] = useState(defaultTitle);
   const [subtitle, setSubtitle] = useState('');
-  const [author, setAuthor] = useState(googleUser?.name || 'DocSwiss User');
+  const [author, setAuthor] = useState(googleUser?.name || 'DocPlus+ User');
   const [fontFamily, setFontFamily] = useState<'helvetica' | 'times' | 'courier'>('helvetica');
   const [fontSize, setFontSize] = useState<number>(11);
   const [margin, setMargin] = useState<'narrow' | 'normal' | 'wide'>('normal');
@@ -79,7 +79,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
     doc.setFont(fontFamily, 'bold');
     doc.setFontSize(fontSize + 8);
     doc.setTextColor(30, 41, 59);
-    doc.text(title || 'Documento DocSwiss', marginMm, currentY);
+    doc.text(title || 'Documento DocPlus+', marginMm, currentY);
     currentY += 8;
 
     // Subtitle / Author Meta
@@ -132,7 +132,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
           doc.setFontSize(9);
           doc.setTextColor(148, 163, 184);
           doc.text(`Página ${pageNum}`, pageWidth - marginMm, pageHeight - marginMm, { align: 'right' });
-          doc.text(`DocSwiss Studio`, marginMm, pageHeight - marginMm);
+          doc.text(`DocPlus+ Studio`, marginMm, pageHeight - marginMm);
         }
 
         doc.addPage();
@@ -164,7 +164,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
       doc.setFontSize(9);
       doc.setTextColor(148, 163, 184);
       doc.text(`Página ${pageNum}`, pageWidth - marginMm, pageHeight - marginMm, { align: 'right' });
-      doc.text(`DocSwiss Studio`, marginMm, pageHeight - marginMm);
+      doc.text(`DocPlus+ Studio`, marginMm, pageHeight - marginMm);
     }
 
     const blob = doc.output('blob');
@@ -192,7 +192,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
     setIsSavingDrive(true);
     try {
       const { blob } = generatePdfBlob();
-      const filename = `${title || 'Documento_DocSwiss'}.pdf`;
+      const filename = `${title || 'Documento_DocPlus'}.pdf`;
       const driveFile = await uploadToGoogleDrive(googleUser.accessToken, filename, 'application/pdf', blob);
       onNotification(`Salvo com sucesso no seu Google Drive! (${driveFile.name})`);
       onClose();
@@ -436,7 +436,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
 
                 {showPageNumbers && (
                   <div className="text-[8px] text-slate-400 flex justify-between border-t border-slate-100 pt-1 mt-2">
-                    <span>DocSwiss Studio</span>
+                    <span>DocPlus+ Studio</span>
                     <span>Página 1</span>
                   </div>
                 )}

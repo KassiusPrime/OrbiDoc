@@ -1,12 +1,12 @@
 import React from 'react';
 
-interface DocSwissLogoProps {
+interface DocPlusLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
   className?: string;
 }
 
-export const DocSwissLogo: React.FC<DocSwissLogoProps> = ({
+export const DocPlusLogo: React.FC<DocPlusLogoProps> = ({
   size = 'md',
   showText = true,
   className = '',
@@ -113,7 +113,7 @@ export const DocSwissLogo: React.FC<DocSwissLogoProps> = ({
         <div className="flex flex-col justify-center leading-none">
           <div className={`font-black tracking-tight ${dimensions.text} flex items-center`}>
             <span className="text-slate-900 dark:text-slate-100 font-extrabold">Doc</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-black">Swiss</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-black">Plus+</span>
           </div>
         </div>
       )}

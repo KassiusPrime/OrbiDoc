@@ -30,7 +30,7 @@ export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({
   const officeTools = [
     {
       id: 'word' as TabType,
-      title: 'DocSwiss Word Pro',
+      title: 'DocPlus+ Word Pro',
       category: 'Processador de Texto',
       icon: FileText,
       color: 'from-blue-600 to-indigo-700',
@@ -40,7 +40,7 @@ export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({
     },
     {
       id: 'excel' as TabType,
-      title: 'DocSwiss Excel Pro',
+      title: 'DocPlus+ Excel Pro',
       category: 'Planilhas & Dados',
       icon: FileSpreadsheet,
       color: 'from-emerald-600 to-teal-700',
@@ -50,7 +50,7 @@ export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({
     },
     {
       id: 'powerpoint' as TabType,
-      title: 'DocSwiss PowerPoint Pro',
+      title: 'DocPlus+ PowerPoint Pro',
       category: 'Apresentações IA',
       icon: Presentation,
       color: 'from-amber-500 to-orange-600',
@@ -60,7 +60,7 @@ export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({
     },
     {
       id: 'canva' as TabType,
-      title: 'DocSwiss Canva Studio',
+      title: 'DocPlus+ Canva Studio',
       category: 'Design & Visual',
       icon: PenTool,
       color: 'from-pink-500 to-purple-600',

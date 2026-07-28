@@ -81,7 +81,7 @@ export function loginWithGooglePopup(providedEmail?: string, providedName?: stri
     let name = providedName?.trim();
 
     if (!email) {
-      const input = window.prompt('Digite qualquer e-mail do Google para fazer login e autenticar no DocSwiss:', 'usuario.google@gmail.com');
+      const input = window.prompt('Digite qualquer e-mail do Google para fazer login e autenticar no DocPlus+:', 'usuario.google@gmail.com');
       if (!input || !input.trim()) {
         reject(new Error('Login cancelado.'));
         return;
@@ -144,7 +144,7 @@ export async function uploadToGoogleDrive(
   const metadata = {
     name: fileName,
     mimeType,
-    description: 'Documento criado via DocSwiss',
+    description: 'Documento criado via DocPlus+',
   };
 
   const form = new FormData();
@@ -181,7 +181,7 @@ export async function uploadToGoogleDrive(
 }
 
 /**
- * List files saved in the user's Google Drive by DocSwiss
+ * List files saved in the user's Google Drive by DocPlus+
  */
 export async function listGoogleDriveFiles(accessToken: string): Promise<DriveFile[]> {
   const query = encodeURIComponent("trashed = false");

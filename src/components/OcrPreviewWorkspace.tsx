@@ -153,7 +153,7 @@ export const OcrPreviewWorkspace: React.FC<OcrPreviewWorkspaceProps> = ({
     }
 
     const zip = new JSZip();
-    const folder = zip.folder('DocSwiss_OCR_Batch');
+    const folder = zip.folder('DocPlus_OCR_Batch');
 
     let addedCount = 0;
     items.forEach((item, index) => {
@@ -173,7 +173,7 @@ export const OcrPreviewWorkspace: React.FC<OcrPreviewWorkspaceProps> = ({
     notify('Gerando arquivo ZIP com lote de documentos...');
     try {
       const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, `DocSwiss_Lote_OCR_${new Date().toISOString().slice(0, 10)}.zip`);
+      saveAs(content, `DocPlus_Lote_OCR_${new Date().toISOString().slice(0, 10)}.zip`);
       notify(`Lote de ${addedCount} arquivo(s) baixado em arquivo .zip!`);
     } catch (err) {
       notify('Erro ao gerar pacote ZIP.', 'error');

@@ -129,10 +129,10 @@ export default defineConfig({
 
       manifest: {
         id: "/",
-        name: "DocSwiss",
-        short_name: "DocSwiss",
+        name: "DocPlus+",
+        short_name: "DocPlus+",
         description:
-          "DocSwiss - Canivete Suíço para OCR, IA, Transcrição de Áudio, Tradução, PDF e Edição de Documentos",
+          "DocPlus+ - Suite Completa para OCR, IA, Transcrição de Áudio, Tradução, PDF e Edição de Documentos",
         theme_color: "#0f172a",
         background_color: "#0f172a",
         display: "standalone",
