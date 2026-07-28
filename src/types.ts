@@ -11,6 +11,7 @@ export type TabType =
   | 'compare' 
   | 'ai' 
   | 'audio' 
+  | 'analytics'
   | 'history';
 
 export type AiActionType = 'translate' | 'summarize' | 'grammar' | 'improve' | 'expand' | 'rewrite';
