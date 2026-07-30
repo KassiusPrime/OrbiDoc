@@ -1,14 +1,24 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
-  FileText, Volume2, Upload, Loader2, Key, Wand2, Palette, DownloadCloud,
-  ImagePlus, Mic, Send, Settings, Copy, FileOutput, Languages, Sparkles, X, 
-  Check, Type, Bot, MessageSquare, Paperclip, Image as ImageIcon, FileVideo, 
-  File, Trash2, StopCircle, SplitSquareHorizontal, Sun, Moon, History, SlidersHorizontal,
-  Activity, Cpu, ShieldCheck, Terminal, Monitor, ChevronRight, Layers, HelpCircle,
-  FileSpreadsheet, Presentation, PenTool, Edit3, Menu, ChevronDown, ChevronUp, Grid, Sparkle,
-  Smartphone, Download, RefreshCw, CheckCircle2, AlertCircle, FileSearch, Layers3,
-  Eye, HardDrive, ExternalLink, ArrowLeft, FolderKanban, Save
-} from 'lucide-react';
+  IconFileText as FileText, IconVolume as Volume2, IconUpload as Upload, IconLoader2 as Loader2, 
+  IconKey as Key, IconWand as Wand2, IconPalette as Palette, IconCloudDownload as DownloadCloud,
+  IconPhotoPlus as ImagePlus, IconMicrophone as Mic, IconSend as Send, IconSettings as Settings, 
+  IconCopy as Copy, IconFileExport as FileOutput, IconLanguage as Languages, IconSparkles as Sparkles, 
+  IconX as X, IconCheck as Check, IconLetterT as Type, IconRobot as Bot, IconMessage as MessageSquare, 
+  IconPaperclip as Paperclip, IconPhoto as ImageIcon, IconVideo as FileVideo, IconFile as File, 
+  IconTrash as Trash2, IconPlayerStop as StopCircle, IconLayoutColumns as SplitSquareHorizontal, 
+  IconSun as Sun, IconMoon as Moon, IconHistory as History, IconAdjustmentsHorizontal as SlidersHorizontal,
+  IconActivity as Activity, IconCpu as Cpu, IconShieldCheck as ShieldCheck, IconTerminal as Terminal, 
+  IconDeviceDesktop as Monitor, IconChevronRight as ChevronRight, IconStack2 as Layers, IconHelp as HelpCircle,
+  IconFileSpreadsheet as FileSpreadsheet, IconPresentation as Presentation, IconPencil as PenTool, 
+  IconEdit as Edit3, IconMenu2 as Menu, IconChevronDown as ChevronDown, IconChevronUp as ChevronUp, 
+  IconLayoutGrid as Grid, IconSparkles as Sparkle, IconDeviceMobile as Smartphone, IconDownload as Download, 
+  IconRefresh as RefreshCw, IconCircleCheck as CheckCircle2, IconAlertCircle as AlertCircle, 
+  IconFileSearch as FileSearch, IconLayersIntersect as Layers3, IconEye as Eye, IconDatabase as HardDrive, 
+  IconExternalLink as ExternalLink, IconArrowLeft as ArrowLeft, IconFolder as FolderKanban, IconDeviceFloppy as Save, 
+  IconChartBar as BarChart2, IconMaximize as Maximize2, IconMinimize as Minimize2, IconHome as Home, IconSearch as Search,
+  IconWifi as Wifi, IconWifiOff as WifiOff
+} from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { jsPDF } from 'jspdf';
@@ -36,21 +46,29 @@ import { OfficeSuiteHub } from './components/OfficeSuiteHub';
 import { OcrPreviewWorkspace } from './components/OcrPreviewWorkspace';
 import { ProjectsHub } from './components/ProjectsHub';
 import { BrowserGuideModal } from './components/BrowserGuideModal';
+import { DashboardAnalytics } from './components/DashboardAnalytics';
+import { HomeDashboard } from './components/HomeDashboard';
+import { BottomNavBar } from './components/BottomNavBar';
+import { FabMenuSheet } from './components/FabMenuSheet';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
 import { cleanAsterisks, optimizeLocalCR } from './lib/cleanText';
 import { processFileOcr, OcrOptions } from './lib/ocrEngine';
+import { saveDocumentToFirestore, FirestoreDocument } from './services/firebase';
+import { sendToVercel, sendToVercelStream } from './api/chat';
 
 // Configuração do Worker do PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
-// Alphabetically ordered AI Engines by label
+// AI Engines supported with flagship Gemini and ChatGPT (GPT-4o) models
 const ENGINES = [
-  { id: 'claude', provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet', emoji: '🎯', description: 'Raciocínio complexo' },
-  { id: 'deepseek', provider: 'openrouter', model: 'deepseek/deepseek-chat', label: 'DeepSeek V3', emoji: '🧠', description: 'Alta precisão' },
-  { id: 'gemini', provider: 'gemini', model: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', emoji: '💎', description: 'Ultra-rápido & nativo' },
-  { id: 'groq', provider: 'groq', model: 'llama-3.1-70b-versatile', label: 'Groq Llama 3.1', emoji: '⚡', description: 'Baixa latência' },
-  { id: 'qwen', provider: 'openrouter', model: 'qwen/qwen-2.5-72b-instruct', label: 'Qwen 2.5 72B', emoji: '🚀', description: 'Multilíngue avançado' },
+  { id: 'gemini-flash', provider: 'gemini', model: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', emoji: '💎', description: 'Google • Ultra-rápido & Multimodal', tag: 'Google' },
+  { id: 'gemini-pro', provider: 'gemini', model: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro', emoji: '🔮', description: 'Google • Raciocínio Profundo', tag: 'Google' },
+  { id: 'gpt-4o', provider: 'openrouter', model: 'openai/gpt-4o', label: 'ChatGPT (GPT-4o)', emoji: '🤖', description: 'OpenAI • Modelo Flagship', tag: 'OpenAI' },
+  { id: 'gpt-4o-mini', provider: 'openrouter', model: 'openai/gpt-4o-mini', label: 'ChatGPT (GPT-4o Mini)', emoji: '⚡', description: 'OpenAI • Ágil & Preciso', tag: 'OpenAI' },
+  { id: 'claude', provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet', emoji: '🎯', description: 'Anthropic • Escrita Refinada', tag: 'Anthropic' },
+  { id: 'deepseek', provider: 'openrouter', model: 'deepseek/deepseek-chat', label: 'DeepSeek V3', emoji: '🧠', description: 'DeepSeek • Código & Lógica', tag: 'DeepSeek' },
+  { id: 'groq', provider: 'groq', model: 'llama-3.3-70b-versatile', label: 'Groq Llama 3.3 70B', emoji: '⚡', description: 'Groq • Velocidade Extrema', tag: 'Groq' },
 ];
 
 // Alphabetically ordered Languages (pt-br, inglês, mandarim, japonês, russo, coreano, espanhol, chinês, etc)
@@ -72,8 +90,16 @@ const LANGUAGES = [
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'tif'];
 const TEXT_EXTENSIONS = ['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts', 'jsx', 'tsx'];
 
-// Tool Categories Structure for Clean Organized Navigation (Alphabetical Order)
+// Tool Categories Structure for Clean Organized Navigation
 const CATEGORIES = [
+  {
+    id: 'start',
+    title: 'Início & Dashboard',
+    icon: Home,
+    tools: [
+      { id: 'home' as TabType, label: 'Início (Dashboard)', icon: Home, desc: 'Painel Inteligente e Ações Rápidas' },
+    ],
+  },
   {
     id: 'docs',
     title: 'Documentos & Office Pro',
@@ -92,6 +118,7 @@ const CATEGORIES = [
     title: 'Histórico & Registros',
     icon: History,
     tools: [
+      { id: 'analytics' as TabType, label: 'Analytics Dashboard', icon: BarChart2, desc: 'Métricas, gráficos e logs de exportação em lote' },
       { id: 'history' as TabType, label: 'Histórico Vault', icon: History, desc: 'Registro de atividades' },
     ],
   },
@@ -116,21 +143,6 @@ const CATEGORIES = [
     ],
   },
 ];
-
-// API Proxy Helper
-async function sendToVercel(provider: string, model: string, messages: AiMessage[]) {
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, model, messages }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || `Erro no servidor (${response.status})`);
-  }
-  return data.answer;
-}
 
 // File Text Extractor Helper
 export async function extractTextFromFile(file: File, onProgress?: (p: number) => void): Promise<string> {
@@ -199,10 +211,54 @@ export async function extractTextFromFile(file: File, onProgress?: (p: number) =
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isFading, setIsFading] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('projects');
+  const [activeTab, setActiveTab] = useState<TabType>('home');
+  const [isFabOpen, setIsFabOpen] = useState(false);
   const [activeDocumentTitle, setActiveDocumentTitle] = useState<string>('Novo Documento Sem Título');
   const [activeProject, setActiveProject] = useState<SavedProject | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>('docs');
+  const [savedProjects, setSavedProjects] = useState<SavedProject[]>(() => {
+    try {
+      const saved = localStorage.getItem('docswiss_projects_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return [
+      {
+        id: 'proj-1',
+        title: 'Relatório Técnico e Proposta Comercial 2026',
+        type: 'word',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+        previewSnippet: 'Proposta de prestação de serviços com cronograma, orçamento detalhado e análise de riscos...',
+        thumbnailColor: 'from-blue-600 to-indigo-700',
+        tags: ['Comercial', 'Relatório', 'DOCX']
+      },
+      {
+        id: 'proj-2',
+        title: 'Balanço Financeiro & Fluxo de Caixa Pro',
+        type: 'excel',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+        previewSnippet: 'Planilha com fórmulas de SOMA, MÉDIA, projeção de receita trimestral e controle de custos.',
+        thumbnailColor: 'from-emerald-600 to-teal-700',
+        tags: ['Financeiro', 'Excel', 'XLSX']
+      },
+      {
+        id: 'proj-3',
+        title: 'Apresentação Executiva - Pitch de Vendas',
+        type: 'powerpoint',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+        previewSnippet: 'Deck de 10 slides com capa impactante, indicadores chave de desempenho e visão estratégica.',
+        thumbnailColor: 'from-amber-500 to-orange-600',
+        tags: ['Apresentação', 'Slides', 'PPTX']
+      }
+    ];
+  });
+  const [activeCategory, setActiveCategory] = useState<string>('start');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [resourcesDropdownOpen, setResourcesDropdownOpen] = useState(false);
@@ -236,6 +292,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [isThemeFontOpen, setIsThemeFontOpen] = useState(false);
+  const [showAiModelSheet, setShowAiModelSheet] = useState(false);
 
   // Capture PWA Install event
   useEffect(() => {
@@ -315,6 +372,109 @@ export default function App() {
   // Google & Microsoft User Profile States
   const [googleUser, setGoogleUser] = useState<GoogleUserProfile | null>(() => getStoredGoogleUser());
   const [msUser, setMsUser] = useState<MicrosoftUserProfile | null>(() => getStoredMicrosoftUser());
+
+  // Auto-Save Engine State & Firestore Integration
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('docplus_autosave_enabled');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [autoSaveDelayMs, setAutoSaveDelayMs] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('docplus_autosave_delay');
+      return saved ? parseInt(saved, 10) : 5000;
+    } catch {
+      return 5000;
+    }
+  });
+
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('docplus_autosave_enabled', JSON.stringify(autoSaveEnabled));
+  }, [autoSaveEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('docplus_autosave_delay', autoSaveDelayMs.toString());
+  }, [autoSaveDelayMs]);
+
+  const handleForceAutoSave = useCallback(async () => {
+    if (!autoSaveEnabled) return;
+    setAutoSaveStatus('saving');
+    try {
+      const now = new Date();
+      const docPayload: FirestoreDocument = {
+        id: activeProject?.id || `doc_${Date.now()}`,
+        title: activeDocumentTitle || 'Documento Sem Título',
+        content: activeDocumentTitle,
+        docType: activeTab,
+        userEmail: googleUser?.email || msUser?.email || 'usuario@docplus.com',
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+
+      localStorage.setItem('docplus_last_autosave', JSON.stringify(docPayload));
+      await saveDocumentToFirestore(docPayload);
+
+      setLastSavedAt(now);
+      setAutoSaveStatus('saved');
+      showNotification('Documento auto-salvo com sucesso no Firestore!', 'success');
+      setTimeout(() => setAutoSaveStatus('idle'), 3000);
+    } catch (err) {
+      console.warn('AutoSave error:', err);
+      setAutoSaveStatus('error');
+    }
+  }, [autoSaveEnabled, activeProject, activeDocumentTitle, activeTab, googleUser, msUser, showNotification]);
+
+  // Debounced Auto-Save trigger
+  useEffect(() => {
+    if (!autoSaveEnabled) return;
+
+    setAutoSaveStatus('pending');
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      try {
+        const now = new Date();
+        const docPayload: FirestoreDocument = {
+          id: activeProject?.id || `doc_${Date.now()}`,
+          title: activeDocumentTitle || 'Documento Sem Título',
+          content: activeDocumentTitle,
+          docType: activeTab,
+          userEmail: googleUser?.email || msUser?.email || 'usuario@docplus.com',
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        };
+
+        localStorage.setItem('docplus_last_autosave', JSON.stringify(docPayload));
+        await saveDocumentToFirestore(docPayload);
+
+        setLastSavedAt(now);
+        setAutoSaveStatus('saved');
+
+        setTimeout(() => setAutoSaveStatus('idle'), 3000);
+      } catch (err) {
+        console.warn('AutoSave error:', err);
+        setAutoSaveStatus('error');
+      }
+    }, autoSaveDelayMs);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [activeDocumentTitle, activeTab, activeProject, autoSaveEnabled, autoSaveDelayMs, googleUser, msUser]);
 
   // Custom PDF Export Modal State
   const [isCustomPdfOpen, setIsCustomPdfOpen] = useState(false);
@@ -473,8 +633,30 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [chatFiles, setChatFiles] = useState<ChatFile[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
+
+  const speakText = (text: string) => {
+    if (!('speechSynthesis' in window)) {
+      showNotification('Síntese de voz não suportada neste navegador.', 'error');
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const clean = text.replace(/[*#_`~]/g, '');
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+    showNotification('Reproduzindo resposta em áudio...');
+  };
+
+  const stopSpeaking = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  };
 
   // Arena state
   const [comparePrompt, setComparePrompt] = useState('');
@@ -818,21 +1000,45 @@ export default function App() {
     e.target.value = '';
   };
 
-  const sendChatMessage = async () => {
-    if (!chatInput.trim() && chatFiles.length === 0) return;
-    const userMsgContent = chatInput;
+  const handleStopChatStream = () => {
+    if (chatAbortControllerRef.current) {
+      chatAbortControllerRef.current.abort();
+      chatAbortControllerRef.current = null;
+    }
+    setIsStreaming(false);
+    setIsChatLoading(false);
+    showNotification('Geração de resposta interrompida.');
+  };
+
+  const sendChatMessage = async (customPrompt?: string) => {
+    const textToSend = customPrompt || chatInput;
+    if (!textToSend.trim() && chatFiles.length === 0) return;
+
+    const userMsgContent = textToSend;
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: chatInput,
+      content: textToSend,
       files: chatFiles.length > 0 ? [...chatFiles] : undefined,
       timestamp: new Date(),
     };
 
-    setChatMessages((prev) => [...prev, userMessage]);
-    setChatInput('');
+    const assistantMsgId = (Date.now() + 1).toString();
+    const assistantPlaceholder: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
+
+    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
+    if (!customPrompt) setChatInput('');
     setChatFiles([]);
     setIsChatLoading(true);
+    setIsStreaming(true);
+
+    const abortController = new AbortController();
+    chatAbortControllerRef.current = abortController;
 
     try {
       let prompt = userMsgContent;
@@ -845,35 +1051,82 @@ export default function App() {
       const messages: AiMessage[] = [
         { 
           role: 'system', 
-          content: 'Você é o assistente inteligente de análise documental do DocuTools. Analise cuidadosamente o conteúdo de quaisquer arquivos anexados na conversa para responder com dados precisos. Evite formatações excessivas com asteriscos, cerquilhas ou marcadores poluídos. Responda em português de maneira clara, estruturada e limpa.' 
+          content: 'Você é o assistente inteligente de análise documental e criação de conteúdo do DocuTools Pro. Responda com clareza, autoridade técnica e excelente estruturação em português. Utilize Markdown limpo com títulos, marcadores organizados e blocos de código bem formatados com identificação de linguagem sempre que relevante.' 
         },
-        ...chatMessages.slice(-8).map((msg) => ({ role: msg.role, content: msg.content })),
+        ...chatMessages.slice(-10).map((msg) => ({ role: msg.role, content: msg.content })),
         { role: 'user', content: prompt },
       ];
 
-      const response = await sendToVercel(currentEngine.provider, currentEngine.model, messages);
-      
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: response,
-          timestamp: new Date(),
-        },
-      ]);
+      let fullAnswer = '';
 
-      saveHistoryItem({
-        type: 'chat',
-        title: `Chat (${currentEngine.label})`,
-        summary: userMsgContent || 'Consulta com arquivo anexo',
-        details: response,
-      });
+      try {
+        await sendToVercelStream(
+          currentEngine.provider,
+          currentEngine.model,
+          messages,
+          (chunk) => {
+            fullAnswer += chunk;
+            setChatMessages((prev) =>
+              prev.map((m) => (m.id === assistantMsgId ? { ...m, content: fullAnswer } : m))
+            );
+          },
+          { signal: abortController.signal, files: userMessage.files }
+        );
+      } catch (streamErr: any) {
+        if (streamErr.name === 'AbortError') {
+          return;
+        }
+        // Fallback to non-streaming if SSE stream fails or is blocked
+        if (!fullAnswer) {
+          const fallbackResponse = await sendToVercel(
+            currentEngine.provider, 
+            currentEngine.model, 
+            messages, 
+            undefined, 
+            userMessage.files
+          );
+          fullAnswer = fallbackResponse;
+          setChatMessages((prev) =>
+            prev.map((m) => (m.id === assistantMsgId ? { ...m, content: fullAnswer } : m))
+          );
+        }
+      }
+
+      if (fullAnswer) {
+        saveHistoryItem({
+          type: 'chat',
+          title: `Chat (${currentEngine.label})`,
+          summary: userMsgContent || 'Consulta com arquivo anexo',
+          details: fullAnswer,
+        });
+      }
     } catch (err: any) {
-      showNotification(err.message || 'Falha na resposta do assistente.', 'error');
+      if (err.name !== 'AbortError') {
+        showNotification(err.message || 'Falha na resposta do assistente.', 'error');
+        setChatMessages((prev) => prev.filter((m) => m.id !== assistantMsgId));
+      }
     } finally {
       setIsChatLoading(false);
+      setIsStreaming(false);
+      chatAbortControllerRef.current = null;
     }
+  };
+
+  const handleRegenerateLastResponse = async () => {
+    const lastUserMsg = [...chatMessages].reverse().find((m) => m.role === 'user');
+    if (!lastUserMsg) {
+      showNotification('Nenhuma mensagem anterior para regerar.', 'error');
+      return;
+    }
+    // Remove last assistant message if present
+    setChatMessages((prev) => {
+      const lastIndex = prev.length - 1;
+      if (lastIndex >= 0 && prev[lastIndex].role === 'assistant') {
+        return prev.slice(0, lastIndex);
+      }
+      return prev;
+    });
+    await sendChatMessage(lastUserMsg.content);
   };
 
   const handleAiAction = async () => {
@@ -1023,6 +1276,22 @@ export default function App() {
     showNotification('Microfone ligado. Pode falar...');
   };
 
+  const handleCreateNewChat = useCallback(() => {
+    setActiveSessionId(null);
+    setChatMessages([]);
+    setChatFiles([]);
+    setChatInput('');
+    setActiveTab('chat');
+    showNotification('Novo chat de IA iniciado com sucesso!');
+  }, [showNotification]);
+
+  const handleSelectChatSession = useCallback((session: ChatSession) => {
+    setActiveSessionId(session.id);
+    setChatMessages(session.messages || []);
+    setActiveTab('chat');
+    showNotification(`Sessão "${session.title}" aberta!`);
+  }, [showNotification]);
+
   // Find active tool details
   let activeToolInfo = CATEGORIES[0].tools[0];
   for (const cat of CATEGORIES) {
@@ -1131,8 +1400,19 @@ export default function App() {
         </div>
       )}
 
-      {/* Theme and Font Customization Modal */}
-      <ThemeFontConfig isOpen={isThemeFontOpen} onClose={() => setIsThemeFontOpen(false)} />
+      {/* Theme, Font & Auto-Save Customization Modal */}
+      <ThemeFontConfig
+        isOpen={isThemeFontOpen}
+        onClose={() => setIsThemeFontOpen(false)}
+        userEmail={googleUser?.email || msUser?.email || 'usuario@docplus.com'}
+        autoSaveEnabled={autoSaveEnabled}
+        setAutoSaveEnabled={setAutoSaveEnabled}
+        autoSaveDelayMs={autoSaveDelayMs}
+        setAutoSaveDelayMs={setAutoSaveDelayMs}
+        autoSaveStatus={autoSaveStatus}
+        lastSavedAt={lastSavedAt}
+        onForceSave={handleForceAutoSave}
+      />
 
       {/* Custom PDF Export Modal */}
       <CustomPdfExportModal
@@ -1331,102 +1611,58 @@ export default function App() {
         </div>
       )}
 
-      {/* Primary Header */}
-      <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-4 sm:px-6 z-40 flex-shrink-0 shadow-sm relative">
-        <div className="flex items-center gap-3 sm:gap-5">
-          {/* Mobile Menu Button */}
+      {/* Primary Clean Native Header */}
+      <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between px-3 sm:px-4 z-40 flex-shrink-0 shadow-xs relative">
+        {/* Left Side: Navigation Menu Toggle & Logo */}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
-            aria-label="Menu de Navegação"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95"
+            aria-label="Menu"
+            title="Menu Principal"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          {/* Logo */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
             <DocPlusLogo size="md" showText={true} />
-          </div>
-
-          {/* Active Tool Breadcrumb Badge */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-bold text-slate-900 dark:text-white">
-              {CATEGORIES.find((c) => c.tools.some((t) => t.id === activeTab))?.title || 'Módulo'}
-            </span>
-            <span className="text-slate-400">/</span>
-            <span className="text-indigo-600 dark:text-indigo-400 font-bold">
-              {CATEGORIES.flatMap((c) => c.tools).find((t) => t.id === activeTab)?.label || 'Ferramenta'}
-            </span>
           </div>
         </div>
 
-        {/* Header Right Actions */}
+        {/* Right Side: Clean Search, Online Status & Profile Badge */}
         <div className="flex items-center gap-2">
-          {/* Online/Offline Badge */}
+          {/* Online / Offline Status Badge */}
           <div
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
+            title={isOnline ? 'Conectado à Internet - Sincronizado' : 'Modo Offline - Edições Salvas em Cache Local'}
+            className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-all ${
               isOnline
-                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 animate-pulse'
             }`}
-            title={isOnline ? 'Conectado à internet' : 'Você está trabalhando offline via PWA cache'}
           >
-            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <span>{isOnline ? 'Online' : 'Modo Offline'}</span>
+            {isOnline ? (
+              <>
+                <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="hidden md:inline">Online</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3.5 h-3.5 text-amber-500" />
+                <span className="hidden md:inline">Offline (Cache Salvo)</span>
+                <span className="md:hidden">Offline</span>
+              </>
+            )}
           </div>
 
-          {/* Command Palette Trigger */}
           <button
             onClick={() => setShowCommandPalette(true)}
-            title="Abrir Busca Rápida / Command Palette (Ctrl + K)"
-            className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 text-xs font-semibold"
+            title="Pesquisa Global (Ctrl + K)"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center gap-1.5 text-xs font-medium"
           >
-            <Terminal className="w-3.5 h-3.5 text-indigo-500" />
-            <span className="hidden lg:inline text-slate-500">Buscar...</span>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-slate-500 font-mono">
-              Ctrl+K
-            </kbd>
+            <Search className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="hidden sm:inline text-slate-500 font-semibold">Pesquisa</span>
           </button>
 
-          {/* Keyboard Shortcuts Trigger */}
-          <button
-            onClick={() => setShowShortcutsModal(true)}
-            title="Ver Atalhos do Teclado (?)"
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-xs font-bold"
-          >
-            <HelpCircle className="w-4 h-4 text-slate-500" />
-          </button>
-
-          {/* Instalar App Button */}
-          <button
-            onClick={handleTriggerInstall}
-            title="Instalar App DocPlus+ no Celular ou PC"
-            className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-95"
-          >
-            <DownloadCloud className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Instalar App</span>
-          </button>
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setShowSettings(true)}
-            title="Configurações & Modelo de IA"
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-
-          {/* Theme Toggle */}
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title="Alternar Tema Claro / Escuro"
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
-          </button>
-
-          {/* User Profile Badge */}
           <GoogleProfileBadge
             user={googleUser}
             onUserChange={(user) => setGoogleUser(user)}
@@ -1556,66 +1792,87 @@ export default function App() {
         </AnimatePresence>
 
         {/* Center Canvas View Area - Spacious Full Workspace */}
-        <main className="flex-1 overflow-y-auto bg-slate-100/60 dark:bg-slate-950 p-3 sm:p-6 lg:p-8 flex flex-col justify-between">
+        <main className="flex-1 overflow-y-auto bg-slate-100/60 dark:bg-slate-950 p-3 sm:p-6 lg:p-8 pb-24 md:pb-8 flex flex-col justify-between">
           <div className="max-w-7xl mx-auto w-full space-y-6 flex-1 flex flex-col">
             
             {/* Active Tool Workspace Render */}
+
+            {/* 0. Home Dashboard */}
+            {activeTab === 'home' && (
+              <HomeDashboard
+                onNavigate={setActiveTab}
+                onNewChat={handleCreateNewChat}
+                recentHistory={historyItems}
+                recentProjects={savedProjects}
+                recentChats={chatSessions}
+                googleUser={googleUser}
+                microsoftUser={msUser}
+                activeEngineLabel={currentEngine.label}
+              />
+            )}
 
             {/* Dedicated Document Header Bar for standalone editor experience */}
             {['word', 'excel', 'powerpoint', 'canva', 'extract'].includes(activeTab) && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2"
+                className="bg-white dark:bg-[#1e1e1e] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 sm:p-4 lg:p-5 shadow-sm grid grid-cols-1 md:grid-cols-12 items-center gap-3 md:gap-4 mb-2 transition-colors duration-200"
               >
-                <div className="flex items-center gap-3 flex-wrap">
+                {/* Left Section: Back to Projects */}
+                <div className="md:col-span-3 flex items-center justify-start gap-2">
                   <button
                     onClick={() => setActiveTab('projects')}
-                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-slate-200/80 dark:border-slate-700 active:scale-95 shadow-sm"
+                    aria-label="Voltar aos Meus Projetos"
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold flex items-center gap-2 transition-all duration-200 border border-slate-200/80 dark:border-slate-700 active:scale-95 shadow-sm focus-visible:ring-2 focus-visible:ring-[#1976D2]"
                   >
-                    <ArrowLeft className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <span>← Voltar aos Meus Projetos</span>
+                    <ArrowLeft className="w-4 h-4 text-[#1976D2] dark:text-[#1E88E5]" aria-hidden="true" />
+                    <span className="hidden sm:inline">Voltar aos Projetos</span>
+                    <span className="sm:hidden">Voltar</span>
                   </button>
+                </div>
 
-                  <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
-
-                  <div className="flex items-center gap-2">
-                    {activeTab === 'word' && <Edit3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-                    {activeTab === 'excel' && <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
-                    {activeTab === 'powerpoint' && <Presentation className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
-                    {activeTab === 'canva' && <PenTool className="w-5 h-5 text-purple-600 dark:text-purple-400" />}
-                    {activeTab === 'extract' && <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />}
+                {/* Center Section: Centered Title 'Novo Documento Sem Título' */}
+                <div className="md:col-span-6 flex flex-col items-center justify-center text-center">
+                  <div className="flex items-center justify-center gap-2 w-full max-w-md">
+                    {activeTab === 'word' && <Edit3 className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" aria-hidden="true" />}
+                    {activeTab === 'excel' && <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />}
+                    {activeTab === 'powerpoint' && <Presentation className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden="true" />}
+                    {activeTab === 'canva' && <PenTool className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" aria-hidden="true" />}
+                    {activeTab === 'extract' && <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" aria-hidden="true" />}
 
                     <input
                       type="text"
                       value={activeDocumentTitle}
                       onChange={(e) => setActiveDocumentTitle(e.target.value)}
-                      placeholder="Nome do Documento..."
-                      className="bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 border border-transparent focus:border-indigo-500 focus:outline-none transition-all min-w-[180px] sm:min-w-[240px]"
+                      placeholder="Novo Documento Sem Título"
+                      aria-label="Título do Documento"
+                      className="bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/60 focus:bg-white dark:focus:bg-slate-800 px-3 py-1 rounded-lg text-[18px] font-bold text-center text-slate-900 dark:text-slate-100 border border-transparent focus:border-[#1976D2] dark:focus:border-[#1E88E5] focus:outline-none transition-all duration-200 w-full"
                     />
-
-                    <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      Salvo localmente
-                    </span>
                   </div>
+
+                  <span className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" aria-hidden="true" />
+                    Salvo localmente
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                {/* Right Section: Salvar Projeto and Assistente IA buttons aligned right with uniform spacing */}
+                <div className="md:col-span-3 flex items-center justify-end gap-3 w-full">
                   <button
                     onClick={() => {
                       saveHistoryItem({
                         type: 'ocr',
-                        title: activeDocumentTitle,
-                        summary: `Documento [${activeDocumentTitle}] editado no ${activeTab.toUpperCase()}`,
+                        title: activeDocumentTitle || 'Novo Documento Sem Título',
+                        summary: `Documento [${activeDocumentTitle || 'Novo Documento Sem Título'}] editado no ${activeTab.toUpperCase()}`,
                         details: `Edição em modo de página dedicada.`
                       });
-                      showNotification(`Projeto "${activeDocumentTitle}" salvo no Vault!`);
+                      showNotification(`Projeto "${activeDocumentTitle || 'Novo Documento Sem Título'}" salvo no Vault!`);
                     }}
-                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+                    aria-label="Salvar Projeto"
+                    className="px-4 py-2.5 bg-[#1976D2] hover:bg-blue-700 dark:bg-[#1E88E5] dark:hover:bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all duration-200 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    Salvar Projeto
+                    <Save className="w-4 h-4" aria-hidden="true" />
+                    <span>Salvar Projeto</span>
                   </button>
 
                   <button
@@ -1623,10 +1880,11 @@ export default function App() {
                       setActiveTab('chat');
                       showNotification('Assistente IA aberto para auxiliar neste documento.');
                     }}
-                    className="px-3.5 py-2 bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
+                    aria-label="Abrir Assistente IA"
+                    className="px-4 py-2.5 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-400"
                   >
-                    <Bot className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                    Assistente IA
+                    <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
+                    <span>Assistente IA</span>
                   </button>
                 </div>
               </motion.div>
@@ -1715,68 +1973,88 @@ export default function App() {
 
             {/* 6. Assistente IA Chat */}
             {activeTab === 'chat' && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl flex flex-col h-[calc(100vh-170px)] sm:h-[calc(100vh-160px)]">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl flex flex-col h-[calc(100vh-140px)] sm:h-[calc(100vh-130px)]">
                 {/* Header & Sub-Tabs */}
-                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <Bot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                      <Bot className="w-5 h-5" />
+                    </div>
                     <div>
-                      <h2 className="text-xs font-bold text-slate-900 dark:text-slate-100">Assistente IA Interativo</h2>
-                      <p className="text-[11px] text-slate-500">{currentEngine.label}</p>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Assistente IA Interativo</h2>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          {currentEngine.tag}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">{currentEngine.label} • {currentEngine.description}</p>
                     </div>
                   </div>
+
+                  {/* Engine Selector Pill */}
+                  <button
+                    onClick={() => setShowAiModelSheet(true)}
+                    className="px-3 py-1.5 bg-slate-200/80 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all border border-slate-300/40 dark:border-slate-700/40 active:scale-95"
+                    title="Trocar Modelo de IA (Gemini, ChatGPT, Claude, DeepSeek...)"
+                  >
+                    <span className="text-sm">{currentEngine.emoji}</span>
+                    <span>{currentEngine.label}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
 
                   {/* Sub-Tabs: Conversa Ativa vs Antigos Chats */}
-                  <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-slate-800/80 p-1 rounded-xl">
-                    <button
-                      onClick={() => setChatSubTab('active')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        chatSubTab === 'active'
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                      }`}
-                    >
-                      Conversa Ativa
-                    </button>
-                    <button
-                      onClick={() => setChatSubTab('history')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                        chatSubTab === 'history'
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                      }`}
-                    >
-                      <History className="w-3.5 h-3.5" />
-                      Antigos Chats
-                      {chatSessions.length > 0 && (
-                        <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px]">
-                          {chatSessions.length}
-                        </span>
-                      )}
-                    </button>
-                  </div>
-
-                  {chatSubTab === 'active' && chatMessages.length > 0 && (
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-slate-800/80 p-1 rounded-xl">
                       <button
-                        onClick={() => {
-                          const fullChatText = chatMessages.map(m => `${m.role === 'user' ? 'Usuário' : 'DocPlus+'}: ${cleanAsterisks(m.content)}`).join('\n\n');
-                          openCustomPdf(fullChatText, 'Conversa DocPlus+ IA');
-                        }}
-                        className="px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-indigo-100 transition-all"
+                        onClick={() => setChatSubTab('active')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          chatSubTab === 'active'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                        }`}
                       >
-                        <FileOutput className="w-3.5 h-3.5" />
-                        PDF Customizado
+                        Conversa Ativa
                       </button>
                       <button
-                        onClick={() => setChatMessages([])}
-                        className="px-2.5 py-1.5 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-semibold flex items-center gap-1"
+                        onClick={() => setChatSubTab('history')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                          chatSubTab === 'history'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Limpar
+                        <History className="w-3.5 h-3.5" />
+                        Antigos Chats
+                        {chatSessions.length > 0 && (
+                          <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px]">
+                            {chatSessions.length}
+                          </span>
+                        )}
                       </button>
                     </div>
-                  )}
+
+                    {chatSubTab === 'active' && chatMessages.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            const fullChatText = chatMessages.map(m => `${m.role === 'user' ? 'Usuário' : 'DocPlus+'}: ${cleanAsterisks(m.content)}`).join('\n\n');
+                            openCustomPdf(fullChatText, 'Conversa DocPlus+ IA');
+                          }}
+                          className="px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-indigo-100 transition-all"
+                        >
+                          <FileOutput className="w-3.5 h-3.5" />
+                          PDF
+                        </button>
+                        <button
+                          onClick={() => setChatMessages([])}
+                          className="px-2.5 py-1.5 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-rose-100 transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Limpar
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {chatSubTab === 'history' ? (
@@ -1813,14 +2091,17 @@ export default function App() {
                 ) : (
                   <>
                     {/* Messages Box */}
-                    <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-slate-100/40 dark:bg-slate-950/40 text-xs">
+                    <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 bg-slate-100/40 dark:bg-slate-950/40 text-xs">
                       {chatMessages.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center space-y-4 py-8">
-                          <MessageSquare className="w-10 h-10 opacity-30 text-indigo-500" />
-                          <p className="text-slate-600 dark:text-slate-300 font-medium text-xs sm:text-sm">
-                            Faça perguntas ou envie anexos para análise com Inteligência Artificial.
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg w-full pt-1">
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center space-y-3 py-4 max-w-lg mx-auto">
+                          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl">
+                            <Bot className="w-8 h-8" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200">Como posso ajudar você hoje?</h3>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full pt-1">
                             {[
                               { text: '📊 Resumir documento ou PDF', prompt: 'Por favor, faça um resumo executivo estruturado com os pontos principais do documento.' },
                               { text: '✉️ Escrever e-mail corporativo', prompt: 'Escreva um e-mail corporativo formal e bem estruturado abordando...' },
@@ -1829,10 +2110,11 @@ export default function App() {
                             ].map((chip, idx) => (
                               <button
                                 key={idx}
-                                onClick={() => setChatInput(chip.prompt)}
-                                className="text-left p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-all hover:shadow-sm"
+                                onClick={() => sendChatMessage(chip.prompt)}
+                                className="text-left px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-indigo-500 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-all hover:shadow-xs flex items-center justify-between group"
                               >
-                                {chip.text}
+                                <span className="truncate">{chip.text}</span>
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 shrink-0 ml-1" />
                               </button>
                             ))}
                           </div>
@@ -1841,82 +2123,122 @@ export default function App() {
                         chatMessages.map((msg) => (
                           <motion.div
                             key={msg.id}
-                            initial={{ opacity: 0, y: 16 }}
+                            initial={{ opacity: 0, y: 12 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
                             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
-                              className={`max-w-[88%] rounded-2xl p-3.5 leading-relaxed ${
+                              className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-4 leading-relaxed ${
                                 msg.role === 'user'
                                   ? 'bg-indigo-600 text-white shadow-md'
-                                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
+                                  : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
                               }`}
                             >
                               {msg.files && msg.files.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-white/20 dark:border-slate-800">
+                                <div className="flex flex-wrap gap-1.5 mb-2.5 pb-2 border-b border-white/20 dark:border-slate-800">
                                   {msg.files.map((f, i) => (
-                                    <span key={i} className="text-[10px] bg-slate-900/10 dark:bg-slate-950 px-2 py-0.5 rounded text-indigo-200 dark:text-indigo-300 flex items-center gap-1">
-                                      <Paperclip className="w-3 h-3" />
+                                    <span key={i} className="text-[11px] bg-slate-900/10 dark:bg-slate-950 px-2.5 py-1 rounded-lg text-indigo-100 dark:text-indigo-300 flex items-center gap-1.5 border border-white/10 dark:border-slate-800">
+                                      <Paperclip className="w-3.5 h-3.5" />
                                       {f.name}
                                     </span>
                                   ))}
                                 </div>
                               )}
+
                               {msg.role === 'assistant' ? (
                                 <div>
-                                  <CleanMarkdown content={msg.content} />
-                                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2 text-[10px]">
-                                    <button
-                                      onClick={() => copyToClipboard(cleanAsterisks(msg.content))}
-                                      className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-slate-500"
-                                    >
-                                      <Copy className="w-3 h-3" /> Copiar
-                                    </button>
-                                    <button
-                                      onClick={() => exportAsMd(msg.content, 'Resposta_DocPlus')}
-                                      className="hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold"
-                                    >
-                                      <FileOutput className="w-3 h-3" /> Markdown (.md)
-                                    </button>
-                                    <button
-                                      onClick={() => openCustomPdf(msg.content, 'Resposta DocPlus+ IA')}
-                                      className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold"
-                                    >
-                                      <FileOutput className="w-3 h-3" /> Exportar PDF
-                                    </button>
-                                  </div>
+                                  {msg.content === '' && isChatLoading ? (
+                                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 py-2">
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      <span className="font-semibold text-xs">Digitando resposta em tempo real...</span>
+                                    </div>
+                                  ) : (
+                                    <CleanMarkdown content={msg.content} />
+                                  )}
+
+                                  {msg.content !== '' && (
+                                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => speakText(msg.content)}
+                                          className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 px-2 py-1 rounded-md transition-colors"
+                                          title="Ouvir em áudio"
+                                        >
+                                          <Volume2 className="w-3.5 h-3.5 text-indigo-500" /> Ouvir
+                                        </button>
+                                        <button
+                                          onClick={() => copyToClipboard(cleanAsterisks(msg.content))}
+                                          className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-2 py-1 rounded-md transition-colors"
+                                        >
+                                          <Copy className="w-3.5 h-3.5" /> Copiar
+                                        </button>
+                                        <button
+                                          onClick={handleRegenerateLastResponse}
+                                          className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-2 py-1 rounded-md transition-colors"
+                                          title="Regerar resposta"
+                                        >
+                                          <RefreshCw className="w-3.5 h-3.5" /> Regerar
+                                        </button>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5">
+                                        <button
+                                          onClick={() => exportAsMd(msg.content, 'Resposta_DocPlus')}
+                                          className="hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold px-2 py-1 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-md transition-colors"
+                                        >
+                                          <FileOutput className="w-3.5 h-3.5" /> .md
+                                        </button>
+                                        <button
+                                          onClick={() => openCustomPdf(msg.content, 'Resposta DocPlus+ IA')}
+                                          className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold px-2 py-1 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-md transition-colors"
+                                        >
+                                          <FileOutput className="w-3.5 h-3.5" /> PDF
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setExtractedText(msg.content);
+                                            setActiveTab('word');
+                                            showNotification('Texto enviado para o Word Pro!');
+                                          }}
+                                          className="hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 text-blue-600 dark:text-blue-400 font-semibold px-2 py-1 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-md transition-colors"
+                                          title="Abrir no Word Editor Pro"
+                                        >
+                                          <FileText className="w-3.5 h-3.5" /> Word Pro
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
-                                <div className="whitespace-pre-wrap">{msg.content}</div>
+                                <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
                               )}
                             </div>
                           </motion.div>
                         ))
                       )}
 
-                      {isChatLoading && (
+                      {isChatLoading && !isStreaming && (
                         <motion.div
-                          initial={{ opacity: 0, y: 16 }}
+                          initial={{ opacity: 0, y: 12 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
                           className="flex justify-start"
                         >
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-2xl flex items-center gap-2 text-slate-500">
+                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl flex items-center gap-2.5 text-slate-500 shadow-sm">
                             <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
-                            <span>Gerando resposta sem asteriscos...</span>
+                            <span className="font-semibold text-xs text-slate-700 dark:text-slate-300">Consultando modelo {currentEngine.label}...</span>
                           </div>
                         </motion.div>
                       )}
                     </div>
 
-                    {/* Attached Files */}
+                    {/* Attached Files Bar */}
                     {chatFiles.length > 0 && (
-                      <div className="p-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2">
+                      <div className="p-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 px-3">
                         {chatFiles.map((file, idx) => (
-                          <span key={idx} className="text-xs bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                            <Paperclip className="w-3 h-3" />
-                            <span className="max-w-[120px] truncate">{file.name}</span>
+                          <span key={idx} className="text-xs bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-xl flex items-center gap-2 shadow-xs">
+                            <Paperclip className="w-3.5 h-3.5" />
+                            <span className="max-w-[140px] truncate font-medium">{file.name}</span>
                             <button onClick={() => setViewingChatFileText(file)} className="hover:text-indigo-600 dark:hover:text-indigo-300" title="Ver texto lido do arquivo">
                               <Eye className="w-3.5 h-3.5 text-indigo-500" />
                             </button>
@@ -1928,48 +2250,80 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Input Bar */}
-                    <div className="p-3 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2">
-                      <input
-                        ref={chatFileInputRef}
-                        type="file"
-                        multiple
-                        onChange={handleChatFileUpload}
-                        className="hidden"
-                        accept=".png,.jpg,.jpeg,.pdf,.docx,.xlsx,.txt"
-                      />
-                      <button
-                        onClick={() => setIsGoogleDriveOpen(true)}
-                        title="Anexar arquivo do Google Drive"
-                        className="p-2.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded-xl border border-amber-200 dark:border-amber-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                      >
-                        <HardDrive className="w-4 h-4 text-amber-500" />
-                      </button>
+                    {/* Unified Input Bar estilo ChatGPT */}
+                    <div className="p-3 bg-white dark:bg-slate-950 border-t border-slate-200/60 dark:border-slate-800/60">
+                      <div className="max-w-4xl mx-auto bg-slate-100/80 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1.5 px-3 flex items-center gap-2 shadow-xs focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                        <input
+                          ref={chatFileInputRef}
+                          type="file"
+                          multiple
+                          onChange={handleChatFileUpload}
+                          className="hidden"
+                          accept=".png,.jpg,.jpeg,.pdf,.docx,.xlsx,.txt"
+                        />
 
-                      <button
-                        onClick={() => chatFileInputRef.current?.click()}
-                        title="Anexar arquivo local"
-                        className="p-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl border border-slate-200 dark:border-slate-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                      >
-                        <Paperclip className="w-4 h-4" />
-                      </button>
+                        {/* Attachment Options */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => chatFileInputRef.current?.click()}
+                            title="Anexar arquivo local (PDF, Imagem, Doc)"
+                            className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <Paperclip className="w-4 h-4" />
+                          </button>
 
-                      <input
-                        type="text"
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
-                        placeholder="Digite sua mensagem aqui..."
-                        className="flex-1 px-4 py-3 bg-white dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-sm sm:text-base text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 min-h-[48px]"
-                      />
+                          <button
+                            onClick={() => setIsGoogleDriveOpen(true)}
+                            title="Google Drive"
+                            className="p-2 text-amber-600 dark:text-amber-400 hover:bg-amber-100/50 dark:hover:bg-amber-950/40 rounded-xl transition-colors hidden sm:flex"
+                          >
+                            <HardDrive className="w-4 h-4" />
+                          </button>
+                        </div>
 
-                      <button
-                        onClick={sendChatMessage}
-                        disabled={isChatLoading || (!chatInput.trim() && chatFiles.length === 0)}
-                        className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl disabled:opacity-50 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center shadow-md"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
+                        {/* Text Area / Input */}
+                        <input
+                          type="text"
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
+                          placeholder="Digite uma mensagem..."
+                          className="flex-1 bg-transparent py-2 px-1 text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none"
+                        />
+
+                        {/* Voice & Send Controls */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setActiveTab('audio');
+                              showNotification('Gravador de áudio e transcrição aberto.');
+                            }}
+                            title="Gravação de Áudio e Voz"
+                            className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                          >
+                            <Mic className="w-4 h-4" />
+                          </button>
+
+                          {isStreaming ? (
+                            <button
+                              onClick={handleStopChatStream}
+                              title="Interromper geração"
+                              className="p-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all shadow-xs"
+                            >
+                              <StopCircle className="w-4 h-4 animate-pulse" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => sendChatMessage()}
+                              disabled={isChatLoading || (!chatInput.trim() && chatFiles.length === 0)}
+                              className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl disabled:opacity-30 transition-all shadow-xs font-bold"
+                              title="Enviar"
+                            >
+                              <Send className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
@@ -2219,7 +2573,17 @@ export default function App() {
               </div>
             )}
 
-            {/* 11. Histórico Vault */}
+            {/* 11. Dashboard Analytics */}
+            {activeTab === 'analytics' && (
+              <DashboardAnalytics
+                historyRecords={historyItems}
+                onOpenTool={(tool) => setActiveTab(tool)}
+                showNotification={showNotification}
+                userEmail="usuario@docplus.com"
+              />
+            )}
+
+            {/* 12. Histórico Vault */}
             {activeTab === 'history' && (
               <HistoryVault
                 items={historyItems}
@@ -2402,6 +2766,82 @@ export default function App() {
         onClose={() => setShowBrowserGuide(false)}
         deferredPrompt={deferredPrompt}
         onTriggerInstall={handleTriggerInstall}
+      />
+
+      {/* AI Model Selector Bottom Sheet Modal */}
+      {showAiModelSheet && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Selecione o Modelo de IA</h3>
+              </div>
+              <button
+                onClick={() => setShowAiModelSheet(false)}
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {ENGINES.map((eng) => {
+                const isSelected = translationEngine === eng.id;
+                return (
+                  <button
+                    key={eng.id}
+                    onClick={() => {
+                      setTranslationEngine(eng.id);
+                      setShowAiModelSheet(false);
+                      showNotification(`Modelo alterado para ${eng.label}`);
+                    }}
+                    className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-indigo-50/80 dark:bg-indigo-950/60 border-indigo-500 text-indigo-900 dark:text-indigo-100 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl p-2 bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-200/50 dark:border-slate-800">{eng.emoji}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100">{eng.label}</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                            {eng.tag}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{eng.description}</p>
+                      </div>
+                    </div>
+                    {isSelected && <Check className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Persistent Bottom Navigation Bar (Mobile / Responsive) */}
+      <BottomNavBar
+        activeTab={activeTab}
+        onNavigate={setActiveTab}
+        onOpenFab={() => setIsFabOpen(true)}
+      />
+
+      {/* Floating Action Button (FAB) Bottom Sheet Menu */}
+      <FabMenuSheet
+        isOpen={isFabOpen}
+        onClose={() => setIsFabOpen(false)}
+        onSelectAction={(tab) => {
+          if (tab === 'chat') {
+            handleCreateNewChat();
+          } else {
+            setActiveTab(tab);
+          }
+          setIsFabOpen(false);
+        }}
       />
     </div>
   );

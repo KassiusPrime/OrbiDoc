@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "documents": {
+      "title": "Document",
+      "description": "Auto-saved documents, notes, spreadsheets, and drafts",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "docType": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userId": { "type": "string" },
+        "theme": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "updatedAt"]
+    },
+    "user_settings": {
+      "title": "UserSettings",
+      "description": "User theme preferences and auto-save configurations",
+      "type": "object",
+      "properties": {
+        "userEmail": { "type": "string" },
+        "themeMode": { "type": "string" },
+        "themePreset": { "type": "string" },
+        "accentColor": { "type": "string" },
+        "autoSaveEnabled": { "type": "boolean" },
+        "autoSaveDelayMs": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userEmail", "updatedAt"]
+    },
+    "chat_sessions": {
+      "title": "ChatSession",
+      "description": "Synced AI chat history",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "messages": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userEmail", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "documents": {
+      "path": "documents/{documentId}",
+      "entity": "documents"
+    },
+    "user_settings": {
+      "path": "user_settings/{settingId}",
+      "entity": "user_settings"
+    },
+    "chat_sessions": {
+      "path": "chat_sessions/{sessionId}",
+      "entity": "chat_sessions"
+    }
+  }
+}

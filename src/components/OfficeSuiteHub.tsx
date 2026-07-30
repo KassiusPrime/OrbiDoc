@@ -1,9 +1,11 @@
 import React from 'react';
 import { 
-  FileText, FileSpreadsheet, Presentation, PenTool, ArrowUpRight, 
-  ExternalLink, Sparkles, FolderOpen, Plus, Cloud, CheckCircle2, ShieldCheck,
-  FileCode, Layers, Cpu, Compass
-} from 'lucide-react';
+  IconFileText as FileText, IconFileSpreadsheet as FileSpreadsheet, IconPresentation as Presentation, 
+  IconPencil as PenTool, IconArrowUpRight as ArrowUpRight, IconExternalLink as ExternalLink, 
+  IconSparkles as Sparkles, IconFolderOpen as FolderOpen, IconPlus as Plus, IconCloud as Cloud, 
+  IconCircleCheck as CheckCircle2, IconShieldCheck as ShieldCheck, IconFileCode as FileCode, 
+  IconStack2 as Layers, IconCpu as Cpu, IconCompass as Compass
+} from '@tabler/icons-react';
 import { TabType, MicrosoftUserProfile } from '../types';
 
 export interface OfficeSuiteHubProps {
@@ -28,6 +30,16 @@ export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({
     if (onSelectTool) onSelectTool(tool);
   };
   const officeTools = [
+    {
+      id: 'extract' as TabType,
+      title: 'DocPlus+ PDF & Leitor OCR',
+      category: 'Visualizador & Extrator PDF',
+      icon: FileText,
+      color: 'from-rose-600 to-red-700',
+      badgeColor: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
+      description: 'Abra arquivos PDF, escaneie imagens com IA OCR, extraia textos automaticamente e converta para Word, TXT ou Markdown.',
+      templates: ['Escanear Fatura', 'Leitura de Contrato', 'Extrair Tabela PDF', 'Resumo com IA'],
+    },
     {
       id: 'word' as TabType,
       title: 'DocPlus+ Word Pro',

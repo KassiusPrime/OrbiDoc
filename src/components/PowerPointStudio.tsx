@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
+import pptxgen from 'pptxgenjs';
 import { saveAs } from 'file-saver';
 import { SlideData, PresentationDeck, HistoryItem } from '../types';
 
@@ -169,6 +170,89 @@ Retorne estritamente um array JSON de 4 slides no formato:
     }
   };
 
+  const exportPptx = async () => {
+    try {
+      const pptx = new pptxgen();
+      pptx.title = deck.title.replace('.pptx', '');
+
+      deck.slides.forEach((slide) => {
+        const pptxSlide = pptx.addSlide();
+        
+        // Clean slide title & subtitle without markdown symbols # * **
+        const cleanTitle = slide.title.replace(/^#+\s*/, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1');
+        const cleanSubtitle = slide.subtitle ? slide.subtitle.replace(/^#+\s*/, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1') : '';
+
+        // Slide Background
+        pptxSlide.background = { color: selectedTheme.id === 'white' ? 'FFFFFF' : '0F172A' };
+
+        // Slide Title Box (Native PowerPoint Text Frame)
+        pptxSlide.addText(cleanTitle, {
+          x: 0.8,
+          y: 0.8,
+          w: '80%',
+          h: 1.0,
+          fontSize: 30,
+          fontFace: 'Calibri',
+          bold: true,
+          color: selectedTheme.id === 'white' ? '1E293B' : 'FFFFFF',
+          align: 'left'
+        });
+
+        if (cleanSubtitle) {
+          pptxSlide.addText(cleanSubtitle, {
+            x: 0.8,
+            y: 1.8,
+            w: '80%',
+            h: 0.6,
+            fontSize: 18,
+            fontFace: 'Calibri',
+            color: selectedTheme.id === 'white' ? '475569' : '94A3B8',
+            align: 'left'
+          });
+        }
+
+        // Native Bullet List Items (clean text)
+        if (slide.bullets && slide.bullets.length > 0) {
+          const bulletObjects = slide.bullets.map(bullet => {
+            const cleanItem = bullet.replace(/^[-*•]\s+/, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1');
+            return {
+              text: cleanItem,
+              options: {
+                fontSize: 16,
+                fontFace: 'Calibri',
+                color: selectedTheme.id === 'white' ? '334155' : 'E2E8F0',
+                bullet: true,
+                breakLine: true
+              }
+            };
+          });
+
+          pptxSlide.addText(bulletObjects, {
+            x: 0.8,
+            y: cleanSubtitle ? 2.6 : 2.0,
+            w: '85%',
+            h: 4.2,
+            align: 'left'
+          });
+        }
+      });
+
+      await pptx.writeFile({ fileName: deck.title.endsWith('.pptx') ? deck.title : `${deck.title}.pptx` });
+      showNotification('Apresentação PPTX nativa exportada com sucesso!', 'success');
+
+      if (onSaveToHistory) {
+        onSaveToHistory({
+          type: 'powerpoint',
+          title: deck.title,
+          summary: `Apresentação com ${deck.slides.length} slides exportada para PPTX.`
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao exportar PPTX:', err);
+      showNotification('Erro ao gerar arquivo PPTX.', 'error');
+    }
+  };
+
   const exportPdf = () => {
     try {
       const pdf = new jsPDF({ orientation: 'landscape', format: 'a4' });
@@ -251,6 +335,13 @@ Retorne estritamente um array JSON de 4 slides no formato:
             className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-all"
           >
             <Play className="w-3.5 h-3.5 fill-current" /> Apresentar
+          </button>
+
+          <button
+            onClick={exportPptx}
+            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 shadow-sm transition-all"
+          >
+            <Download className="w-3.5 h-3.5" /> PPTX (Office)
           </button>
 
           <button

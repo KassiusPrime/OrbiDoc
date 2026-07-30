@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Grid, Plus, Trash2, Download, FileSpreadsheet, Sparkles, Bold, Italic,
-  AlignLeft, AlignCenter, AlignRight, BarChart2, Calculator, RefreshCw, Check
+  AlignLeft, AlignCenter, AlignRight, BarChart2, Calculator, RefreshCw, Check,
+  Layers, SplitSquareHorizontal, Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as xlsx from 'xlsx';
@@ -116,6 +117,15 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
   const [activeCellKey, setActiveCellKey] = useState<string>('A1');
   const [editingFormula, setEditingFormula] = useState<string>('');
   const [showChartModal, setShowChartModal] = useState(false);
+
+  const [isExpansiveView, setIsExpansiveView] = useState(false);
+  const [expansiveDeviceMode, setExpansiveDeviceMode] = useState<'pc' | 'mobile'>('pc');
+  const [excelContextMenu, setExcelContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  const handleExcelContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setExcelContextMenu({ x: e.clientX, y: e.clientY });
+  };
 
   // Apply Auto-Sum formula to the current active cell
   const applyAutoSum = () => {
@@ -288,6 +298,78 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
     }));
   };
 
+  const setCellAlign = (align: 'left' | 'center' | 'right') => {
+    if (!activeCellKey) return;
+    setGridData(prev => ({
+      ...prev,
+      [activeCellKey]: { ...(prev[activeCellKey] || {}), align }
+    }));
+  };
+
+  const mergeCellsHorizontal = () => {
+    if (!activeCellKey) return;
+    const colMatch = activeCellKey.match(/[A-Z]+/)?.[0] || 'A';
+    const rowMatch = parseInt(activeCellKey.match(/[0-9]+/)?.[0] || '1', 10);
+    const colIdx = cols.indexOf(colMatch);
+
+    if (colIdx >= cols.length - 1) {
+      showNotification('Não há coluna à direita para mesclar.', 'error');
+      return;
+    }
+
+    const nextCol = cols[colIdx + 1];
+    const nextKey = `${nextCol}${rowMatch}`;
+
+    setGridData(prev => {
+      const current = prev[activeCellKey] || {};
+      const currentColSpan = current.colSpan || 1;
+      return {
+        ...prev,
+        [activeCellKey]: {
+          ...current,
+          colSpan: currentColSpan + 1,
+        },
+        [nextKey]: {
+          ...(prev[nextKey] || {}),
+          isMergedChild: true,
+        }
+      };
+    });
+
+    showNotification(`Células ${activeCellKey} e ${nextKey} mescladas com sucesso!`, 'success');
+  };
+
+  const unmergeCells = () => {
+    if (!activeCellKey) return;
+    setGridData(prev => {
+      const current = prev[activeCellKey] || {};
+      const colSpan = current.colSpan || 1;
+      const colMatch = activeCellKey.match(/[A-Z]+/)?.[0] || 'A';
+      const rowMatch = parseInt(activeCellKey.match(/[0-9]+/)?.[0] || '1', 10);
+      const colIdx = cols.indexOf(colMatch);
+
+      const updated = { ...prev };
+      updated[activeCellKey] = {
+        ...current,
+        colSpan: 1,
+        rowSpan: 1,
+      };
+
+      for (let i = 1; i < colSpan; i++) {
+        if (colIdx + i < cols.length) {
+          const k = `${cols[colIdx + i]}${rowMatch}`;
+          if (updated[k]) {
+            updated[k] = { ...updated[k], isMergedChild: false };
+          }
+        }
+      }
+
+      return updated;
+    });
+
+    showNotification(`Desfeita a mesclagem da célula ${activeCellKey}`, 'success');
+  };
+
   const addRow = () => setRowCount(r => r + 1);
   const addCol = () => {
     const lastCol = cols[cols.length - 1];
@@ -301,18 +383,42 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
       const rowArr: any[] = [];
       for (let c = 0; c < cols.length; c++) {
         const k = `${cols[c]}${r}`;
-        rowArr.push(evaluateCell(k, gridData));
+        const rawVal = evaluateCell(k, gridData);
+        // Clean any markdown formatting symbols (#, *, **) for clean Excel cells
+        const cleanVal = typeof rawVal === 'string'
+          ? rawVal.replace(/^#+\s*/, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').trim()
+          : rawVal;
+        rowArr.push(cleanVal);
       }
       wsData.push(rowArr);
     }
 
     const ws = xlsx.utils.aoa_to_sheet(wsData);
+
+    // Add native Excel/Google Sheets auto-filter to headers
+    const lastCol = cols[cols.length - 1] || 'E';
+    ws['!autofilter'] = { ref: `A1:${lastCol}${rowCount}` };
+
+    // Auto-calculate column widths
+    const colWidths = cols.map((_, colIdx) => {
+      let maxLen = 12;
+      for (let r = 0; r < wsData.length; r++) {
+        const val = wsData[r][colIdx];
+        if (val) {
+          const len = String(val).length;
+          if (len > maxLen) maxLen = Math.min(len + 4, 40);
+        }
+      }
+      return { wch: maxLen };
+    });
+    ws['!cols'] = colWidths;
+
     const wb = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(wb, ws, 'Planilha');
     const wbout = xlsx.write(wb, { bookType: 'xlsx', type: 'array' });
 
     saveAs(new Blob([wbout], { type: 'application/octet-stream' }), sheetTitle.endsWith('.xlsx') ? sheetTitle : `${sheetTitle}.xlsx`);
-    showNotification('Planilha Excel exportada com sucesso!', 'success');
+    showNotification('Planilha Excel com auto-filtro e colunas formatadas exportada com sucesso!', 'success');
 
     if (onSaveToHistory) {
       onSaveToHistory({
@@ -383,6 +489,15 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
+            onClick={() => setIsExpansiveView(true)}
+            className="px-3.5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-all flex items-center gap-1.5 shadow-sm"
+            title="Página Expansiva Tela Cheia (PC / Celular)"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            Expansivo
+          </button>
+
+          <button
             onClick={() => setShowChartModal(true)}
             className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-semibold hover:shadow-lg transition-all flex items-center gap-1.5"
           >
@@ -440,14 +555,66 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
             className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-transparent outline-none"
             title="Fonte da célula"
           >
+            <option value="font-sans">Arial / Sans</option>
+            <option value="font-serif">Times New Roman</option>
             <option value="font-calibri">Calibri</option>
-            <option value="font-league-spartan">League Spartan</option>
-            <option value="font-arial">Arial</option>
-            <option value="font-times">Times New Roman</option>
-            <option value="font-sans">Sans-serif</option>
-            <option value="font-serif">Serif</option>
+            <option value="font-georgia">Georgia</option>
+            <option value="font-garamond">Garamond</option>
             <option value="font-mono">Monospaced</option>
           </select>
+
+          {/* Text Alignment */}
+          <div className="flex items-center gap-0.5 border border-slate-200 rounded-lg p-0.5">
+            <button
+              onClick={() => setCellAlign('left')}
+              className={`p-1 rounded text-xs ${
+                gridData[activeCellKey]?.align === 'left' || !gridData[activeCellKey]?.align ? 'bg-emerald-100 text-emerald-800' : 'hover:bg-slate-100 text-slate-600'
+              }`}
+              title="Alinhar à Esquerda"
+            >
+              <AlignLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setCellAlign('center')}
+              className={`p-1 rounded text-xs ${
+                gridData[activeCellKey]?.align === 'center' ? 'bg-emerald-100 text-emerald-800' : 'hover:bg-slate-100 text-slate-600'
+              }`}
+              title="Alinhar ao Centro"
+            >
+              <AlignCenter className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setCellAlign('right')}
+              className={`p-1 rounded text-xs ${
+                gridData[activeCellKey]?.align === 'right' ? 'bg-emerald-100 text-emerald-800' : 'hover:bg-slate-100 text-slate-600'
+              }`}
+              title="Alinhar à Direita"
+            >
+              <AlignRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Cell Merging Buttons */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={mergeCellsHorizontal}
+              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-blue-200"
+              title="Mesclar Célula com a Vizinha da Direita"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Mesclar
+            </button>
+            {gridData[activeCellKey]?.colSpan && gridData[activeCellKey].colSpan! > 1 && (
+              <button
+                onClick={unmergeCells}
+                className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-rose-200"
+                title="Desfazer Mesclagem"
+              >
+                <SplitSquareHorizontal className="w-3.5 h-3.5" />
+                Desmesclar
+              </button>
+            )}
+          </div>
 
           {/* Auto-Sum Button */}
           <button
@@ -547,12 +714,19 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
                   {cols.map(col => {
                     const cellKey = `${col}${rowNum}`;
                     const cellData = gridData[cellKey] || {};
+
+                    if (cellData.isMergedChild) {
+                      return null;
+                    }
+
                     const displayVal = evaluateCell(cellKey, gridData);
                     const isActive = activeCellKey === cellKey;
 
                     return (
                       <td
                         key={cellKey}
+                        colSpan={cellData.colSpan || 1}
+                        rowSpan={cellData.rowSpan || 1}
                         onClick={() => setActiveCellKey(cellKey)}
                         style={{ backgroundColor: cellData.bgColor || '#ffffff' }}
                         className={`border-r border-slate-200 p-0 relative transition-all ${
@@ -647,6 +821,202 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Full Screen Expansive Dedicated View for Excel (Modo Página Expansiva PC / Celular) */}
+      {isExpansiveView && (
+        <div 
+          onContextMenu={handleExcelContextMenu}
+          className="fixed inset-0 z-50 bg-slate-100 dark:bg-slate-950 flex flex-col p-2 sm:p-6 overflow-hidden font-sans"
+        >
+          {/* Top Control Header */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-2xl p-3 shadow-xl flex flex-wrap items-center justify-between gap-3 max-w-7xl mx-auto w-full mb-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsExpansiveView(false)}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5"
+              >
+                ← Voltar
+              </button>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">X</div>
+                <input
+                  type="text"
+                  value={sheetTitle}
+                  onChange={(e) => setSheetTitle(e.target.value)}
+                  className="font-bold text-sm bg-transparent border-b border-transparent hover:border-slate-300 focus:border-emerald-600 outline-none text-slate-800 dark:text-slate-100 px-1"
+                />
+              </div>
+            </div>
+
+            {/* Device View Switcher */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button
+                onClick={() => setExpansiveDeviceMode('pc')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  expansiveDeviceMode === 'pc'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                💻 Modo PC (Grade Estruturada)
+              </button>
+              <button
+                onClick={() => setExpansiveDeviceMode('mobile')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  expansiveDeviceMode === 'mobile'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                📱 Modo Celular (Tabela Fluida)
+              </button>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={applyAutoSum}
+                className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold flex items-center gap-1"
+              >
+                <Calculator className="w-3.5 h-3.5" /> Auto-Soma
+              </button>
+              <button
+                onClick={mergeCellsHorizontal}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"
+              >
+                <SplitSquareHorizontal className="w-3.5 h-3.5" /> Mesclar Célula
+              </button>
+              <button
+                onClick={addRow}
+                className="px-2.5 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold"
+              >
+                + Linha
+              </button>
+              <button
+                onClick={addCol}
+                className="px-2.5 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold"
+              >
+                + Coluna
+              </button>
+            </div>
+          </div>
+
+          {/* Spreadsheet Canvas */}
+          <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-2xl p-4 max-w-7xl mx-auto w-full">
+            <div className="min-w-[700px] overflow-x-auto">
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <th className="w-10 p-2 border border-slate-200 dark:border-slate-700 text-center font-bold">#</th>
+                    {cols.map((col) => (
+                      <th key={col} className="p-2 border border-slate-200 dark:border-slate-700 text-center font-bold min-w-[100px]">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: rowCount }).map((_, rIdx) => {
+                    const rowNum = rIdx + 1;
+                    return (
+                      <tr key={rowNum} className="hover:bg-slate-50 dark:hover:bg-slate-850">
+                        <td className="p-2 border border-slate-200 dark:border-slate-700 text-center font-bold bg-slate-50 dark:bg-slate-800 text-slate-500">
+                          {rowNum}
+                        </td>
+                        {cols.map((col) => {
+                          const key = `${col}${rowNum}`;
+                          const cell = gridData[key] || {};
+                          if (cell.isMergedChild) return null;
+
+                          return (
+                            <td
+                              key={key}
+                              colSpan={cell.colSpan || 1}
+                              rowSpan={cell.rowSpan || 1}
+                              onClick={() => setActiveCellKey(key)}
+                              className={`p-1 border border-slate-200 dark:border-slate-700 transition-all ${
+                                activeCellKey === key ? 'ring-2 ring-emerald-500 bg-emerald-50 dark:bg-emerald-950/30' : ''
+                              }`}
+                              style={{
+                                backgroundColor: cell.bgColor || undefined,
+                                color: cell.textColor || undefined,
+                                fontWeight: cell.bold ? 'bold' : 'normal',
+                                fontStyle: cell.italic ? 'italic' : 'normal',
+                                textAlign: cell.align || 'left',
+                              }}
+                            >
+                              <input
+                                type="text"
+                                value={cell.value || ''}
+                                onChange={(e) => handleCellChange(key, e.target.value)}
+                                className="w-full bg-transparent border-none outline-none font-inherit text-inherit text-xs"
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Excel Right Click Context Menu */}
+      {excelContextMenu && (
+        <div
+          style={{ top: excelContextMenu.y, left: excelContextMenu.x }}
+          className="fixed z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-2 min-w-[200px] text-xs space-y-1 animate-in fade-in zoom-in-95 duration-100"
+          onClick={() => setExcelContextMenu(null)}
+        >
+          <button
+            onClick={applyAutoSum}
+            className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center justify-between font-semibold text-slate-700 dark:text-slate-200"
+          >
+            <span>∑ Aplicar Auto-Soma</span>
+          </button>
+          <button
+            onClick={mergeCellsHorizontal}
+            className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center justify-between font-semibold text-slate-700 dark:text-slate-200"
+          >
+            <span>⊞ Mesclar com Célula Direita</span>
+          </button>
+          <button
+            onClick={unmergeCells}
+            className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center justify-between font-semibold text-slate-700 dark:text-slate-200"
+          >
+            <span>⊟ Desfazer Mesclagem</span>
+          </button>
+          <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+          <button
+            onClick={() => formatAsTable('emerald')}
+            className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center justify-between font-semibold text-emerald-600"
+          >
+            <span>🎨 Formatar Tabela Verde</span>
+          </button>
+          <button
+            onClick={() => formatAsTable('blue')}
+            className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center justify-between font-semibold text-blue-600"
+          >
+            <span>🎨 Formatar Tabela Azul</span>
+          </button>
+          <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+          <button
+            onClick={addRow}
+            className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center justify-between font-semibold text-slate-700 dark:text-slate-200"
+          >
+            <span>➕ Inserir Nova Linha</span>
+          </button>
+          <button
+            onClick={addCol}
+            className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center justify-between font-semibold text-slate-700 dark:text-slate-200"
+          >
+            <span>➕ Inserir Nova Coluna</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

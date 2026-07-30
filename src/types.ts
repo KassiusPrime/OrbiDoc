@@ -1,4 +1,5 @@
 export type TabType = 
+  | 'home'
   | 'projects'
   | 'office'
   | 'extract' 
@@ -100,6 +101,9 @@ export interface SavedProject {
   updatedAt: string;
   createdAt: string;
   previewSnippet?: string;
+  details?: string;
+  summary?: string;
+  category?: string;
   thumbnailColor?: string;
   tags?: string[];
   content?: any;
@@ -166,5 +170,8 @@ export interface ExcelCell {
   bgColor?: string;
   textColor?: string;
   fontFamily?: string;
+  colSpan?: number;
+  rowSpan?: number;
+  isMergedChild?: boolean;
 }
 

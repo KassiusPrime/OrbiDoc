@@ -7,7 +7,7 @@ import {
   Wand2, FileText, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx';
 import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import { HistoryItem } from '../types';
@@ -90,6 +90,7 @@ export const WordEditor: React.FC<WordEditorProps> = ({
   const [fontFamily, setFontFamily] = useState<string>('font-sans');
   const [activeHighlight, setActiveHighlight] = useState<string>('#fef08a'); // default yellow mark
   const [focusMode, setFocusMode] = useState(false);
+  const [expansiveDeviceMode, setExpansiveDeviceMode] = useState<'pc' | 'mobile'>('pc');
 
   // Error Detection State
   const [errors, setErrors] = useState<GrammarError[]>([]);
@@ -105,6 +106,16 @@ export const WordEditor: React.FC<WordEditorProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [replaceTerm, setReplaceTerm] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+
+  // Right-click Context Menu
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const closeContextMenu = () => setContextMenu(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -312,9 +323,112 @@ export const WordEditor: React.FC<WordEditorProps> = ({
     showNotification(`Substituído com sucesso!`, 'success');
   };
 
-  const copyContent = async () => {
-    await navigator.clipboard.writeText(content);
-    showNotification('Copiado para a área de transferência!', 'success');
+  // Centraliza apenas a linha atual onde o cursor se encontra
+  const centerCurrentLine = () => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const lines = content.split('\n');
+    let currentLength = 0;
+    let targetLineIdx = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineLen = lines[i].length + 1;
+      if (start >= currentLength && start <= currentLength + lineLen) {
+        targetLineIdx = i;
+        break;
+      }
+      currentLength += lineLen;
+    }
+
+    const currentLine = lines[targetLineIdx];
+    if (currentLine.includes('<p align="center">') || currentLine.includes('<div align="center">')) {
+      lines[targetLineIdx] = currentLine
+        .replace(/<p align="center">/g, '')
+        .replace(/<\/p>/g, '')
+        .replace(/<div align="center">/g, '')
+        .replace(/<\/div>/g, '');
+      showNotification('Alinhamento da linha restaurado.', 'success');
+    } else {
+      lines[targetLineIdx] = `<p align="center">${currentLine}</p>`;
+      showNotification('Linha atual centralizada!', 'success');
+    }
+
+    setContent(lines.join('\n'));
+  };
+
+  // State for Table Preset Inserter
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
+  const [tableStyle, setTableStyle] = useState<'corporate' | 'executive' | 'minimal' | 'amber' | 'dark'>('corporate');
+
+  const copyContent = () => {
+    navigator.clipboard.writeText(content);
+    showNotification('Conteúdo copiado para a área de transferência!', 'success');
+  };
+
+  const insertWordTable = (overrideStyle?: 'corporate' | 'executive' | 'minimal' | 'amber' | 'dark') => {
+    const styleToUse = overrideStyle || tableStyle;
+    const themeStyles = {
+      corporate: { headerBg: '#2563eb', headerColor: '#ffffff', border: '#cbd5e1', zebraBg: '#eff6ff' },
+      executive: { headerBg: '#059669', headerColor: '#ffffff', border: '#cbd5e1', zebraBg: '#ecfdf5' },
+      minimal: { headerBg: '#475569', headerColor: '#ffffff', border: '#e2e8f0', zebraBg: '#f8fafc' },
+      amber: { headerBg: '#d97706', headerColor: '#ffffff', border: '#fcd34d', zebraBg: '#fffbeb' },
+      dark: { headerBg: '#0f172a', headerColor: '#ffffff', border: '#334155', zebraBg: '#1e293b' },
+    }[styleToUse];
+
+    let html = `\n<table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">\n<thead>\n<tr style="background-color: ${themeStyles.headerBg}; color: ${themeStyles.headerColor};">\n`;
+    for (let c = 1; c <= tableCols; c++) {
+      html += `  <th style="padding: 10px; border: 1px solid ${themeStyles.border}; text-align: left;">Cabeçalho ${c}</th>\n`;
+    }
+    html += `</tr>\n</thead>\n<tbody>\n`;
+
+    for (let r = 1; r <= tableRows; r++) {
+      const bg = r % 2 === 0 ? themeStyles.zebraBg : '#ffffff';
+      html += `<tr style="background-color: ${bg};">\n`;
+      for (let c = 1; c <= tableCols; c++) {
+        html += `  <td style="padding: 8px; border: 1px solid ${themeStyles.border};">Dado ${r}.${c}</td>\n`;
+      }
+      html += `</tr>\n`;
+    }
+    html += `</tbody>\n</table>\n`;
+
+    setContent(prev => prev + html);
+    setShowTableModal(false);
+    showNotification('Tabela formatada inserida no documento!', 'success');
+  };
+
+  const parseFormattedRuns = (rawText: string): TextRun[] => {
+    const textWithoutHash = rawText.replace(/^#+\s*/, '');
+    const runs: TextRun[] = [];
+    const regex = /(\*\*.*?\*\*|\*.*?\*|__.*?__|_[^_]+_)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(textWithoutHash)) !== null) {
+      if (match.index > lastIndex) {
+        runs.push(new TextRun({ text: textWithoutHash.substring(lastIndex, match.index), font: 'Calibri' }));
+      }
+      const token = match[0];
+      if (token.startsWith('**') && token.endsWith('**')) {
+        runs.push(new TextRun({ text: token.slice(2, -2), bold: true, font: 'Calibri' }));
+      } else if (token.startsWith('*') && token.endsWith('*')) {
+        runs.push(new TextRun({ text: token.slice(1, -1), italics: true, font: 'Calibri' }));
+      } else if (token.startsWith('__') && token.endsWith('__')) {
+        runs.push(new TextRun({ text: token.slice(2, -2), bold: true, font: 'Calibri' }));
+      } else if (token.startsWith('_') && token.endsWith('_')) {
+        runs.push(new TextRun({ text: token.slice(1, -1), italics: true, font: 'Calibri' }));
+      } else {
+        runs.push(new TextRun({ text: token, font: 'Calibri' }));
+      }
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < textWithoutHash.length) {
+      runs.push(new TextRun({ text: textWithoutHash.substring(lastIndex), font: 'Calibri' }));
+    }
+
+    return runs.length > 0 ? runs : [new TextRun({ text: textWithoutHash, font: 'Calibri' })];
   };
 
   const exportDocx = async () => {
@@ -327,18 +441,58 @@ export const WordEditor: React.FC<WordEditorProps> = ({
       };
 
       const paragraphs = content.split('\n').map(line => {
-        const isHeader = line.startsWith('#');
-        const cleanLine = line.replace(/^#+\s*/, '');
-        return new Paragraph({
-          alignment: getAlignment(),
-          children: [
-            new TextRun({
-              text: cleanLine,
-              bold: isHeader || line.includes('**'),
-              size: isHeader ? 28 : 24,
-            })
-          ]
-        });
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return new Paragraph({ text: '', spacing: { after: 120 } });
+        }
+
+        if (trimmed.startsWith('# ')) {
+          return new Paragraph({
+            heading: HeadingLevel.HEADING_1,
+            alignment: getAlignment(),
+            children: parseFormattedRuns(trimmed.replace(/^#\s+/, '')),
+            spacing: { before: 240, after: 120 },
+          });
+        } else if (trimmed.startsWith('## ')) {
+          return new Paragraph({
+            heading: HeadingLevel.HEADING_2,
+            alignment: getAlignment(),
+            children: parseFormattedRuns(trimmed.replace(/^##\s+/, '')),
+            spacing: { before: 200, after: 100 },
+          });
+        } else if (trimmed.startsWith('### ')) {
+          return new Paragraph({
+            heading: HeadingLevel.HEADING_3,
+            alignment: getAlignment(),
+            children: parseFormattedRuns(trimmed.replace(/^###\s+/, '')),
+            spacing: { before: 160, after: 80 },
+          });
+        } else if (/^[-*•]\s+/.test(trimmed)) {
+          return new Paragraph({
+            bullet: { level: 0 },
+            alignment: getAlignment(),
+            children: parseFormattedRuns(trimmed.replace(/^[-*•]\s+/, '')),
+            spacing: { after: 60 },
+          });
+        } else if (/^\d+\.\s+/.test(trimmed)) {
+          const numMatch = trimmed.match(/^(\d+\.)\s+(.*)$/);
+          const numPrefix = numMatch ? numMatch[1] : '';
+          const restText = numMatch ? numMatch[2] : trimmed;
+          return new Paragraph({
+            alignment: getAlignment(),
+            children: [
+              new TextRun({ text: `${numPrefix} `, bold: true, font: 'Calibri' }),
+              ...parseFormattedRuns(restText)
+            ],
+            spacing: { after: 60 },
+          });
+        } else {
+          return new Paragraph({
+            alignment: getAlignment(),
+            children: parseFormattedRuns(trimmed),
+            spacing: { after: 120 },
+          });
+        }
       });
 
       const doc = new Document({
@@ -347,13 +501,13 @@ export const WordEditor: React.FC<WordEditorProps> = ({
 
       const blob = await Packer.toBlob(doc);
       saveAs(blob, docTitle.endsWith('.docx') ? docTitle : `${docTitle}.docx`);
-      showNotification('Documento DOCX exportado com sucesso!', 'success');
+      showNotification('Documento DOCX exportado com sucesso com estilos nativos do Office!', 'success');
 
       if (onSaveToHistory) {
         onSaveToHistory({
           type: 'word',
           title: docTitle,
-          summary: `${wordsCount} palavras, ${charsCount} caracteres. Exportado como DOCX.`,
+          summary: `${wordsCount} palavras, ${charsCount} caracteres. Exportado como DOCX nativo.`,
           details: content
         });
       }
@@ -391,9 +545,9 @@ export const WordEditor: React.FC<WordEditorProps> = ({
   return (
     <div className={`space-y-4 transition-all ${focusMode ? 'fixed inset-0 z-50 bg-slate-950 p-6 overflow-y-auto' : ''}`}>
       {/* Header bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#1e1e1e] rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-4 flex flex-wrap items-center justify-between gap-3 transition-colors duration-200">
         <div className="flex items-center gap-3 flex-1 min-w-[240px]">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-[#1976D2] dark:bg-[#1E88E5] text-white flex items-center justify-center font-bold shadow-md shrink-0">
             W
           </div>
           <div className="flex-1">
@@ -401,7 +555,9 @@ export const WordEditor: React.FC<WordEditorProps> = ({
               type="text"
               value={docTitle}
               onChange={(e) => setDocTitle(e.target.value)}
-              className="text-base font-bold text-slate-800 dark:text-slate-100 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 border border-transparent focus:border-blue-400 px-2 py-0.5 rounded-lg outline-none w-full"
+              aria-label="Nome do Documento Word"
+              placeholder="Novo Documento Sem Título"
+              className="text-[18px] font-bold text-slate-900 dark:text-slate-100 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 border border-transparent focus:border-[#1976D2] dark:focus:border-[#1E88E5] px-2 py-0.5 rounded-lg outline-none w-full transition-all duration-200"
             />
             <p className="text-xs text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1.5 flex-wrap">
               <span>{wordsCount} palavras</span>
@@ -409,7 +565,7 @@ export const WordEditor: React.FC<WordEditorProps> = ({
               <span>{charsCount} caracteres</span>
               <span>•</span>
               <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                <Check className="w-3 h-3 inline" />
+                <Check className="w-3 h-3 inline" aria-hidden="true" />
                 {lastAutoSaveTime ? `Salvo às ${lastAutoSaveTime}` : 'Salvamento automático ativo'}
               </span>
             </p>
@@ -420,10 +576,11 @@ export const WordEditor: React.FC<WordEditorProps> = ({
           <button
             onClick={checkGrammarAndErrors}
             disabled={isCheckingErrors}
-            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
+            aria-label="Verificar Ortografia e Gramática"
+            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-bold shadow-md transition-all duration-200 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-amber-400"
             title="Verificar Ortografia e Gramática"
           >
-            {isCheckingErrors ? <Loader2 className="w-4 h-4 animate-spin" /> : <SpellCheck className="w-4 h-4" />}
+            {isCheckingErrors ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <SpellCheck className="w-4 h-4" aria-hidden="true" />}
             <span>Revisar Erros</span>
             {errors.length > 0 && (
               <span className="px-1.5 py-0.2 bg-white text-amber-700 text-[10px] font-black rounded-full">
@@ -434,50 +591,56 @@ export const WordEditor: React.FC<WordEditorProps> = ({
 
           <button
             onClick={() => setShowAiModal(true)}
-            className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
+            aria-label="Abrir IA Copilot Word"
+            className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-bold shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-indigo-400"
           >
-            <Sparkles className="w-4 h-4" />
-            IA Copilot Word
+            <Sparkles className="w-4 h-4" aria-hidden="true" />
+            <span>IA Copilot Word</span>
           </button>
 
           <button
             onClick={() => setPreviewMode(!previewMode)}
-            className={`px-3 py-2 rounded-2xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+            aria-label={previewMode ? 'Alternar para Modo de Edição' : 'Alternar para Modo de Visualização'}
+            className={`px-3 py-2 rounded-2xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-400 ${
               previewMode 
                 ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300' 
-                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
-            {previewMode ? <Edit3 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            {previewMode ? 'Editar' : 'Visualizar Página'}
+            {previewMode ? <Edit3 className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
+            <span>{previewMode ? 'Editar' : 'Visualizar Página'}</span>
           </button>
 
           <button
             onClick={() => setFocusMode(!focusMode)}
-            className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+            aria-label={focusMode ? 'Sair do Modo Foco' : 'Entrar no Modo Foco Sem Distrações'}
+            className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-slate-400"
             title={focusMode ? 'Sair do Modo Foco' : 'Modo Foco Sem Distrações'}
           >
-            {focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            {focusMode ? <Minimize2 className="w-4 h-4" aria-hidden="true" /> : <Maximize2 className="w-4 h-4" aria-hidden="true" />}
           </button>
 
           <div className="flex gap-1 border-l border-slate-200 dark:border-slate-800 pl-2">
             <button
               onClick={exportDocx}
-              className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 dark:bg-blue-950 dark:text-blue-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all"
+              aria-label="Exportar para formato DOCX"
+              className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 dark:bg-blue-950 dark:text-blue-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-blue-400"
             >
-              <FileOutput className="w-3.5 h-3.5" /> DOCX
+              <FileOutput className="w-3.5 h-3.5" aria-hidden="true" /> DOCX
             </button>
             <button
               onClick={exportPdf}
-              className="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:text-rose-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all"
+              aria-label="Exportar para formato PDF"
+              className="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:text-rose-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-rose-400"
             >
-              <FileOutput className="w-3.5 h-3.5" /> PDF
+              <FileOutput className="w-3.5 h-3.5" aria-hidden="true" /> PDF
             </button>
             <button
               onClick={exportTxt}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all"
+              aria-label="Exportar para formato TXT"
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-slate-400"
             >
-              <FileOutput className="w-3.5 h-3.5" /> TXT
+              <FileOutput className="w-3.5 h-3.5" aria-hidden="true" /> TXT
             </button>
           </div>
         </div>
@@ -520,13 +683,17 @@ export const WordEditor: React.FC<WordEditorProps> = ({
             onChange={(e) => setFontFamily(e.target.value)}
             className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl border border-transparent outline-none focus:border-blue-500"
           >
+            <option value="font-sans">Arial / Sans-serif</option>
+            <option value="font-serif">Times New Roman / Serif</option>
             <option value="font-calibri">Calibri</option>
-            <option value="font-league-spartan">League Spartan</option>
-            <option value="font-arial">Arial</option>
-            <option value="font-times">Times New Roman</option>
-            <option value="font-sans">Sans-serif (Moderno)</option>
-            <option value="font-serif">Serif (Elegante)</option>
-            <option value="font-mono">Monospaced (Código)</option>
+            <option value="font-georgia">Georgia</option>
+            <option value="font-garamond">Garamond</option>
+            <option value="font-verdana">Verdana</option>
+            <option value="font-trebuchet">Trebuchet MS</option>
+            <option value="font-mono">Courier New (Código)</option>
+            <option value="font-comic">Comic Sans MS</option>
+            <option value="font-playfair">Playfair Display</option>
+            <option value="font-jakarta">Plus Jakarta Sans</option>
           </select>
 
           {/* Font Size Selector */}
@@ -658,12 +825,59 @@ export const WordEditor: React.FC<WordEditorProps> = ({
           </button>
 
           <button
-            onClick={() => applyFormatting('| Coluna 1 | Coluna 2 |\n| --- | --- |\n| Item 1 | Item 2 |\n', '', '')}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs"
-            title="Inserir Tabela"
+            onClick={centerCurrentLine}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1"
+            title="Centralizar Apenas a Linha Atual (<p align='center'>)"
           >
-            <Table className="w-4 h-4" />
+            <AlignCenter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-[10px] hidden lg:inline">Linha</span>
           </button>
+
+          <div className="h-5 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
+
+          {/* Table Presets */}
+          <div className="relative group flex items-center">
+            <button
+              onClick={() => insertWordTable('corporate')}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs flex items-center gap-1"
+              title="Inserir Tabela Estilizada (Padrão Corporativo)"
+            >
+              <Table className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            </button>
+            <div className="hidden group-hover:flex absolute top-full left-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 flex-col gap-1 min-w-[160px]">
+              <span className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase">Estilos de Tabela</span>
+              <button
+                onClick={() => insertWordTable('corporate')}
+                className="text-left px-2.5 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-950 text-xs font-medium rounded-xl text-slate-700 dark:text-slate-200"
+              >
+                📊 Corporativa (Azul)
+              </button>
+              <button
+                onClick={() => insertWordTable('executive')}
+                className="text-left px-2.5 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-xs font-medium rounded-xl text-slate-700 dark:text-slate-200"
+              >
+                💼 Executiva (Verde)
+              </button>
+              <button
+                onClick={() => insertWordTable('amber')}
+                className="text-left px-2.5 py-1.5 hover:bg-amber-50 dark:hover:bg-amber-950 text-xs font-medium rounded-xl text-slate-700 dark:text-slate-200"
+              >
+                📙 Elegante (Âmbar)
+              </button>
+              <button
+                onClick={() => insertWordTable('dark')}
+                className="text-left px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium rounded-xl text-slate-700 dark:text-slate-200"
+              >
+                ⬛ Dark Luxo
+              </button>
+              <button
+                onClick={() => insertWordTable('minimal')}
+                className="text-left px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium rounded-xl text-slate-700 dark:text-slate-200"
+              >
+                📑 Minimalista
+              </button>
+            </div>
+          </div>
 
           <button
             onClick={() => setShowSearch(!showSearch)}
@@ -802,7 +1016,10 @@ export const WordEditor: React.FC<WordEditorProps> = ({
       </AnimatePresence>
 
       {/* Document Workspace Area */}
-      <div className="bg-slate-100/80 dark:bg-slate-950/80 rounded-3xl p-4 sm:p-8 min-h-[550px] flex justify-center shadow-inner">
+      <div 
+        onContextMenu={handleContextMenu}
+        className="bg-slate-100/80 dark:bg-slate-950/80 rounded-3xl p-4 sm:p-8 min-h-[550px] flex justify-center shadow-inner"
+      >
         <motion.div
           layout
           className="bg-white dark:bg-slate-900 w-full max-w-4xl min-h-[600px] shadow-xl rounded-2xl border border-slate-200/90 dark:border-slate-800 p-8 sm:p-12 transition-all"
@@ -855,6 +1072,7 @@ export const WordEditor: React.FC<WordEditorProps> = ({
               ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              onContextMenu={handleContextMenu}
               placeholder="Comece a digitar seu documento profissional aqui..."
               className={`w-full h-full min-h-[520px] text-slate-800 dark:text-slate-100 bg-transparent border-none outline-none resize-none leading-relaxed ${fontFamily}`}
               style={{ textAlign, fontSize }}
@@ -937,6 +1155,159 @@ export const WordEditor: React.FC<WordEditorProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Full Screen Expansive Dedicated View (Modo Página Expansiva PC / Celular) */}
+      {focusMode && (
+        <div 
+          onContextMenu={handleContextMenu}
+          className="fixed inset-0 z-50 bg-slate-200 dark:bg-slate-950 flex flex-col p-2 sm:p-6 overflow-y-auto font-sans"
+        >
+          {/* Top Floating Control Bar */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-2xl p-3 shadow-xl flex flex-wrap items-center justify-between gap-3 max-w-6xl mx-auto w-full sticky top-0 z-40">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setFocusMode(false)}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5"
+              >
+                ← Voltar
+              </button>
+              <input
+                type="text"
+                value={docTitle}
+                onChange={(e) => setDocTitle(e.target.value)}
+                className="font-bold text-sm bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-600 outline-none text-slate-800 dark:text-slate-100 px-1"
+              />
+            </div>
+
+            {/* Device PC vs Mobile View Switcher */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button
+                onClick={() => setExpansiveDeviceMode('pc')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  expansiveDeviceMode === 'pc'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                💻 Modo PC (Folha A4 Centrada)
+              </button>
+              <button
+                onClick={() => setExpansiveDeviceMode('mobile')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  expansiveDeviceMode === 'mobile'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                📱 Modo Celular (Expansivo Fluido)
+              </button>
+            </div>
+
+            {/* Quick Essential Formatting Tools */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => applyFormatting('**', '**', 'negrito')}
+                className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 text-xs font-bold"
+                title="Negrito"
+              >
+                N
+              </button>
+              <button
+                onClick={() => applyFormatting('*', '*', 'itálico')}
+                className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 text-xs italic font-bold"
+                title="Itálico"
+              >
+                I
+              </button>
+              <button
+                onClick={centerCurrentLine}
+                className="p-1.5 bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-slate-200 text-xs font-bold"
+                title="Centralizar Linha"
+              >
+                <AlignCenter className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => insertWordTable('corporate')}
+                className="p-1.5 bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-slate-200 text-xs font-bold"
+                title="Inserir Tabela Corporativa"
+              >
+                <Table className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowAiModal(true)}
+                className="px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> IA
+              </button>
+            </div>
+          </div>
+
+          {/* Paper Sheet Document Canvas Area */}
+          <div className="flex-1 flex justify-center py-6">
+            <div
+              className={`bg-white dark:bg-slate-900 shadow-2xl border border-slate-300 dark:border-slate-800 rounded-2xl p-8 sm:p-14 min-h-[800px] transition-all ${
+                expansiveDeviceMode === 'pc' ? 'max-w-4xl w-full' : 'w-full'
+              }`}
+            >
+              <textarea
+                ref={textareaRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onContextMenu={handleContextMenu}
+                placeholder="Página expansiva limpa. Digite seu texto e use o botão direito do mouse para formatar..."
+                className={`w-full h-full min-h-[720px] text-slate-800 dark:text-slate-100 bg-transparent border-none outline-none resize-none leading-relaxed ${fontFamily}`}
+                style={{ textAlign, fontSize }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Right-Click Context Menu */}
+      {contextMenu && (
+        <div
+          onClick={closeContextMenu}
+          className="fixed inset-0 z-50 bg-transparent"
+        >
+          <div
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            className="fixed bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-2 min-w-[200px] z-50 text-xs font-semibold space-y-1 animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="px-3 py-1 text-[10px] uppercase font-bold text-slate-400">Menu do Word</div>
+            <button
+              onClick={() => { applyFormatting('**', '**', 'negrito'); closeContextMenu(); }}
+              className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+            >
+              <Bold className="w-3.5 h-3.5 text-slate-500" /> Negrito
+            </button>
+            <button
+              onClick={() => { applyFormatting('*', '*', 'itálico'); closeContextMenu(); }}
+              className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+            >
+              <Italic className="w-3.5 h-3.5 text-slate-500" /> Itálico
+            </button>
+            <button
+              onClick={() => { centerCurrentLine(); closeContextMenu(); }}
+              className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+            >
+              <AlignCenter className="w-3.5 h-3.5 text-blue-600" /> Centralizar Linha
+            </button>
+            <button
+              onClick={() => { insertWordTable('corporate'); closeContextMenu(); }}
+              className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+            >
+              <Table className="w-3.5 h-3.5 text-indigo-600" /> Inserir Tabela Corporativa
+            </button>
+            <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+            <button
+              onClick={() => { setShowAiModal(true); closeContextMenu(); }}
+              className="w-full text-left px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center gap-2"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Copiloto de IA
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

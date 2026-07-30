@@ -7,7 +7,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: "20mb" }));
+  app.use(express.json({ limit: "50mb" }));
 
   // Initialize Gemini Client
   const getGeminiClient = () => {
@@ -23,10 +23,226 @@ async function startServer() {
     });
   };
 
+  // Helper to extract system prompt and formatted messages for Gemini
+  const prepareGeminiPayload = (messages: any[], systemPromptOverride?: string, files?: any[]) => {
+    let systemInstruction = systemPromptOverride || "Você é o assistente inteligente do DocuTools Pro, especializado em documentos, análise de texto, programação, tradução e respostas detalhadas. Responda sempre em português de forma clara, estruturada e usando Markdown elegante.";
+    
+    const geminiContents: any[] = [];
+    
+    for (const m of messages) {
+      if (!m || !m.content) continue;
+      
+      if (m.role === "system") {
+        systemInstruction = m.content;
+        continue;
+      }
+
+      const role = m.role === "assistant" ? "model" : "user";
+      const parts: any[] = [];
+
+      // Add attached images if present in user message
+      if (role === "user" && (m.files || files)) {
+        const attachedFiles = m.files || files;
+        for (const f of attachedFiles) {
+          if (f.preview && f.preview.startsWith("data:image/")) {
+            const matches = f.preview.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+              parts.push({
+                inlineData: {
+                  mimeType: matches[1],
+                  data: matches[2],
+                },
+              });
+            }
+          }
+        }
+      }
+
+      parts.push({ text: String(m.content) });
+
+      if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === role) {
+        geminiContents[geminiContents.length - 1].parts.push(...parts);
+      } else {
+        geminiContents.push({ role, parts });
+      }
+    }
+
+    if (geminiContents.length === 0) {
+      geminiContents.push({ role: "user", parts: [{ text: "Olá! Como você pode me ajudar hoje?" }] });
+    }
+
+    return { systemInstruction, contents: geminiContents };
+  };
+
+  // SSE Stream Handler for AI Chat (/api/chat/stream)
+  const handleChatStream = async (req: express.Request, res: express.Response) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    const writeSSE = (data: object) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+      const { provider, model, messages, systemPrompt, files } = req.body || {};
+      if (!messages || !Array.isArray(messages)) {
+        writeSSE({ error: "Mensagens inválidas fornecidas." });
+        res.write("data: [DONE]\n\n");
+        res.end();
+        return;
+      }
+
+      const ai = getGeminiClient();
+
+      // OpenRouter Stream
+      if (provider === "openrouter" && process.env.OPENROUTER_API_KEY) {
+        try {
+          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://docutools.app",
+              "X-Title": "DocuTools Pro",
+            },
+            body: JSON.stringify({
+              model: model || "openai/gpt-4o",
+              messages,
+              stream: true,
+            }),
+          });
+
+          if (response.ok && response.body) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith("data: ")) {
+                  const dataStr = trimmed.slice(6);
+                  if (dataStr === "[DONE]") continue;
+                  try {
+                    const parsed = JSON.parse(dataStr);
+                    const delta = parsed.choices?.[0]?.delta?.content;
+                    if (delta) {
+                      writeSSE({ chunk: delta, engine: provider });
+                    }
+                  } catch {}
+                }
+              }
+            }
+            res.write("data: [DONE]\n\n");
+            res.end();
+            return;
+          }
+        } catch (err: any) {
+          console.warn("OpenRouter stream failed, falling back to Gemini:", err.message);
+        }
+      }
+
+      // Groq Stream
+      if (provider === "groq" && process.env.GROQ_API_KEY) {
+        try {
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: model || "llama-3.3-70b-versatile",
+              messages,
+              stream: true,
+            }),
+          });
+
+          if (response.ok && response.body) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith("data: ")) {
+                  const dataStr = trimmed.slice(6);
+                  if (dataStr === "[DONE]") continue;
+                  try {
+                    const parsed = JSON.parse(dataStr);
+                    const delta = parsed.choices?.[0]?.delta?.content;
+                    if (delta) {
+                      writeSSE({ chunk: delta, engine: provider });
+                    }
+                  } catch {}
+                }
+              }
+            }
+            res.write("data: [DONE]\n\n");
+            res.end();
+            return;
+          }
+        } catch (err: any) {
+          console.warn("Groq stream failed, falling back to Gemini:", err.message);
+        }
+      }
+
+      // Gemini Streaming (Default / Primary)
+      if (ai) {
+        const { systemInstruction, contents } = prepareGeminiPayload(messages, systemPrompt, files);
+        const selectedModel = model === "gemini-3.1-pro-preview" ? "gemini-3.1-pro-preview" : "gemini-3.6-flash";
+
+        const responseStream = await ai.models.generateContentStream({
+          model: selectedModel,
+          contents,
+          config: {
+            systemInstruction,
+            temperature: 0.7,
+          },
+        });
+
+        for await (const chunk of responseStream) {
+          if (chunk.text) {
+            writeSSE({ chunk: chunk.text, engine: "gemini" });
+          }
+        }
+
+        res.write("data: [DONE]\n\n");
+        res.end();
+        return;
+      }
+
+      // No Key Available
+      writeSSE({ chunk: "⚠️ Nenhuma chave de API configurada para o serviço de IA. Adicione GEMINI_API_KEY no arquivo .env." });
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (error: any) {
+      console.error("Erro no streaming do chat:", error);
+      writeSSE({ error: error.message || "Erro durante transmissão de resposta da IA." });
+      res.write("data: [DONE]\n\n");
+      res.end();
+    }
+  };
+
   // Handler for AI Chat API routes (/api/chat and /api/chats)
   const handleChat = async (req: express.Request, res: express.Response) => {
     try {
-      const { provider, model, messages } = req.body || {};
+      const { provider, model, messages, systemPrompt, files } = req.body || {};
       if (!messages || !Array.isArray(messages)) {
         res.status(400).json({ error: "Mensagens inválidas fornecidas." });
         return;
@@ -34,31 +250,22 @@ async function startServer() {
 
       const ai = getGeminiClient();
 
-      // Formulate prompt for Gemini
-      const systemMsg = messages.find((m: any) => m.role === "system")?.content || "";
-      const conversationHistory = messages
-        .filter((m: any) => m.role !== "system")
-        .map((m: any) => `${m.role === "user" ? "Usuário" : "Assistente"}: ${m.content}`)
-        .join("\n\n");
-
-      const fullPrompt = systemMsg 
-        ? `${systemMsg}\n\n${conversationHistory}` 
-        : conversationHistory;
-
       // Try OpenRouter if requested and key is present
       if (provider === "openrouter" && process.env.OPENROUTER_API_KEY) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 20000);
+          const timeoutId = setTimeout(() => controller.abort(), 25000);
 
           const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
               "Content-Type": "application/json",
+              "HTTP-Referer": "https://docutools.app",
+              "X-Title": "DocuTools Pro",
             },
             body: JSON.stringify({
-              model: model || "deepseek/deepseek-chat",
+              model: model || "openai/gpt-4o",
               messages,
             }),
             signal: controller.signal,
@@ -92,7 +299,7 @@ async function startServer() {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: model || "llama-3.1-70b-versatile",
+              model: model || "llama-3.3-70b-versatile",
               messages,
             }),
             signal: controller.signal,
@@ -115,10 +322,14 @@ async function startServer() {
 
       // Fallback or Direct Gemini Handler
       if (ai) {
+        const { systemInstruction, contents } = prepareGeminiPayload(messages, systemPrompt, files);
+        const selectedModel = model === "gemini-3.1-pro-preview" ? "gemini-3.1-pro-preview" : "gemini-3.6-flash";
+
         const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: fullPrompt || "Olá",
+          model: selectedModel,
+          contents,
           config: {
+            systemInstruction,
             temperature: 0.7,
           },
         });
@@ -204,10 +415,9 @@ async function startServer() {
           return;
         }
       } catch {
-        // Fallback silently to direct stream URL if proxy fetch times out or encounters network issue
+        // Fallback silently
       }
 
-      // Option 3: Direct Pollinations stream URL (never fails for browser client)
       res.json({ imageUrl: pollinationsUrl, provider: "pollinations-direct" });
     } catch (error: any) {
       console.error("Erro na geração de imagem:", error);
@@ -216,9 +426,75 @@ async function startServer() {
     }
   };
 
+  app.post("/api/chat/stream", handleChatStream);
   app.post("/api/chat", handleChat);
   app.post("/api/chats", handleChat);
   app.post("/api/generate-image", handleImageGen);
+
+  // Handler for AI Image Editing (/api/edit-image)
+  app.post("/api/edit-image", async (req: express.Request, res: express.Response) => {
+    try {
+      const { image, prompt } = req.body || {};
+      if (!image || !prompt) {
+        res.status(400).json({ error: "Imagem e instrução de edição são obrigatórias." });
+        return;
+      }
+
+      const ai = getGeminiClient();
+      
+      let mimeType = "image/jpeg";
+      let base64Data = image;
+
+      if (typeof image === "string" && image.startsWith("data:")) {
+        const matches = image.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          mimeType = matches[1];
+          base64Data = matches[2];
+        }
+      }
+
+      if (ai) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-3.1-flash-lite-image",
+            contents: {
+              parts: [
+                {
+                  inlineData: {
+                    data: base64Data,
+                    mimeType: mimeType,
+                  },
+                },
+                {
+                  text: `Sua tarefa é modificar e editar a imagem fornecida de acordo com este comando do usuário: "${prompt}". Retorne a imagem editada com alta qualidade mantendo a coerência visual.`,
+                },
+              ],
+            },
+          });
+
+          if (response.candidates?.[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+              if (part.inlineData) {
+                const editedUrl = `data:${part.inlineData.mimeType || "image/png"};base64,${part.inlineData.data}`;
+                res.json({ imageUrl: editedUrl, provider: "gemini-image-editing" });
+                return;
+              }
+            }
+          }
+        } catch (err: any) {
+          console.warn("Gemini Image Editing fallback to Pollinations:", err.message);
+        }
+      }
+
+      // Fallback generator
+      const seed = Math.floor(Math.random() * 1000000);
+      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + ", professional edit, ultra high quality, 8k")}?width=800&height=800&model=flux&nologo=true&seed=${seed}`;
+      res.json({ imageUrl: pollinationsUrl, provider: "pollinations-edit-fallback" });
+    } catch (error: any) {
+      console.error("Erro na edição de imagem:", error);
+      res.status(500).json({ error: error.message || "Falha na edição da imagem." });
+    }
+  });
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
@@ -234,7 +510,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*all", (req, res) => {
+    app.use((req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
@@ -245,3 +521,4 @@ async function startServer() {
 }
 
 startServer();
+

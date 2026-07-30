@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  FolderOpen, Plus, FileText, FileSpreadsheet, Presentation, PenTool, 
-  Search, Trash2, Edit3, Copy, Sparkles, Clock, ArrowRight,
-  Upload, CheckCircle2, ShieldCheck, Tag, ExternalLink, Download, FileCheck, Layers
-} from 'lucide-react';
+  IconFolderOpen as FolderOpen, IconPlus as Plus, IconFileText as FileText, 
+  IconFileSpreadsheet as FileSpreadsheet, IconPresentation as Presentation, IconPencil as PenTool, 
+  IconSearch as Search, IconTrash as Trash2, IconEdit as Edit3, IconCopy as Copy, 
+  IconSparkles as Sparkles, IconClock as Clock, IconArrowRight as ArrowRight,
+  IconUpload as Upload, IconCircleCheck as CheckCircle2, IconShieldCheck as ShieldCheck, 
+  IconTag as Tag, IconExternalLink as ExternalLink, IconDownload as Download, 
+  IconFileCheck as FileCheck, IconStack2 as Layers
+} from '@tabler/icons-react';
 import { TabType, SavedProject } from '../types';
+import { BatchExportModal } from './BatchExportModal';
 
 interface ProjectsHubProps {
   onOpenProject: (project: SavedProject) => void;
@@ -87,6 +92,7 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
+  const [isBatchExportOpen, setIsBatchExportOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -295,18 +301,36 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
           ))}
         </div>
 
-        {/* Search Input */}
-        <div className="relative min-w-[220px]">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar nos meus projetos..."
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+        {/* Search Input & Batch Export */}
+        <div className="flex items-center gap-2 min-w-[220px]">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar nos meus projetos..."
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <button
+            onClick={() => setIsBatchExportOpen(true)}
+            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 shrink-0"
+            title="Exportação em Lote"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Exportar em Lote</span>
+          </button>
         </div>
       </div>
+
+      <BatchExportModal
+        isOpen={isBatchExportOpen}
+        onClose={() => setIsBatchExportOpen(false)}
+        projects={projects}
+        showNotification={showNotification || (() => {})}
+      />
 
       {/* Projects Grid View */}
       <div>

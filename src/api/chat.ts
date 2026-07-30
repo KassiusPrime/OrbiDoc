@@ -100,23 +100,22 @@ export async function sendToVercelStream(
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.startsWith('data: ')) {
-        const dataStr = trimmed.slice(6);
-        if (dataStr === '[DONE]') break;
-        try {
-          const parsed = JSON.parse(dataStr);
-          if (parsed.chunk) {
-            onChunk(parsed.chunk);
-          } else if (parsed.error) {
-            throw new Error(parsed.error);
-          }
-        } catch (e: any) {
-          if (e.message && !e.message.includes('Unexpected token')) {
-            throw e;
-          }
+      if (!trimmed || !trimmed.startsWith('data: ')) continue;
+      const jsonStr = trimmed.slice(6).trim();
+      if (jsonStr === '[DONE]') continue;
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.chunk) {
+          onChunk(parsed.chunk);
+        } else if (parsed.error) {
+          throw new Error(parsed.error);
+        }
+      } catch (e: any) {
+        if (e.message !== 'Unexpected end of JSON input') {
+          // ignore chunk parse artifacts
         }
       }
     }
   }
 }
-

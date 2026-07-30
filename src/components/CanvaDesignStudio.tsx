@@ -1,16 +1,21 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
-  Pencil, Eraser, Square, Circle, Type, Image as ImageIcon,
-  RotateCcw, Download, Trash2, Palette, Sparkles, Send, Star,
-  Highlighter, PaintBucket, MoveRight, LayoutTemplate, ShieldCheck,
-  Zap, Compass, Layers, Check, Heart, Award, Rocket, Crown,
-  Flame, Lightbulb, Bell, Target, Globe, Lock, Users, ShoppingBag,
-  Gift, ThumbsUp, Tag, MessageSquare, Shield, Smile, CheckCircle,
-  Plus, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Grid,
-  Eye, MousePointer
-} from 'lucide-react';
+  IconPencil, IconEraser, IconSquare, IconCircle, IconLetterT as Type, IconPhoto as ImageIcon,
+  IconRotate, IconDownload, IconTrash, IconPalette, IconSparkles, IconSend, IconStar,
+  IconPaint, IconArrowRight, IconLayout, IconShieldCheck,
+  IconBolt, IconCompass, IconStack2 as Layers, IconCheck, IconHeart, IconTrophy, IconRocket, IconCrown,
+  IconFlame, IconBulb, IconBell, IconTarget, IconGlobe, IconLock, IconUsers, IconShoppingBag,
+  IconGift, IconThumbUp, IconTag, IconMessage, IconMoodSmile as IconSmile, IconCircleCheck,
+  IconPlus, IconAlignLeft, IconAlignCenter, IconAlignRight, IconBold, IconItalic, IconLayoutGrid as Grid,
+  IconEye, IconPointer as MousePointer, IconMaximize, IconMinimize, IconWand, IconRefresh, IconCopy,
+  IconAdjustmentsHorizontal as Sliders, IconFileExport, IconCamera, IconVideo, IconMusic, IconBuilding, IconUser, IconMail, IconPhone, IconMapPin,
+  IconHistory, IconFolder, IconUpload, IconCloud, IconVideoPlus, IconDeviceDesktop, IconPlayerPlay, IconBrandGoogleDrive
+} from '@tabler/icons-react';
 import { saveAs } from 'file-saver';
+import pptxgen from 'pptxgenjs';
+import { jsPDF } from 'jspdf';
 import { HistoryItem } from '../types';
+import { SmartGraphicsLibrary, GraphicItem } from './SmartGraphicsLibrary';
 
 interface CanvaDesignStudioProps {
   initialTemplate?: string;
@@ -21,1406 +26,1104 @@ interface CanvaDesignStudioProps {
   engineModel?: string;
 }
 
-type CanvaTab = 'templates' | 'text' | 'elements' | 'draw' | 'media';
+type CanvaTab = 'templates' | 'ai' | 'graphics' | 'text' | 'layers' | 'history' | 'animations' | 'export' | 'settings';
 
-type CanvasTool = 
-  | 'pencil' 
-  | 'highlighter' 
-  | 'eraser' 
-  | 'rectangle' 
-  | 'circle' 
-  | 'line' 
-  | 'arrow' 
-  | 'star' 
-  | 'bubble'
-  | 'text' 
-  | 'element'
-  | 'bucket';
+export interface CanvasObject {
+  id: string;
+  type: 'text' | 'shape' | 'icon' | 'image' | 'badge';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  shadowColor: string;
+  shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  blurFilter: number;
+  contrastFilter: number;
+  brightnessFilter: number;
+  hueRotateFilter: number;
+  content: string; // Text string or Image Data URL or icon shape key
+  zIndex: number;
+  locked: boolean;
+  fontFamily: string;
+  fontSize: number;
+  isBold: boolean;
+  isItalic: boolean;
+  textAlign: 'left' | 'center' | 'right';
+  animation: 'none' | 'fade' | 'slide_up' | 'zoom' | 'spin' | 'bounce';
+}
 
-// Model Templates Definition
+interface CanvasVersion {
+  id: string;
+  timestamp: string;
+  label: string;
+  objects: CanvasObject[];
+  bg: string;
+}
+
+const CANVAS_PRESETS = [
+  { id: 'banner', name: 'Banner Padrão (1000x600)', width: 1000, height: 600 },
+  { id: 'square', name: 'Post Quadrado Instagram (1000x1000)', width: 1000, height: 1000 },
+  { id: 'story', name: 'Story / Reel (600x1000)', width: 600, height: 1000 },
+  { id: 'youtube', name: 'YouTube Thumbnail (1280x720)', width: 1280, height: 720 },
+  { id: 'presentation', name: 'Slide de Apresentação (1920x1080)', width: 1920, height: 1080 },
+  { id: 'business_card', name: 'Cartão de Visita (800x500)', width: 800, height: 500 },
+];
+
+const BACKGROUND_GRADIENTS = [
+  { id: 'solid_white', name: 'Branco Puro', value: '#ffffff' },
+  { id: 'solid_dark', name: 'Escuro Minimalista', value: '#0f172a' },
+  { id: 'sunset', name: 'Sunset Violet', value: 'linear-gradient(135deg, #4f46e5, #7c3aed, #db2777)' },
+  { id: 'emerald', name: 'Emerald Luxury', value: 'linear-gradient(135deg, #064e3b, #059669, #34d399)' },
+  { id: 'gold', name: 'Royal Gold', value: 'linear-gradient(135deg, #78350f, #d97706, #fef3c7)' },
+  { id: 'cyberpunk', name: 'Cyberpunk Dark', value: 'linear-gradient(135deg, #0f172a, #1e1b4b, #312e81)' },
+];
+
 const CANVA_TEMPLATES = [
-  { id: 'post', name: 'Post Redes Sociais', category: 'Instagram / LinkedIn', desc: 'Arte para post quadrado (1000x600 px)', color: 'bg-indigo-500' },
-  { id: 'banner', name: 'Banner Promocional', category: 'Ofertas & Vendas', desc: 'Banner escuro com destaque verde neon', color: 'bg-emerald-500' },
-  { id: 'business_card', name: 'Cartão de Visita', category: 'Corporativo', desc: 'Layout profissional e clean', color: 'bg-blue-600' },
-  { id: 'infographic', name: 'Infográfico / Fluxo', category: 'Apresentação', desc: 'Diagrama visual em 3 etapas', color: 'bg-purple-600' },
-  { id: 'certificate', name: 'Certificado de Conclusão', category: 'Educação', desc: 'Modelo elegante com moldura dourada', color: 'bg-amber-600' },
-  { id: 'quote', name: 'Cartaz de Citação', category: 'Redes Sociais', desc: 'Layout minimalista com frase em destaque', color: 'bg-rose-500' },
-];
-
-// Pre-styled Text Presets
-const TEXT_PRESETS = [
-  { id: 'title', label: 'Título de Impacto', font: 'sans-serif', size: 42, bold: true, color: '#0f172a', bg: '#ffffff', border: false },
-  { id: 'subtitle', label: 'Subtítulo Moderno', font: 'sans-serif', size: 24, bold: false, color: '#4f46e5', bg: 'transparent', border: false },
-  { id: 'badge', label: 'Selo Promocional', font: 'sans-serif', size: 18, bold: true, color: '#ffffff', bg: '#f59e0b', border: true },
-  { id: 'neon', label: 'Tag Neon Destaque', font: 'monospace', size: 20, bold: true, color: '#ffffff', bg: '#10b981', border: true },
-  { id: 'script', label: 'Citação Elegante', font: 'serif', size: 28, bold: false, italic: true, color: '#475569', bg: 'transparent', border: false },
-  { id: 'cta', label: 'Botão Chamada para Ação', font: 'sans-serif', size: 20, bold: true, color: '#ffffff', bg: '#4f46e5', border: true },
-];
-
-// Element Library Items
-const ELEMENT_ITEMS = [
-  { id: 'star', name: 'Estrela', icon: Star, category: 'icons' },
-  { id: 'heart', name: 'Coração', icon: Heart, category: 'icons' },
-  { id: 'check', name: 'Verificado', icon: CheckCircle, category: 'icons' },
-  { id: 'shield', name: 'Escudo / Proteção', icon: ShieldCheck, category: 'icons' },
-  { id: 'trophy', name: 'Troféu / Prêmio', icon: Award, category: 'icons' },
-  { id: 'rocket', name: 'Foguete', icon: Rocket, category: 'icons' },
-  { id: 'crown', name: 'Coroa Premium', icon: Crown, category: 'icons' },
-  { id: 'flame', name: 'Fogo / Em Alta', icon: Flame, category: 'icons' },
-  { id: 'idea', name: 'Lâmpada / Ideia', icon: Lightbulb, category: 'icons' },
-  { id: 'bell', name: 'Notificação', icon: Bell, category: 'icons' },
-  { id: 'target', name: 'Alvo / Meta', icon: Target, category: 'icons' },
-  { id: 'cart', name: 'Carrinho de Compras', icon: ShoppingBag, category: 'icons' },
-  { id: 'gift', name: 'Presente', icon: Gift, category: 'icons' },
-  { id: 'like', name: 'Curtida', icon: ThumbsUp, category: 'icons' },
-  { id: 'tag', name: 'Etiqueta / Desconto', icon: Tag, category: 'icons' },
-  { id: 'smile', name: 'Sorriso / Emoji', icon: Smile, category: 'icons' },
-  { id: 'sparkles', name: 'Brilho / Magia', icon: Sparkles, category: 'icons' },
-  { id: 'zap', name: 'Raio / Energia', icon: Zap, category: 'icons' },
-  { id: 'globe', name: 'Global / Web', icon: Globe, category: 'icons' },
-  { id: 'lock', name: 'Cadeado / Segurança', icon: Lock, category: 'icons' },
-
-  { id: 'badge_offer', name: 'Selo 50% OFF', category: 'badges', label: '50% OFF', bg: '#ef4444', text: '#ffffff' },
-  { id: 'badge_new', name: 'Selo NOVIDADE', category: 'badges', label: '⚡ NOVIDADE', bg: '#f59e0b', text: '#ffffff' },
-  { id: 'badge_vip', name: 'Selo EXCLUSIVO', category: 'badges', label: '👑 VIP', bg: '#7c3aed', text: '#ffffff' },
-  { id: 'badge_ok', name: 'Selo APROVADO', category: 'badges', label: '✅ APROVADO', bg: '#10b981', text: '#ffffff' },
-  { id: 'badge_free', name: 'Selo GRÁTIS', category: 'badges', label: '🎁 GRÁTIS', bg: '#2563eb', text: '#ffffff' },
-
-  { id: 'rect_filled', name: 'Caixa / Container', category: 'shapes', type: 'rect' },
-  { id: 'circle_filled', name: 'Círculo de Destaque', category: 'shapes', type: 'circle' },
-  { id: 'speech_bubble', name: 'Balão de Fala', category: 'shapes', type: 'bubble' },
+  { id: 'post', name: 'Post Redes Sociais', desc: 'Arte profissional com badge e CTA', color: 'bg-indigo-500' },
+  { id: 'banner', name: 'Banner Promocional', desc: 'Banner escuro com destaque verde neon 50% OFF', color: 'bg-emerald-500' },
+  { id: 'business_card', name: 'Cartão de Visita', desc: 'Layout limpo com divisores e ícones de contato', color: 'bg-blue-600' },
+  { id: 'infographic', name: 'Infográfico / Fluxo', desc: 'Diagrama visual em 3 etapas coloridas', color: 'bg-purple-600' },
+  { id: 'certificate', name: 'Certificado de Conclusão', desc: 'Modelo elegante com moldura dourada e troféu', color: 'bg-amber-600' },
+  { id: 'quote', name: 'Cartaz de Citação', desc: 'Layout minimalista com frase inspiradora', color: 'bg-rose-500' },
 ];
 
 export const CanvaDesignStudio: React.FC<CanvaDesignStudioProps> = ({
-  initialTemplate,
+  initialTemplate = 'post',
   onSaveToHistory,
   showNotification = () => {},
-  onSendToOcr
+  onSendToOcr,
+  engineProvider = 'gemini',
+  engineModel = 'gemini-2.5-flash'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // Navigation Tab State
-  const [activeTab, setActiveTab] = useState<CanvaTab>('templates');
 
-  // Active Tool & Drawing State
-  const [activeTool, setActiveTool] = useState<CanvasTool>('pencil');
-  const [strokeColor, setStrokeColor] = useState('#6366f1');
-  const [fillColor, setFillColor] = useState('#ffffff');
-  const [lineWidth, setLineWidth] = useState(4);
+  // Studio Dimensions & Presets
+  const [canvasWidth, setCanvasWidth] = useState(1000);
+  const [canvasHeight, setCanvasHeight] = useState(600);
   const [canvasBg, setCanvasBg] = useState('#ffffff');
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [activeTab, setActiveTab] = useState<CanvaTab>('templates');
+  const [isExpansiveView, setIsExpansiveView] = useState(false);
 
-  // Text Customization State
-  const [textInput, setTextInput] = useState('Texto Exemplo');
-  const [fontFamily, setFontFamily] = useState('sans-serif');
-  const [fontSize, setFontSize] = useState(32);
-  const [isBold, setIsBold] = useState(true);
-  const [isItalic, setIsItalic] = useState(false);
-  const [textColor, setTextColor] = useState('#0f172a');
-  const [textBgColor, setTextBgColor] = useState('transparent');
-  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center');
+  // Canvas Objects Engine State
+  const [objects, setObjects] = useState<CanvasObject[]>([]);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Element Customization State
-  const [selectedElement, setSelectedElement] = useState<string>('star');
-  const [elementColor, setElementColor] = useState('#f59e0b');
-  const [elementSize, setElementSize] = useState(60);
-  const [elementSearchTerm, setElementSearchTerm] = useState('');
-  const [elementCategoryFilter, setElementCategoryFilter] = useState<'all' | 'icons' | 'badges' | 'shapes'>('all');
+  // Snap Alignment Guide Lines
+  const [showSnapGuides, setShowSnapGuides] = useState(false);
+  const [snapLineX, setSnapLineX] = useState<number | null>(null);
+  const [snapLineY, setSnapLineY] = useState<number | null>(null);
 
-  // Undo History Stack
-  const [history, setHistory] = useState<ImageData[]>([]);
-  const snapshotRef = useRef<ImageData | null>(null);
+  // Custom Font Library & Loader
+  const [fontList, setFontList] = useState<string[]>([
+    'sans-serif', 'serif', 'monospace', 'Inter', 'Playfair Display',
+    'Montserrat', 'Poppins', 'Roboto', 'Oswald', 'Dancing Script'
+  ]);
+  const [customFontName, setCustomFontName] = useState('');
 
-  // Get exact coordinate considering canvas display scale
-  const getCanvasCoordinates = useCallback((e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
+  // Version History State
+  const [versions, setVersions] = useState<CanvasVersion[]>([]);
 
-    let clientX = 0;
-    let clientY = 0;
+  // Simulated Real-time Collaboration Editors
+  const [collaborators] = useState([
+    { name: 'Ana Souza', role: 'Editando Texto', avatarBg: 'bg-pink-500' },
+    { name: 'Carlos M.', role: 'Adicionando Ícones', avatarBg: 'bg-indigo-500' },
+  ]);
 
-    const touchEvent = e as React.TouchEvent;
-    if (touchEvent.touches && touchEvent.touches.length > 0) {
-      clientX = touchEvent.touches[0].clientX;
-      clientY = touchEvent.touches[0].clientY;
-    } else if (touchEvent.changedTouches && touchEvent.changedTouches.length > 0) {
-      clientX = touchEvent.changedTouches[0].clientX;
-      clientY = touchEvent.changedTouches[0].clientY;
-    } else {
-      const mouseEvent = e as React.MouseEvent;
-      clientX = mouseEvent.clientX;
-      clientY = mouseEvent.clientY;
-    }
+  // Selected Object Getter
+  const activeObject = objects.find(o => o.id === selectedObjectId);
 
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
+  // Record Version Snapshot
+  const recordVersionSnapshot = useCallback((label: string = 'Alteração no Canvas') => {
+    const newVersion: CanvasVersion = {
+      id: `ver_${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      label,
+      objects: JSON.parse(JSON.stringify(objects)),
+      bg: canvasBg,
     };
-  }, []);
+    setVersions(prev => [newVersion, ...prev.slice(0, 15)]);
+  }, [objects, canvasBg]);
 
-  const saveCanvasState = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    setHistory(prev => [...prev.slice(-20), data]);
-  }, []);
+  // Add Object Helper
+  const addObject = useCallback((newObj: Partial<CanvasObject>) => {
+    const obj: CanvasObject = {
+      id: `obj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: newObj.type || 'text',
+      x: newObj.x ?? canvasWidth / 2 - 100,
+      y: newObj.y ?? canvasHeight / 2 - 40,
+      width: newObj.width || 200,
+      height: newObj.height || 80,
+      rotation: newObj.rotation || 0,
+      opacity: newObj.opacity ?? 1,
+      fill: newObj.fill || '#4f46e5',
+      stroke: newObj.stroke || 'transparent',
+      strokeWidth: newObj.strokeWidth || 0,
+      shadowColor: newObj.shadowColor || 'rgba(0,0,0,0.2)',
+      shadowBlur: newObj.shadowBlur || 0,
+      shadowOffsetX: newObj.shadowOffsetX || 0,
+      shadowOffsetY: newObj.shadowOffsetY || 0,
+      blurFilter: newObj.blurFilter || 0,
+      contrastFilter: newObj.contrastFilter || 100,
+      brightnessFilter: newObj.brightnessFilter || 100,
+      hueRotateFilter: newObj.hueRotateFilter || 0,
+      content: newObj.content || 'Novo Texto',
+      zIndex: objects.length + 1,
+      locked: false,
+      fontFamily: newObj.fontFamily || 'sans-serif',
+      fontSize: newObj.fontSize || 32,
+      isBold: newObj.isBold ?? true,
+      isItalic: newObj.isItalic ?? false,
+      textAlign: newObj.textAlign || 'center',
+      animation: newObj.animation || 'none',
+    };
 
-  const undo = () => {
-    if (history.length === 0) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    setObjects(prev => [...prev, obj]);
+    setSelectedObjectId(obj.id);
+    recordVersionSnapshot(`Adicionado ${obj.type}`);
+    showNotification(`Elemento ${obj.type.toUpperCase()} inserido no Canvas!`, 'success');
+  }, [canvasWidth, canvasHeight, objects.length, recordVersionSnapshot, showNotification]);
 
-    const lastState = history[history.length - 1];
-    ctx.putImageData(lastState, 0, 0);
-    setHistory(prev => prev.slice(0, prev.length - 1));
-    showNotification('Ação desfeita com sucesso!', 'success');
+  // Custom Font File Upload Handler
+  const handleFontFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fontName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9]/g, "_");
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const fontUrl = event.target?.result as string;
+      const newStyle = document.createElement('style');
+      newStyle.appendChild(document.createTextNode(`
+        @font-face {
+          font-family: '${fontName}';
+          src: url('${fontUrl}');
+        }
+      `));
+      document.head.appendChild(newStyle);
+
+      setFontList(prev => [...prev, fontName]);
+      showNotification(`Fonte personalizada "${fontName}" carregada!`, 'success');
+    };
+    reader.readAsDataURL(file);
   };
 
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    saveCanvasState();
-    ctx.fillStyle = canvasBg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    showNotification('Canvas limpo!', 'success');
+  // Update Object Properties
+  const updateActiveObject = (updates: Partial<CanvasObject>) => {
+    if (!selectedObjectId) return;
+    setObjects(prev => prev.map(o => o.id === selectedObjectId ? { ...o, ...updates } : o));
   };
 
-  // Render Vector Elements on Canvas
-  const drawVectorElement = useCallback((ctx: CanvasRenderingContext2D, elemId: string, x: number, y: number, size: number, color: string) => {
-    ctx.save();
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
+  // Delete Active Object
+  const deleteActiveObject = () => {
+    if (!selectedObjectId) return;
+    setObjects(prev => prev.filter(o => o.id !== selectedObjectId));
+    setSelectedObjectId(null);
+    showNotification('Objeto removido!', 'success');
+  };
 
-    if (elemId === 'star') {
-      const spikes = 5;
-      const outerRadius = size / 2;
-      const innerRadius = size / 4;
-      let rot = (Math.PI / 2) * 3;
-      let cx = x;
-      let cy = y;
-      let step = Math.PI / spikes;
+  // Duplicate Active Object
+  const duplicateActiveObject = () => {
+    if (!activeObject) return;
+    const dup: CanvasObject = {
+      ...activeObject,
+      id: `obj_${Date.now()}`,
+      x: activeObject.x + 20,
+      y: activeObject.y + 20,
+      zIndex: objects.length + 1,
+    };
+    setObjects(prev => [...prev, dup]);
+    setSelectedObjectId(dup.id);
+    showNotification('Objeto duplicado!', 'success');
+  };
 
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - outerRadius);
-      for (let i = 0; i < spikes; i++) {
-        cx = x + Math.cos(rot) * outerRadius;
-        cy = y + Math.sin(rot) * outerRadius;
-        ctx.lineTo(cx, cy);
-        rot += step;
+  // Layer Ordering Handlers
+  const moveLayer = (direction: 'front' | 'back') => {
+    if (!selectedObjectId) return;
+    setObjects(prev => {
+      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
+      const idx = sorted.findIndex(o => o.id === selectedObjectId);
+      if (idx === -1) return prev;
 
-        cx = x + Math.cos(rot) * innerRadius;
-        cy = y + Math.sin(rot) * innerRadius;
-        ctx.lineTo(cx, cy);
-        rot += step;
+      if (direction === 'front' && idx < sorted.length - 1) {
+        const temp = sorted[idx].zIndex;
+        sorted[idx].zIndex = sorted[idx + 1].zIndex;
+        sorted[idx + 1].zIndex = temp;
+      } else if (direction === 'back' && idx > 0) {
+        const temp = sorted[idx].zIndex;
+        sorted[idx].zIndex = sorted[idx - 1].zIndex;
+        sorted[idx - 1].zIndex = temp;
       }
-      ctx.lineTo(x, y - outerRadius);
-      ctx.closePath();
-      ctx.fill();
 
-    } else if (elemId === 'heart') {
-      const topCurveHeight = size * 0.3;
-      ctx.beginPath();
-      ctx.moveTo(x, y + size * 0.25);
-      ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + topCurveHeight);
-      ctx.bezierCurveTo(x - size / 2, y + (size + topCurveHeight) / 2, x, y + size * 0.8, x, y + size);
-      ctx.bezierCurveTo(x, y + size * 0.8, x + size / 2, y + (size + topCurveHeight) / 2, x + size / 2, y + topCurveHeight);
-      ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size * 0.25);
-      ctx.closePath();
-      ctx.fill();
+      return [...sorted];
+    });
+  };
 
-    } else if (elemId === 'check') {
-      ctx.beginPath();
-      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = size * 0.12;
-      ctx.beginPath();
-      ctx.moveTo(x - size * 0.2, y);
-      ctx.lineTo(x - size * 0.05, y + size * 0.18);
-      ctx.lineTo(x + size * 0.22, y - size * 0.18);
-      ctx.stroke();
+  // Load Premade Template
+  const loadPremadeTemplate = useCallback((tplId: string) => {
+    setObjects([]);
+    setSelectedObjectId(null);
 
-    } else if (elemId === 'shield') {
-      const w = size;
-      const h = size * 1.2;
-      ctx.beginPath();
-      ctx.moveTo(x - w / 2, y - h / 2);
-      ctx.lineTo(x + w / 2, y - h / 2);
-      ctx.lineTo(x + w / 2, y);
-      ctx.quadraticCurveTo(x + w / 2, y + h / 2, x, y + h / 2);
-      ctx.quadraticCurveTo(x - w / 2, y + h / 2, x - w / 2, y);
-      ctx.closePath();
-      ctx.fill();
+    if (tplId === 'post') {
+      setCanvasWidth(1000);
+      setCanvasHeight(600);
+      setCanvasBg('linear-gradient(135deg, #4f46e5, #7c3aed, #db2777)');
 
-    } else if (elemId === 'trophy') {
-      ctx.fillRect(x - size * 0.2, y + size * 0.3, size * 0.4, size * 0.2);
-      ctx.fillRect(x - size * 0.35, y + size * 0.48, size * 0.7, size * 0.1);
-      ctx.beginPath();
-      ctx.arc(x, y - size * 0.1, size * 0.3, 0, Math.PI);
-      ctx.fill();
-      ctx.fillRect(x - size * 0.3, y - size * 0.4, size * 0.6, size * 0.35);
+      setObjects([
+        {
+          id: 'card_bg',
+          type: 'shape',
+          x: 50, y: 40, width: 900, height: 520, rotation: 0, opacity: 0.95,
+          fill: '#ffffff', stroke: '#e2e8f0', strokeWidth: 2,
+          shadowColor: 'rgba(0,0,0,0.15)', shadowBlur: 20, shadowOffsetX: 0, shadowOffsetY: 10,
+          blurFilter: 0, contrastFilter: 100, brightnessFilter: 100, hueRotateFilter: 0,
+          content: 'rect', zIndex: 1, locked: false, fontFamily: 'sans-serif', fontSize: 16,
+          isBold: false, isItalic: false, textAlign: 'center', animation: 'fade'
+        },
+        {
+          id: 'badge',
+          type: 'badge',
+          x: 90, y: 80, width: 180, height: 40, rotation: 0, opacity: 1,
+          fill: '#f59e0b', stroke: 'transparent', strokeWidth: 0,
+          shadowColor: 'transparent', shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0,
+          blurFilter: 0, contrastFilter: 100, brightnessFilter: 100, hueRotateFilter: 0,
+          content: '⚡ NOVIDADE 2026', zIndex: 2, locked: false, fontFamily: 'sans-serif', fontSize: 15,
+          isBold: true, isItalic: false, textAlign: 'center', animation: 'zoom'
+        },
+        {
+          id: 'title',
+          type: 'text',
+          x: 90, y: 150, width: 700, height: 60, rotation: 0, opacity: 1,
+          fill: '#0f172a', stroke: 'transparent', strokeWidth: 0,
+          shadowColor: 'transparent', shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0,
+          blurFilter: 0, contrastFilter: 100, brightnessFilter: 100, hueRotateFilter: 0,
+          content: 'Design Gráfico & Artes com IA', zIndex: 3, locked: false, fontFamily: 'sans-serif', fontSize: 38,
+          isBold: true, isItalic: false, textAlign: 'left', animation: 'slide_up'
+        },
+        {
+          id: 'subtitle',
+          type: 'text',
+          x: 90, y: 220, width: 700, height: 50, rotation: 0, opacity: 1,
+          fill: '#475569', stroke: 'transparent', strokeWidth: 0,
+          shadowColor: 'transparent', shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0,
+          blurFilter: 0, contrastFilter: 100, brightnessFilter: 100, hueRotateFilter: 0,
+          content: 'Crie posts, selos, marcas e documentos com o Canva Studio Pro.', zIndex: 4, locked: false, fontFamily: 'sans-serif', fontSize: 20,
+          isBold: false, isItalic: false, textAlign: 'left', animation: 'fade'
+        }
+      ]);
+    } else if (tplId === 'banner') {
+      setCanvasWidth(1000);
+      setCanvasHeight(600);
+      setCanvasBg('#0f172a');
 
-    } else if (elemId === 'flame') {
-      ctx.beginPath();
-      ctx.moveTo(x, y + size * 0.5);
-      ctx.quadraticCurveTo(x + size * 0.4, y + size * 0.3, x + size * 0.3, y - size * 0.1);
-      ctx.quadraticCurveTo(x + size * 0.1, y - size * 0.5, x, y - size * 0.5);
-      ctx.quadraticCurveTo(x - size * 0.2, y - size * 0.1, x - size * 0.3, y + size * 0.1);
-      ctx.quadraticCurveTo(x - size * 0.4, y + size * 0.4, x, y + size * 0.5);
-      ctx.closePath();
-      ctx.fill();
-
-    } else if (elemId === 'bubble') {
-      const w = size * 1.8;
-      const h = size * 1.1;
-      const r = 16;
-      ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(x - w / 2, y - h / 2, w, h, r) : ctx.fillRect(x - w / 2, y - h / 2, w, h);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x - 10, y + h / 2);
-      ctx.lineTo(x - 25, y + h / 2 + 18);
-      ctx.lineTo(x + 5, y + h / 2);
-      ctx.closePath();
-      ctx.fill();
-
-    } else {
-      // Default Circle / Badge shape
-      ctx.beginPath();
-      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-      ctx.fill();
+      setObjects([
+        {
+          id: 'banner_title',
+          type: 'text',
+          x: 60, y: 140, width: 880, height: 80, rotation: 0, opacity: 1,
+          fill: '#ffffff', stroke: 'transparent', strokeWidth: 0,
+          shadowColor: 'rgba(0,0,0,0.5)', shadowBlur: 10, shadowOffsetX: 2, shadowOffsetY: 2,
+          blurFilter: 0, contrastFilter: 100, brightnessFilter: 100, hueRotateFilter: 0,
+          content: 'OFERTA IMPERDÍVEL 50% OFF', zIndex: 1, locked: false, fontFamily: 'sans-serif', fontSize: 48,
+          isBold: true, isItalic: false, textAlign: 'left', animation: 'slide_up'
+        },
+        {
+          id: 'banner_cta',
+          type: 'badge',
+          x: 60, y: 280, width: 280, height: 60, rotation: 0, opacity: 1,
+          fill: '#10b981', stroke: 'transparent', strokeWidth: 0,
+          shadowColor: 'rgba(0,0,0,0.3)', shadowBlur: 8, shadowOffsetX: 0, shadowOffsetY: 4,
+          blurFilter: 0, contrastFilter: 100, brightnessFilter: 100, hueRotateFilter: 0,
+          content: 'CUPOM: CANVA50', zIndex: 2, locked: false, fontFamily: 'sans-serif', fontSize: 24,
+          isBold: true, isItalic: false, textAlign: 'center', animation: 'zoom'
+        }
+      ]);
     }
 
-    ctx.restore();
-  }, []);
+    showNotification(`Modelo "${tplId}" carregado!`, 'success');
+  }, [showNotification]);
 
-  // Draw Styled Text Block on Canvas
-  const drawStyledTextOnCanvas = useCallback((
-    ctx: CanvasRenderingContext2D,
-    text: string,
-    x: number,
-    y: number,
-    font: string,
-    size: number,
-    bold: boolean,
-    italic: boolean,
-    color: string,
-    bgColor: string,
-    align: 'left' | 'center' | 'right'
-  ) => {
-    ctx.save();
-    const fontStyle = `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${size}px ${font}`;
-    ctx.font = fontStyle;
-    ctx.textAlign = align;
-    ctx.textBaseline = 'middle';
+  // Initial render setup
+  useEffect(() => {
+    loadPremadeTemplate(initialTemplate);
+  }, [initialTemplate, loadPremadeTemplate]);
 
-    const metrics = ctx.measureText(text);
-    const textWidth = metrics.width;
-    const paddingX = 18;
-    const paddingY = 12;
-
-    // Calculate background box rect depending on alignment
-    let bgX = x - paddingX;
-    if (align === 'center') bgX = x - textWidth / 2 - paddingX;
-    if (align === 'right') bgX = x - textWidth - paddingX;
-    const bgY = y - size / 2 - paddingY / 2;
-    const bgWidth = textWidth + paddingX * 2;
-    const bgHeight = size + paddingY;
-
-    // Render background badge if background color is set
-    if (bgColor && bgColor !== 'transparent') {
-      ctx.fillStyle = bgColor;
-      if (ctx.roundRect) {
-        ctx.beginPath();
-        ctx.roundRect(bgX, bgY, bgWidth, bgHeight, 12);
-        ctx.fill();
-      } else {
-        ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-      }
-    }
-
-    // Render text
-    ctx.fillStyle = color;
-    ctx.fillText(text, x, y);
-    ctx.restore();
-  }, []);
-
-  // Render Premade Templates
-  const loadTemplate = useCallback((templateId: string) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    saveCanvasState();
-    const w = canvas.width;
-    const h = canvas.height;
-
-    if (templateId === 'post' || templateId === 'Post Redes Sociais') {
-      // Instagram / LinkedIn Post Template
-      const grad = ctx.createLinearGradient(0, 0, w, h);
-      grad.addColorStop(0, '#4f46e5');
-      grad.addColorStop(0.5, '#7c3aed');
-      grad.addColorStop(1, '#db2777');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-
-      // Card Container
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.roundRect ? ctx.roundRect(60, 50, w - 120, h - 100, 24) : ctx.fillRect(60, 50, w - 120, h - 100);
-      ctx.fill();
-
-      // Badge
-      ctx.fillStyle = '#f59e0b';
-      ctx.roundRect ? ctx.roundRect(90, 85, 180, 40, 10) : ctx.fillRect(90, 85, 180, 40);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillText('⚡ NOVIDADE 2026', 110, 110);
-
-      // Title
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 40px sans-serif';
-      ctx.fillText('Design Gráfico & Artes com IA', 90, 185);
-
-      // Subtitle
-      ctx.fillStyle = '#475569';
-      ctx.font = '22px sans-serif';
-      ctx.fillText('Crie posts, selos, marcas e documentos com perfeição no Canva Studio.', 90, 235);
-
-      // Decorative vector star
-      drawVectorElement(ctx, 'star', w - 140, 150, 70, '#f59e0b');
-
-      // Call to action button
-      ctx.fillStyle = '#4f46e5';
-      ctx.roundRect ? ctx.roundRect(90, 320, 260, 54, 14) : ctx.fillRect(90, 320, 260, 54);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText('Começar Agora →', 130, 355);
-
-    } else if (templateId === 'banner' || templateId === 'Banner Promocional') {
-      // Banner Promocional
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, w, h);
-
-      // Accent Circle
-      ctx.fillStyle = '#10b981';
-      ctx.beginPath();
-      ctx.arc(w - 100, 100, 240, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 48px sans-serif';
-      ctx.fillText('OFERTA IMPERDÍVEL 50% OFF', 60, 160);
-
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '24px sans-serif';
-      ctx.fillText('Garanta acesso vitalício ao pacote completo de ferramentas de produtividade.', 60, 220);
-
-      // Discount Tag
-      ctx.fillStyle = '#ef4444';
-      ctx.roundRect ? ctx.roundRect(60, 280, 260, 60, 14) : ctx.fillRect(60, 280, 260, 60);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillText('CUPOM: CANVA50', 85, 318);
-
-      drawVectorElement(ctx, 'crown', w - 160, 260, 80, '#f59e0b');
-
-    } else if (templateId === 'business_card' || templateId === 'Cartão de Visita') {
-      // Business Card
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(0, 0, w, h);
-
-      // Side Color Bar
-      ctx.fillStyle = '#6366f1';
-      ctx.fillRect(0, 0, 28, h);
-
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 42px sans-serif';
-      ctx.fillText('DocuTools Pro Studio', 70, 150);
-
-      ctx.fillStyle = '#6366f1';
-      ctx.font = 'bold 22px sans-serif';
-      ctx.fillText('Soluções em Inteligência e Documentação', 70, 195);
-
-      ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(70, 235);
-      ctx.lineTo(w - 100, 235);
-      ctx.stroke();
-
-      ctx.fillStyle = '#475569';
-      ctx.font = '20px sans-serif';
-      ctx.fillText('📧 contato@docutools.pro  |  📱 +55 (11) 99999-8888', 70, 290);
-      ctx.fillText('🌐 www.docutools.pro  |  📍 São Paulo, SP - Brasil', 70, 335);
-
-      drawVectorElement(ctx, 'shield', w - 120, 160, 80, '#6366f1');
-
-    } else if (templateId === 'infographic' || templateId === 'Infográfico') {
-      // Infographic 3 Steps
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, w, h);
-
-      // Header
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText('3 Passos para o Sucesso Visual', 60, 80);
-
-      const steps = [
-        { num: '1', title: 'Planejamento', color: '#6366f1', text: 'Escolha um modelo ou canvas em branco.' },
-        { num: '2', title: 'Criação', color: '#ec4899', text: 'Adicione textos, formas e ícones marcantes.' },
-        { num: '3', title: 'Exportação', color: '#10b981', text: 'Gere sua arte em altíssima resolução PNG.' },
-      ];
-
-      steps.forEach((s, i) => {
-        const cx = 160 + i * 280;
-        const cy = 260;
-
-        ctx.fillStyle = s.color;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 55, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 40px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(s.num, cx, cy + 12);
-
-        ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.fillText(s.title, cx, cy + 95);
-
-        ctx.fillStyle = '#64748b';
-        ctx.font = '15px sans-serif';
-        ctx.fillText(s.text, cx, cy + 130);
-      });
-      ctx.textAlign = 'left';
-
-    } else if (templateId === 'certificate' || templateId === 'Certificado de Conclusão') {
-      // Certificate
-      ctx.fillStyle = '#fffbe2';
-      ctx.fillRect(0, 0, w, h);
-
-      // Gold Frame
-      ctx.strokeStyle = '#d97706';
-      ctx.lineWidth = 14;
-      ctx.strokeRect(30, 30, w - 60, h - 60);
-
-      ctx.strokeStyle = '#b45309';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(44, 44, w - 88, h - 88);
-
-      ctx.fillStyle = '#78350f';
-      ctx.font = 'bold 42px serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('CERTIFICADO DE EXCELÊNCIA', w / 2, 130);
-
-      ctx.fillStyle = '#92400e';
-      ctx.font = '22px sans-serif';
-      ctx.fillText('Certificamos com louvor que o usuário concluiu com êxito a formação em', w / 2, 195);
-
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 34px sans-serif';
-      ctx.fillText('DESIGN GRÁFICO & PRODUTIVIDADE COM IA', w / 2, 260);
-
-      ctx.fillStyle = '#b45309';
-      ctx.font = '18px sans-serif';
-      ctx.fillText('Emitido em 2026 • DocuTools Pro Certification', w / 2, 330);
-
-      drawVectorElement(ctx, 'trophy', w / 2, 420, 60, '#d97706');
-      ctx.textAlign = 'left';
-
-    } else if (templateId === 'quote' || templateId === 'Cartaz de Citação') {
-      // Quote Poster
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.fillStyle = '#6366f1';
-      ctx.font = 'bold 120px serif';
-      ctx.fillText('“', 80, 160);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'italic 32px serif';
-      ctx.fillText('A simplicidade é o último grau de sofisticação.', 100, 240);
-
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 22px sans-serif';
-      ctx.fillText('— Leonardo da Vinci', 100, 310);
-    }
-
-    showNotification(`Modelo "${templateId}" carregado no Canva!`, 'success');
-  }, [drawVectorElement, saveCanvasState, showNotification]);
-
-  // Handle Initial Template
+  // Main Canvas Rendering Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.fillStyle = canvasBg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Set Resolution
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
-    if (initialTemplate) {
-      loadTemplate(initialTemplate);
+    // Draw Background
+    if (canvasBg.startsWith('linear-gradient')) {
+      const grad = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+      grad.addColorStop(0, '#4f46e5');
+      grad.addColorStop(0.5, '#7c3aed');
+      grad.addColorStop(1, '#db2777');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     } else {
-      loadTemplate('post');
-    }
-  }, [initialTemplate, canvasBg, loadTemplate]);
-
-  // Place Text on Canvas Center
-  const placeTextAtCenter = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    saveCanvasState();
-    drawStyledTextOnCanvas(
-      ctx,
-      textInput,
-      canvas.width / 2,
-      canvas.height / 2,
-      fontFamily,
-      fontSize,
-      isBold,
-      isItalic,
-      textColor,
-      textBgColor,
-      textAlign
-    );
-    showNotification('Texto adicionado ao centro do canvas!', 'success');
-  };
-
-  // Place Selected Element at Canvas Center
-  const placeElementAtCenter = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    saveCanvasState();
-    drawVectorElement(
-      ctx,
-      selectedElement,
-      canvas.width / 2,
-      canvas.height / 2,
-      elementSize,
-      elementColor
-    );
-    showNotification('Elemento adicionado ao centro do canvas!', 'success');
-  };
-
-  // Drawing & Placement Events
-  const handleStartDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const coords = getCanvasCoordinates(e);
-
-    saveCanvasState();
-    setIsDrawing(true);
-    setStartPos(coords);
-
-    // Save snapshot for real-time shape preview
-    snapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    if (activeTool === 'bucket') {
-      ctx.fillStyle = fillColor;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      setCanvasBg(fillColor);
-      setIsDrawing(false);
-      showNotification('Fundo preenchido com sucesso!', 'success');
-      return;
+      ctx.fillStyle = canvasBg;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     }
 
-    if (activeTool === 'text') {
-      drawStyledTextOnCanvas(
-        ctx,
-        textInput,
-        coords.x,
-        coords.y,
-        fontFamily,
-        fontSize,
-        isBold,
-        isItalic,
-        textColor,
-        textBgColor,
-        textAlign
-      );
-      setIsDrawing(false);
-      showNotification('Texto inserido!', 'success');
-      return;
-    }
+    // Render sorted objects by zIndex
+    const sortedObjects = [...objects].sort((a, b) => a.zIndex - b.zIndex);
 
-    if (activeTool === 'element') {
-      drawVectorElement(
-        ctx,
-        selectedElement,
-        coords.x,
-        coords.y,
-        elementSize,
-        elementColor
-      );
-      setIsDrawing(false);
-      showNotification('Elemento inserido!', 'success');
-      return;
-    }
+    sortedObjects.forEach(obj => {
+      ctx.save();
 
-    ctx.beginPath();
-    ctx.moveTo(coords.x, coords.y);
-    ctx.strokeStyle = activeTool === 'eraser' ? canvasBg : strokeColor;
-    ctx.lineWidth = activeTool === 'eraser' ? lineWidth * 4 : activeTool === 'highlighter' ? lineWidth * 3.5 : lineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+      // CSS Style Filters
+      let filterStr = '';
+      if (obj.blurFilter > 0) filterStr += `blur(${obj.blurFilter}px) `;
+      if (obj.contrastFilter !== 100) filterStr += `contrast(${obj.contrastFilter}%) `;
+      if (obj.brightnessFilter !== 100) filterStr += `brightness(${obj.brightnessFilter}%) `;
+      if (obj.hueRotateFilter > 0) filterStr += `hue-rotate(${obj.hueRotateFilter}deg) `;
+      if (filterStr) ctx.filter = filterStr.trim();
 
-    if (activeTool === 'highlighter') {
-      ctx.globalAlpha = 0.35;
-    } else {
-      ctx.globalAlpha = 1.0;
-    }
-  };
+      // Opacity
+      ctx.globalAlpha = obj.opacity;
 
-  const handleDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    if (!isDrawing || !startPos) return;
+      // Transform Center
+      const centerX = obj.x + obj.width / 2;
+      const centerY = obj.y + obj.height / 2;
+      ctx.translate(centerX, centerY);
+      ctx.rotate((obj.rotation * Math.PI) / 180);
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const coords = getCanvasCoordinates(e);
-
-    if (activeTool === 'pencil' || activeTool === 'eraser' || activeTool === 'highlighter') {
-      ctx.lineTo(coords.x, coords.y);
-      ctx.stroke();
-    } else if (snapshotRef.current) {
-      // Shape real-time preview
-      ctx.putImageData(snapshotRef.current, 0, 0);
-
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = lineWidth;
-      ctx.fillStyle = fillColor;
-      ctx.globalAlpha = 1.0;
-
-      if (activeTool === 'rectangle') {
-        ctx.strokeRect(startPos.x, startPos.y, coords.x - startPos.x, coords.y - startPos.y);
-      } else if (activeTool === 'circle') {
-        const radius = Math.hypot(coords.x - startPos.x, coords.y - startPos.y);
-        ctx.beginPath();
-        ctx.arc(startPos.x, startPos.y, radius, 0, 2 * Math.PI);
-        ctx.stroke();
-      } else if (activeTool === 'line') {
-        ctx.beginPath();
-        ctx.moveTo(startPos.x, startPos.y);
-        ctx.lineTo(coords.x, coords.y);
-        ctx.stroke();
-      } else if (activeTool === 'arrow') {
-        const headlen = 16;
-        const dx = coords.x - startPos.x;
-        const dy = coords.y - startPos.y;
-        const angle = Math.atan2(dy, dx);
-
-        ctx.beginPath();
-        ctx.moveTo(startPos.x, startPos.y);
-        ctx.lineTo(coords.x, coords.y);
-        ctx.lineTo(coords.x - headlen * Math.cos(angle - Math.PI / 6), coords.y - headlen * Math.sin(angle - Math.PI / 6));
-        ctx.moveTo(coords.x, coords.y);
-        ctx.lineTo(coords.x - headlen * Math.cos(angle + Math.PI / 6), coords.y - headlen * Math.sin(angle + Math.PI / 6));
-        ctx.stroke();
-      } else if (activeTool === 'star') {
-        drawVectorElement(ctx, 'star', coords.x, coords.y, Math.hypot(coords.x - startPos.x, coords.y - startPos.y) * 2, strokeColor);
-      } else if (activeTool === 'bubble') {
-        drawVectorElement(ctx, 'bubble', coords.x, coords.y, Math.hypot(coords.x - startPos.x, coords.y - startPos.y) * 2, strokeColor);
+      // Shadow
+      if (obj.shadowBlur > 0) {
+        ctx.shadowColor = obj.shadowColor;
+        ctx.shadowBlur = obj.shadowBlur;
+        ctx.shadowOffsetX = obj.shadowOffsetX;
+        ctx.shadowOffsetY = obj.shadowOffsetY;
       }
+
+      const drawX = -obj.width / 2;
+      const drawY = -obj.height / 2;
+
+      if (obj.type === 'shape' || obj.type === 'badge') {
+        ctx.fillStyle = obj.fill;
+        ctx.strokeStyle = obj.stroke;
+        ctx.lineWidth = obj.strokeWidth;
+
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(drawX, drawY, obj.width, obj.height, 16);
+          ctx.fill();
+          if (obj.strokeWidth > 0) ctx.stroke();
+        } else {
+          ctx.fillRect(drawX, drawY, obj.width, obj.height);
+        }
+
+        if (obj.type === 'badge' && obj.content) {
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#ffffff';
+          ctx.font = `bold ${obj.fontSize}px ${obj.fontFamily}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(obj.content, 0, 0);
+        }
+
+      } else if (obj.type === 'text') {
+        ctx.fillStyle = obj.fill;
+        ctx.font = `${obj.isItalic ? 'italic ' : ''}${obj.isBold ? 'bold ' : ''}${obj.fontSize}px ${obj.fontFamily}`;
+        ctx.textAlign = obj.textAlign;
+        ctx.textBaseline = 'middle';
+
+        let textX = 0;
+        if (obj.textAlign === 'left') textX = drawX + 10;
+        if (obj.textAlign === 'right') textX = drawX + obj.width - 10;
+
+        ctx.fillText(obj.content, textX, 0);
+
+      } else if (obj.type === 'image' && obj.content) {
+        const img = new Image();
+        img.src = obj.content;
+        if (img.complete) {
+          ctx.drawImage(img, drawX, drawY, obj.width, obj.height);
+        }
+      }
+
+      ctx.restore();
+
+      // Draw Selection Bounding Box & Handles
+      if (obj.id === selectedObjectId) {
+        ctx.save();
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+
+        // Corner Handles
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#6366f1';
+        const handleSize = 8;
+        const corners = [
+          { x: obj.x, y: obj.y },
+          { x: obj.x + obj.width, y: obj.y },
+          { x: obj.x, y: obj.y + obj.height },
+          { x: obj.x + obj.width, y: obj.y + obj.height },
+        ];
+
+        corners.forEach(c => {
+          ctx.fillRect(c.x - handleSize / 2, c.y - handleSize / 2, handleSize, handleSize);
+          ctx.strokeRect(c.x - handleSize / 2, c.y - handleSize / 2, handleSize, handleSize);
+        });
+
+        ctx.restore();
+      }
+    });
+
+    // Draw Snap Alignment Lines
+    if (showSnapGuides) {
+      ctx.save();
+      ctx.strokeStyle = '#ec4899';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+
+      if (snapLineX !== null) {
+        ctx.beginPath();
+        ctx.moveTo(snapLineX, 0);
+        ctx.lineTo(snapLineX, canvasHeight);
+        ctx.stroke();
+      }
+      if (snapLineY !== null) {
+        ctx.beginPath();
+        ctx.moveTo(0, snapLineY);
+        ctx.lineTo(canvasWidth, snapLineY);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+  }, [canvasWidth, canvasHeight, canvasBg, objects, selectedObjectId, showSnapGuides, snapLineX, snapLineY]);
+
+  // Handle Mouse Click/Drag on Canvas
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvasWidth / rect.width;
+    const scaleY = canvasHeight / rect.height;
+
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
+
+    // Find clicked object (topmost zIndex)
+    const sorted = [...objects].sort((a, b) => b.zIndex - a.zIndex);
+    const clicked = sorted.find(obj => 
+      mouseX >= obj.x && mouseX <= obj.x + obj.width &&
+      mouseY >= obj.y && mouseY <= obj.y + obj.height
+    );
+
+    if (clicked) {
+      setSelectedObjectId(clicked.id);
+      setIsDragging(true);
+      setDragOffset({ x: mouseX - clicked.x, y: mouseY - clicked.y });
+    } else {
+      setSelectedObjectId(null);
     }
   };
 
-  const handleStopDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
-
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging || !selectedObjectId) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvasWidth / rect.width;
+    const scaleY = canvasHeight / rect.height;
 
-    ctx.globalAlpha = 1.0;
-    setStartPos(null);
-    snapshotRef.current = null;
+    let newX = (e.clientX - rect.left) * scaleX - dragOffset.x;
+    let newY = (e.clientY - rect.top) * scaleY - dragOffset.y;
+
+    // Snap Alignment guides (Center snap)
+    const centerX = canvasWidth / 2;
+    const centerY = canvasHeight / 2;
+    let activeSnapX: number | null = null;
+    let activeSnapY: number | null = null;
+
+    if (Math.abs(newX + 100 - centerX) < 15) {
+      newX = centerX - 100;
+      activeSnapX = centerX;
+    }
+    if (Math.abs(newY + 30 - centerY) < 15) {
+      newY = centerY - 30;
+      activeSnapY = centerY;
+    }
+
+    setSnapLineX(activeSnapX);
+    setSnapLineY(activeSnapY);
+    setShowSnapGuides(activeSnapX !== null || activeSnapY !== null);
+
+    setObjects(prev => prev.map(o => o.id === selectedObjectId ? { ...o, x: newX, y: newY } : o));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        saveCanvasState();
-        ctx.drawImage(img, 100, 100, 360, 240);
-        showNotification('Imagem adicionada ao canvas com sucesso!', 'success');
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+  const handleCanvasMouseUp = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      setShowSnapGuides(false);
+      recordVersionSnapshot('Movimentação de Objeto');
+    }
   };
 
-  const exportImage = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL('image/png');
-    saveAs(dataUrl, 'Canva_Studio_Design.png');
-    showNotification('Design exportado em PNG HD com sucesso!', 'success');
+  // Export PowerPoint PPTX using pptxgenjs!
+  const exportPowerPointPptx = async () => {
+    try {
+      const pptx = new pptxgen();
+      const slide = pptx.addSlide();
 
-    if (onSaveToHistory) {
-      onSaveToHistory({
-        type: 'canva',
-        title: 'Arte do Canva Studio',
-        summary: 'Design gráfico criado com modelos, texto e biblioteca de ícones.',
-        mediaUrl: dataUrl
+      // Slide Background
+      slide.background = { color: canvasBg.startsWith('#') ? canvasBg.replace('#', '') : 'FFFFFF' };
+
+      // Add objects to PowerPoint Slide
+      objects.forEach(obj => {
+        const xInches = (obj.x / canvasWidth) * 10;
+        const yInches = (obj.y / canvasHeight) * 5.625;
+        const wInches = (obj.width / canvasWidth) * 10;
+        const hInches = (obj.height / canvasHeight) * 5.625;
+
+        if (obj.type === 'text' || obj.type === 'badge') {
+          slide.addText(obj.content, {
+            x: xInches,
+            y: yInches,
+            w: wInches,
+            h: hInches,
+            fontSize: obj.fontSize,
+            bold: obj.isBold,
+            italic: obj.isItalic,
+            color: obj.fill.replace('#', ''),
+            align: obj.textAlign,
+          });
+        } else if (obj.type === 'image' && obj.content) {
+          slide.addImage({
+            data: obj.content,
+            x: xInches,
+            y: yInches,
+            w: wInches,
+            h: hInches,
+          });
+        }
       });
+
+      await pptx.writeFile({ fileName: `DocSwiss_Apresentacao_${Date.now()}.pptx` });
+      showNotification('Apresentação PowerPoint (.pptx) baixada com sucesso!', 'success');
+
+      if (onSaveToHistory) {
+        onSaveToHistory({
+          type: 'canva',
+          title: 'Apresentação PowerPoint Canva',
+          summary: `Exportado com ${objects.length} camadas de objetos para PPTX.`,
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      showNotification('Erro ao gerar arquivo PPTX', 'error');
     }
   };
 
-  const handleSendToOcrAction = () => {
+  // Export PDF HD
+  const exportPdfHd = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dataUrl = canvas.toDataURL('image/png');
-    if (onSendToOcr) {
-      onSendToOcr(dataUrl);
-      showNotification('Arte enviada para a ferramenta de OCR!', 'success');
-    }
+    const imgData = canvas.toDataURL('image/png', 1.0);
+
+    const pdf = new jsPDF({
+      orientation: canvasWidth > canvasHeight ? 'landscape' : 'portrait',
+      unit: 'px',
+      format: [canvasWidth, canvasHeight]
+    });
+
+    pdf.addImage(imgData, 'PNG', 0, 0, canvasWidth, canvasHeight);
+    pdf.save(`DocSwiss_Canva_HD_${Date.now()}.pdf`);
+    showNotification('PDF de Alta Resolução exportado!', 'success');
+  };
+
+  // Export PNG Image
+  const exportPngImage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const imgData = canvas.toDataURL('image/png');
+    saveAs(imgData, `DocSwiss_Design_${Date.now()}.png`);
+    showNotification('Imagem PNG baixada com sucesso!', 'success');
   };
 
   return (
-    <div className="space-y-5 animate-[fadeIn_0.3s_ease]">
-      {/* Top Main Toolbar */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+    <div className={`space-y-5 ${isExpansiveView ? 'fixed inset-0 z-50 bg-slate-950 p-6 overflow-y-auto' : ''}`}>
+      
+      {/* Studio Header Bar */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-600 text-white flex items-center justify-center font-extrabold shadow-lg shadow-purple-500/20 text-xl">
-            C
+          <div className="p-2.5 bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-2xl shadow-md">
+            <IconPalette className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              DocuSwiss Canva Studio Pro
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-100 dark:bg-pink-950 text-pink-700 dark:text-pink-300">
-                MODELOS & ÍCONES
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              Canva Design Studio Pro 2026
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                Studio HD
               </span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Crie artes, adicione textos personalizados sobre modelos e insira elementos gráficos
+            </h2>
+            <p className="text-xs text-slate-500 flex items-center gap-2">
+              <span>{canvasWidth} x {canvasHeight} px</span>
+              <span>•</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                <IconUsers className="w-3.5 h-3.5 inline" />
+                2 Colaboradores Online
+              </span>
             </p>
           </div>
         </div>
 
+        {/* Action Header Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={undo}
-            disabled={history.length === 0}
-            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-semibold disabled:opacity-40 flex items-center gap-1.5 transition-all"
-            title="Desfazer Última Ação"
+          {/* Preset Canvas Selector */}
+          <select
+            value={`${canvasWidth}x${canvasHeight}`}
+            onChange={(e) => {
+              const [w, h] = e.target.value.split('x').map(Number);
+              setCanvasWidth(w);
+              setCanvasHeight(h);
+              showNotification(`Resolução ajustada para ${w}x${h} px`, 'success');
+            }}
+            className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl border border-transparent outline-none focus:border-indigo-500"
           >
-            <RotateCcw className="w-4 h-4 text-purple-600" />
-            <span className="hidden sm:inline">Desfazer</span>
+            {CANVAS_PRESETS.map((p) => (
+              <option key={p.id} value={`${p.width}x${p.height}`}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Quick PPTX Export */}
+          <button
+            onClick={exportPowerPointPptx}
+            className="px-3.5 py-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-bold text-xs rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
+          >
+            <IconFileExport className="w-4 h-4" />
+            <span>Exportar PPTX</span>
           </button>
 
+          {/* Quick PDF Export */}
           <button
-            onClick={clearCanvas}
-            className="p-2.5 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all"
-            title="Limpar Canvas"
+            onClick={exportPdfHd}
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center gap-1.5"
           >
-            <Trash2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Limpar</span>
+            <IconDownload className="w-4 h-4" />
+            <span>Exportar PDF HD</span>
           </button>
 
-          {onSendToOcr && (
-            <button
-              onClick={handleSendToOcrAction}
-              className="px-4 py-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all border border-indigo-200 dark:border-indigo-800"
-            >
-              <Eye className="w-4 h-4" />
-              Enviar para OCR
-            </button>
-          )}
-
+          {/* Full Screen Expansive View */}
           <button
-            onClick={exportImage}
-            className="px-5 py-2.5 bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-700 hover:to-rose-700 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/25 transition-all"
+            onClick={() => setIsExpansiveView(!isExpansiveView)}
+            className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl hover:bg-slate-200 transition-colors"
+            title={isExpansiveView ? 'Sair da Tela Cheia' : 'Modo Expansivo Tela Cheia'}
           >
-            <Download className="w-4 h-4" />
-            Exportar PNG HD
+            {isExpansiveView ? <IconMinimize className="w-4 h-4" /> : <IconMaximize className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/* Main Studio Interactive Workspace Grid */}
+      {/* Main Studio Split Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         
-        {/* Left Control Panel / Tabs (4 Cols) */}
+        {/* Left Sidebar Navigation & Controls (4 Cols) */}
         <div className="lg:col-span-4 space-y-4">
           
-          {/* Section Navigation Tabs */}
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+          {/* Navigation Tabs */}
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl overflow-x-auto text-xs font-bold no-scrollbar">
             {[
-              { id: 'templates' as CanvaTab, label: 'Modelos', icon: LayoutTemplate },
-              { id: 'text' as CanvaTab, label: 'Texto', icon: Type },
-              { id: 'elements' as CanvaTab, label: 'Ícones', icon: Sparkles },
-              { id: 'draw' as CanvaTab, label: 'Pincel', icon: Pencil },
-              { id: 'media' as CanvaTab, label: 'Mídia', icon: ImageIcon },
-            ].map(tab => {
+              { id: 'templates' as const, label: 'Modelos', icon: IconLayout },
+              { id: 'graphics' as const, label: 'Ícones & Fotos', icon: IconSparkles },
+              { id: 'text' as const, label: 'Texto & Fontes', icon: Type },
+              { id: 'layers' as const, label: 'Camadas', icon: Layers },
+              { id: 'history' as const, label: 'Versões', icon: IconHistory },
+              { id: 'export' as const, label: 'Exportar', icon: IconDownload },
+            ].map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    if (tab.id === 'text') setActiveTool('text');
-                    if (tab.id === 'elements') setActiveTool('element');
-                    if (tab.id === 'draw') setActiveTool('pencil');
-                  }}
-                  className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all whitespace-nowrap ${
                     activeTab === tab.id
-                      ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  {tab.label}
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* TAB 1: MODELOS PRONTOS */}
-          {activeTab === 'templates' && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-5 space-y-3">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <LayoutTemplate className="w-4 h-4 text-purple-500" />
-                Modelos de Design Prontos
-              </h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Escolha um modelo base para aplicar instantaneamente no canvas:
-              </p>
+          {/* Tab Panel Content */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 min-h-[420px] max-h-[600px] overflow-y-auto space-y-4 shadow-xs">
+            
+            {/* MODELOS PRONTOS TAB */}
+            {activeTab === 'templates' && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <IconLayout className="w-4 h-4 text-indigo-600" />
+                  Modelos de Slides & Artes Prontas
+                </h3>
 
-              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                {CANVA_TEMPLATES.map(tpl => (
-                  <div
-                    key={tpl.id}
-                    onClick={() => loadTemplate(tpl.id)}
-                    className="p-3.5 bg-slate-50 dark:bg-slate-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/30 border border-slate-200/80 dark:border-slate-700/80 hover:border-purple-300 rounded-2xl cursor-pointer transition-all flex items-center justify-between group"
-                  >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${tpl.color}`} />
-                        <h5 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-600 transition-colors">
-                          {tpl.name}
-                        </h5>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {CANVA_TEMPLATES.map((tpl) => (
+                    <div
+                      key={tpl.id}
+                      onClick={() => loadPremadeTemplate(tpl.id)}
+                      className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-indigo-500 cursor-pointer transition-all flex items-center justify-between"
+                    >
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">{tpl.name}</h4>
+                        <p className="text-[11px] text-slate-500">{tpl.desc}</p>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {tpl.desc}
-                      </p>
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Usar →</span>
                     </div>
-                    <Sparkles className="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition-colors" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: TEXTO EM CIMA DO CANVAS & MODELOS */}
-          {activeTab === 'text' && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Type className="w-4 h-4 text-purple-500" />
-                  Texto Personalizado em Cima do Modelo
-                </h4>
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-700 font-bold">
-                  MODO TEXTO
-                </span>
-              </div>
-
-              {/* Text Input */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Conteúdo do Texto:
-                </label>
-                <input
-                  type="text"
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  placeholder="Digite seu texto aqui..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
-                />
-              </div>
-
-              {/* Typography Options */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500">Fonte:</label>
-                  <select
-                    value={fontFamily}
-                    onChange={(e) => setFontFamily(e.target.value)}
-                    className="w-full mt-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none"
-                  >
-                    <option value="sans-serif">Sans-Serif (Moderno)</option>
-                    <option value="serif">Serif (Elegante)</option>
-                    <option value="monospace">Monospace (Tech)</option>
-                    <option value="Impact">Impact (Título Forte)</option>
-                    <option value="Georgia">Georgia (Clássico)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500">Tamanho ({fontSize}px):</label>
-                  <input
-                    type="range"
-                    min="14"
-                    max="96"
-                    value={fontSize}
-                    onChange={(e) => setFontSize(Number(e.target.value))}
-                    className="w-full mt-2 accent-purple-600 cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              {/* Style Controls (Bold, Italic, Align) */}
-              <div className="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setIsBold(!isBold)}
-                    className={`p-1.5 rounded-xl text-xs font-bold ${isBold ? 'bg-purple-600 text-white' : 'text-slate-600'}`}
-                    title="Negrito"
-                  >
-                    <Bold className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setIsItalic(!isItalic)}
-                    className={`p-1.5 rounded-xl text-xs font-bold ${isItalic ? 'bg-purple-600 text-white' : 'text-slate-600'}`}
-                    title="Itálico"
-                  >
-                    <Italic className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setTextAlign('left')}
-                    className={`p-1.5 rounded-xl ${textAlign === 'left' ? 'bg-purple-600 text-white' : 'text-slate-600'}`}
-                  >
-                    <AlignLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setTextAlign('center')}
-                    className={`p-1.5 rounded-xl ${textAlign === 'center' ? 'bg-purple-600 text-white' : 'text-slate-600'}`}
-                  >
-                    <AlignCenter className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setTextAlign('right')}
-                    className={`p-1.5 rounded-xl ${textAlign === 'right' ? 'bg-purple-600 text-white' : 'text-slate-600'}`}
-                  >
-                    <AlignRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Color Controls */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500">Cor do Texto:</label>
-                  <input
-                    type="color"
-                    value={textColor}
-                    onChange={(e) => setTextColor(e.target.value)}
-                    className="w-full h-8 mt-1 rounded-xl cursor-pointer border-none bg-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500">Cor do Fundo (Selo):</label>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <input
-                      type="color"
-                      value={textBgColor === 'transparent' ? '#ffffff' : textBgColor}
-                      onChange={(e) => setTextBgColor(e.target.value)}
-                      className="w-full h-8 rounded-xl cursor-pointer border-none bg-transparent"
-                    />
-                    <button
-                      onClick={() => setTextBgColor('transparent')}
-                      className="px-2 py-1 bg-slate-200 text-[10px] font-bold rounded-lg"
-                    >
-                      Sem Fundo
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-2 pt-2">
-                <button
-                  onClick={placeTextAtCenter}
-                  className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md"
-                >
-                  <Plus className="w-4 h-4" />
-                  Adicionar ao Centro do Canvas
-                </button>
-                
-                <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
-                  💡 Ou clique diretamente em qualquer ponto do canvas para posicionar o texto!
-                </p>
-              </div>
-
-              {/* Text Presets Grid */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Estilos de Texto Rápidos:
-                </span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {TEXT_PRESETS.map(preset => (
-                    <button
-                      key={preset.id}
-                      onClick={() => {
-                        setFontFamily(preset.font);
-                        setFontSize(preset.size);
-                        setIsBold(preset.bold);
-                        setIsItalic(!!preset.italic);
-                        setTextColor(preset.color);
-                        setTextBgColor(preset.bg);
-                        setTextInput(preset.label);
-                        setActiveTool('text');
-                        showNotification(`Estilo "${preset.label}" aplicado!`, 'success');
-                      }}
-                      className="p-2 bg-slate-50 dark:bg-slate-800 hover:bg-purple-50 text-slate-700 dark:text-slate-300 text-[11px] font-semibold rounded-xl border border-slate-200 dark:border-slate-700 text-left truncate"
-                    >
-                      {preset.label}
-                    </button>
                   ))}
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* TAB 3: BIBLIOTECA DE ÍCONES E ELEMENTOS */}
-          {activeTab === 'elements' && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-500" />
-                  Biblioteca de Ícones & Elementos
-                </h4>
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-700 font-bold">
-                  ELEMENTOS
-                </span>
-              </div>
-
-              {/* Search Bar & Category Filter */}
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={elementSearchTerm}
-                  onChange={(e) => setElementSearchTerm(e.target.value)}
-                  placeholder="Pesquisar ícone ou selo..."
-                  className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs rounded-xl outline-none focus:ring-2 focus:ring-purple-500"
-                />
-
-                <div className="flex gap-1 overflow-x-auto pb-1">
-                  {[
-                    { id: 'all', label: 'Todos' },
-                    { id: 'icons', label: 'Ícones' },
-                    { id: 'badges', label: 'Selos' },
-                    { id: 'shapes', label: 'Formas' },
-                  ].map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setElementCategoryFilter(cat.id as any)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap ${
-                        elementCategoryFilter === cat.id
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Element Color & Size */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500">Cor do Elemento:</label>
-                  <input
-                    type="color"
-                    value={elementColor}
-                    onChange={(e) => setElementColor(e.target.value)}
-                    className="w-full h-8 mt-1 rounded-xl cursor-pointer border-none bg-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500">Tamanho ({elementSize}px):</label>
-                  <input
-                    type="range"
-                    min="20"
-                    max="160"
-                    value={elementSize}
-                    onChange={(e) => setElementSize(Number(e.target.value))}
-                    className="w-full mt-2 accent-purple-600 cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              {/* Icons Grid */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-500">Ícones Disponíveis:</label>
-                <div className="grid grid-cols-5 gap-2 max-h-[220px] overflow-y-auto pr-1">
-                  {ELEMENT_ITEMS
-                    .filter(e => e.icon)
-                    .filter(e => elementCategoryFilter === 'all' || elementCategoryFilter === 'icons')
-                    .filter(e => !elementSearchTerm || e.name.toLowerCase().includes(elementSearchTerm.toLowerCase()))
-                    .map(item => {
-                      const IconElem = item.icon!;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                            setSelectedElement(item.id);
-                            setActiveTool('element');
-                            showNotification(`Ícone "${item.name}" selecionado! Clique no canvas para aplicar.`, 'success');
-                          }}
-                          className={`p-3 rounded-2xl flex items-center justify-center transition-all ${
-                            selectedElement === item.id
-                              ? 'bg-purple-600 text-white shadow-md'
-                              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                          }`}
-                          title={item.name}
-                        >
-                          <IconElem className="w-5 h-5" />
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Badges & Stamps Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label className="text-[11px] font-bold text-slate-500">Selos & Badges Prontos:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {ELEMENT_ITEMS
-                    .filter(e => e.category === 'badges')
-                    .filter(e => elementCategoryFilter === 'all' || elementCategoryFilter === 'badges')
-                    .filter(e => !elementSearchTerm || e.name.toLowerCase().includes(elementSearchTerm.toLowerCase()))
-                    .map(badge => (
-                    <button
-                      key={badge.id}
-                      onClick={() => {
-                        setTextInput(badge.label!);
-                        setTextBgColor(badge.bg!);
-                        setTextColor(badge.text!);
-                        setFontSize(22);
-                        setIsBold(true);
-                        setActiveTool('text');
-                        showNotification(`Selo "${badge.name}" pronto! Clique no canvas para colar.`, 'success');
-                      }}
-                      className="p-2 rounded-xl text-xs font-bold text-white text-center shadow-sm hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: badge.bg }}
-                    >
-                      {badge.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={placeElementAtCenter}
-                className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md"
-              >
-                <Plus className="w-4 h-4" />
-                Inserir Ícone no Centro
-              </button>
-            </div>
-          )}
-
-          {/* TAB 4: PINCEIS, MARCADOR & FORMAS */}
-          {activeTab === 'draw' && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-5 space-y-4">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Pencil className="w-4 h-4 text-purple-500" />
-                Ferramentas de Desenho & Marcação
-              </h4>
-
-              {/* Tools Selection Grid */}
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'pencil' as CanvasTool, label: 'Lápis', icon: Pencil },
-                  { id: 'highlighter' as CanvasTool, label: 'Marca-Texto', icon: Highlighter },
-                  { id: 'eraser' as CanvasTool, label: 'Borracha', icon: Eraser },
-                  { id: 'rectangle' as CanvasTool, label: 'Retângulo', icon: Square },
-                  { id: 'circle' as CanvasTool, label: 'Círculo', icon: Circle },
-                  { id: 'line' as CanvasTool, label: 'Linha', icon: MoveRight },
-                  { id: 'arrow' as CanvasTool, label: 'Seta', icon: MoveRight },
-                  { id: 'bucket' as CanvasTool, label: 'Preencher', icon: PaintBucket },
-                ].map(t => {
-                  const Icon = t.icon;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setActiveTool(t.id)}
-                      className={`p-2.5 rounded-2xl text-xs font-bold flex flex-col items-center gap-1 transition-all ${
-                        activeTool === t.id
-                          ? 'bg-purple-600 text-white shadow-md'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Color & Thickness Sliders */}
-              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500">Cor do Pincel:</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    {['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#000000', '#ffffff'].map(c => (
+                {/* Preset Background Gradients */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">Cores e Gradientes de Fundo</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {BACKGROUND_GRADIENTS.map((bg) => (
                       <button
-                        key={c}
-                        onClick={() => setStrokeColor(c)}
-                        className={`w-6 h-6 rounded-full border ${strokeColor === c ? 'ring-2 ring-purple-600 scale-110' : ''}`}
-                        style={{ backgroundColor: c }}
-                      />
+                        key={bg.id}
+                        onClick={() => {
+                          setCanvasBg(bg.value);
+                          recordVersionSnapshot('Alteração de Fundo');
+                        }}
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-[10px] text-slate-700 shadow-xs flex items-center justify-center p-1"
+                        style={{ background: bg.value }}
+                      >
+                        <span className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded-md">
+                          {bg.name}
+                        </span>
+                      </button>
                     ))}
-                    <input
-                      type="color"
-                      value={strokeColor}
-                      onChange={(e) => setStrokeColor(e.target.value)}
-                      className="w-7 h-7 rounded-xl cursor-pointer border-none bg-transparent"
-                    />
                   </div>
                 </div>
+              </div>
+            )}
 
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500">Espessura ({lineWidth}px):</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="40"
-                    value={lineWidth}
-                    onChange={(e) => setLineWidth(Number(e.target.value))}
-                    className="w-full mt-1 accent-purple-600 cursor-pointer"
-                  />
+            {/* ÍCONES & FOTOS SMART LIBRARY TAB */}
+            {activeTab === 'graphics' && (
+              <SmartGraphicsLibrary
+                onSelectGraphic={(item) => {
+                  if (item.type === 'photo') {
+                    addObject({
+                      type: 'image',
+                      content: item.previewUrl,
+                      width: 400,
+                      height: 250,
+                    });
+                  } else {
+                    addObject({
+                      type: 'badge',
+                      content: item.title,
+                      width: 180,
+                      height: 44,
+                      fill: '#6366f1',
+                    });
+                  }
+                }}
+                showNotification={showNotification}
+              />
+            )}
+
+            {/* TEXTO & FONTES TAB */}
+            {activeTab === 'text' && (
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Type className="w-4 h-4 text-indigo-600" />
+                  Biblioteca de Fontes e Caixas de Texto
+                </h3>
+
+                {/* Add Text Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => addObject({ type: 'text', content: 'Título de Impacto', fontSize: 42, isBold: true })}
+                    className="p-3 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-2xl text-xs font-bold text-indigo-900 dark:text-indigo-200 text-left hover:shadow-xs transition-all"
+                  >
+                    + Inserir Título
+                  </button>
+                  <button
+                    onClick={() => addObject({ type: 'text', content: 'Subtítulo Explicativo', fontSize: 24, isBold: false })}
+                    className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-700 dark:text-slate-300 text-left hover:shadow-xs transition-all"
+                  >
+                    + Inserir Subtítulo
+                  </button>
+                </div>
+
+                {/* Upload Custom Font File */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">Upload de Fonte Personalizada (.ttf/.otf/.woff)</h4>
+                  <label className="cursor-pointer block p-3 border-2 border-dashed border-indigo-300 dark:border-indigo-800 rounded-2xl text-center bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-50 transition-colors">
+                    <IconUpload className="w-5 h-5 mx-auto text-indigo-600 mb-1" />
+                    <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">Carregar Arquivo de Fonte</span>
+                    <input type="file" accept=".ttf,.otf,.woff,.woff2" onChange={handleFontFileUpload} className="hidden" />
+                  </label>
+                </div>
+
+                {/* Font Selector List */}
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-500">Fontes Disponíveis ({fontList.length})</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {fontList.map(font => (
+                      <span key={font} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300" style={{ fontFamily: font }}>
+                        {font}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 5: MIDIA E UPLOAD */}
-          {activeTab === 'media' && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-5 space-y-4">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-purple-500" />
-                Upload de Imagens & Fotos
-              </h4>
+            {/* CAMADAS (LAYERS) TAB */}
+            {activeTab === 'layers' && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-indigo-600" />
+                  Ordem de Camadas & Objetos
+                </h3>
 
-              <label className="p-8 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-purple-500 rounded-3xl cursor-pointer flex flex-col items-center justify-center gap-2 text-center transition-all group">
-                <ImageIcon className="w-8 h-8 text-purple-500 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Clique para carregar imagem
+                <div className="space-y-2">
+                  {[...objects].sort((a, b) => b.zIndex - a.zIndex).map(obj => (
+                    <div
+                      key={obj.id}
+                      onClick={() => setSelectedObjectId(obj.id)}
+                      className={`p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
+                        obj.id === selectedObjectId
+                          ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-500 shadow-xs'
+                          : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="text-xs font-black uppercase text-indigo-600 px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900">
+                          {obj.type}
+                        </span>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                          {obj.content || 'Objeto'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); moveLayer('front'); }}
+                          className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-xs"
+                          title="Trazer para Frente"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); moveLayer('back'); }}
+                          className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-xs"
+                          title="Enviar para Trás"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* HISTÓRICO DE VERSÕES TAB */}
+            {activeTab === 'history' && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <IconHistory className="w-4 h-4 text-indigo-600" />
+                  Histórico de Versões Salvas
+                </h3>
+
+                <div className="space-y-2">
+                  {versions.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-6">Nenhuma alteração gravada ainda.</p>
+                  ) : (
+                    versions.map(ver => (
+                      <div
+                        key={ver.id}
+                        onClick={() => {
+                          setObjects(ver.objects);
+                          setCanvasBg(ver.bg);
+                          showNotification(`Versão "${ver.label}" restaurada!`, 'success');
+                        }}
+                        className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl hover:border-indigo-500 cursor-pointer transition-all flex items-center justify-between"
+                      >
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{ver.label}</h4>
+                          <span className="text-[10px] text-slate-400">{ver.timestamp} • {ver.objects.length} camadas</span>
+                        </div>
+                        <span className="text-xs font-bold text-indigo-600">Restaurar</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* EXPORTAR TAB */}
+            {activeTab === 'export' && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <IconDownload className="w-4 h-4 text-indigo-600" />
+                  Opções Avançadas de Exportação
+                </h3>
+
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={exportPowerPointPptx}
+                    className="p-3.5 bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-md hover:shadow-lg transition-all"
+                  >
+                    <span>📊 PowerPoint (.pptx)</span>
+                    <span>Baixar →</span>
+                  </button>
+
+                  <button
+                    onClick={exportPdfHd}
+                    className="p-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-md transition-all"
+                  >
+                    <span>📄 Documento PDF HD (.pdf)</span>
+                    <span>Baixar →</span>
+                  </button>
+
+                  <button
+                    onClick={exportPngImage}
+                    className="p-3.5 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-md transition-all"
+                  >
+                    <span>🖼️ Imagem Transparente PNG (.png)</span>
+                    <span>Baixar →</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* Right Canvas Interactive Workspace (8 Cols) */}
+        <div className="lg:col-span-8 space-y-4">
+          
+          {/* Properties Panel for Selected Object */}
+          {activeObject ? (
+            <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 rounded-3xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <Sliders className="w-4 h-4" />
+                  Painel de Propriedades do Objeto ({activeObject.type})
                 </span>
-                <span className="text-[11px] text-slate-400">
-                  PNG, JPG, WEBP ou SVG
-                </span>
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-              </label>
+                <div className="flex items-center gap-1">
+                  <button onClick={duplicateActiveObject} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-700" title="Duplicar">
+                    <IconCopy className="w-4 h-4" />
+                  </button>
+                  <button onClick={deleteActiveObject} className="p-1.5 hover:bg-rose-100 rounded-xl text-xs font-bold text-rose-600" title="Excluir">
+                    <IconTrash className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label className="text-[11px] font-bold text-slate-500">Cor do Fundo do Canvas:</label>
-                <div className="flex items-center gap-2">
+              {/* Editable Content Input */}
+              {(activeObject.type === 'text' || activeObject.type === 'badge') && (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-500">Texto do Objeto</label>
+                  <input
+                    type="text"
+                    value={activeObject.content}
+                    onChange={(e) => updateActiveObject({ content: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-indigo-500 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none"
+                  />
+                </div>
+              )}
+
+              {/* Controls Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400">Cor de Preenchimento</label>
                   <input
                     type="color"
-                    value={canvasBg}
-                    onChange={(e) => {
-                      setCanvasBg(e.target.value);
-                      const canvas = canvasRef.current;
-                      if (canvas) {
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                          ctx.fillStyle = e.target.value;
-                          ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        }
-                      }
-                    }}
+                    value={activeObject.fill}
+                    onChange={(e) => updateActiveObject({ fill: e.target.value })}
                     className="w-full h-8 rounded-xl cursor-pointer border-none bg-transparent"
                   />
                 </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400">Opacidade ({Math.round(activeObject.opacity * 100)}%)</label>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1"
+                    step="0.05"
+                    value={activeObject.opacity}
+                    onChange={(e) => updateActiveObject({ opacity: Number(e.target.value) })}
+                    className="w-full accent-indigo-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400">Rotação ({activeObject.rotation}°)</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    value={activeObject.rotation}
+                    onChange={(e) => updateActiveObject({ rotation: Number(e.target.value) })}
+                    className="w-full accent-indigo-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400">Sombra Blur ({activeObject.shadowBlur}px)</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="40"
+                    value={activeObject.shadowBlur}
+                    onChange={(e) => updateActiveObject({ shadowBlur: Number(e.target.value) })}
+                    className="w-full accent-indigo-600"
+                  />
+                </div>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Right Canvas Interactive Stage (8 Cols) */}
-        <div className="lg:col-span-8 space-y-3">
-          
-          {/* Top Canvas Instruction Banner */}
-          <div className="bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/80 rounded-2xl px-4 py-2.5 flex items-center justify-between text-xs text-purple-800 dark:text-purple-300 font-medium">
-            <div className="flex items-center gap-2">
-              <MousePointer className="w-4 h-4 text-purple-600 animate-pulse" />
-              <span>
-                Ferramenta Ativa: <strong className="uppercase">{activeTool}</strong>. Clique ou arraste no canvas para criar.
-              </span>
+          ) : (
+            <div className="bg-slate-100 dark:bg-slate-900/60 rounded-3xl p-3 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800">
+              Clique em qualquer elemento do canvas para abrir o Painel de Propriedades.
             </div>
-            <span className="text-[11px] font-bold text-purple-600 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-full">
-              1000 x 600 px
-            </span>
-          </div>
+          )}
 
-          {/* Interactive Canvas Stage */}
-          <div className="bg-slate-900 rounded-3xl p-4 sm:p-6 flex justify-center items-center shadow-2xl border border-slate-800 min-h-[520px] overflow-hidden relative group">
+          {/* Interactive HTML5 Canvas Container */}
+          <div className="bg-slate-100/90 dark:bg-slate-950/90 rounded-3xl p-4 sm:p-8 flex items-center justify-center overflow-auto min-h-[500px] shadow-inner border border-slate-200/80 dark:border-slate-800">
             <canvas
               ref={canvasRef}
-              width={1000}
-              height={600}
-              onMouseDown={handleStartDraw}
-              onMouseMove={handleDraw}
-              onMouseUp={handleStopDraw}
-              onMouseLeave={handleStopDraw}
-              onTouchStart={handleStartDraw}
-              onTouchMove={handleDraw}
-              onTouchEnd={handleStopDraw}
-              className="bg-white rounded-2xl shadow-2xl cursor-crosshair border border-slate-700 max-w-full touch-none select-none transition-transform"
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              className="shadow-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 cursor-crosshair max-w-full h-auto transition-transform"
             />
           </div>
+
         </div>
 
       </div>
+
     </div>
   );
 };

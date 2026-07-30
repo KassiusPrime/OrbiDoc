@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, LogOut, HardDrive, FileText, ExternalLink, RefreshCw, Loader2, ShieldCheck, User, Cloud } from 'lucide-react';
+import { 
+  IconLogin, IconLogout, IconDatabase as IconHardDrive, IconFileText, IconLoader2, 
+  IconShieldCheck, IconUser, IconCloud, IconX, IconRefresh, IconCheck
+} from '@tabler/icons-react';
 import { GoogleUserProfile, DriveFile } from '../types';
 import { loginWithGooglePopup, logoutGoogleUser, listGoogleDriveFiles } from '../services/googleAuthDrive';
 import { MicrosoftUserProfile, OneDriveFile, loginWithMicrosoftPopup, logoutMicrosoftUser, listOneDriveFiles, getStoredMicrosoftUser } from '../services/microsoftAuthOffice';
+import { signInWithGoogleFirebase, signOutFirebase } from '../lib/firebase';
 
 interface AuthProfileBadgeProps {
   user: GoogleUserProfile | null;
@@ -69,11 +73,19 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
   const handleLoginGoogle = async () => {
     setIsLoggingInGoogle(true);
     try {
-      const profile = await loginWithGooglePopup();
+      // Primary: Firebase Auth Google Popup
+      const { profile } = await signInWithGoogleFirebase();
       onUserChange(profile);
-      onNotification(`Bem-vindo(a), ${profile.name}! Login Google ativado com sucesso.`);
+      onNotification(`Bem-vindo(a), ${profile.name}! Conta Google conectada e dados salvos no Firebase.`);
     } catch (err: any) {
-      onNotification(err.message || 'Falha no login do Google.', 'error');
+      // Fallback to custom popup auth if Firebase popup is blocked
+      try {
+        const profile = await loginWithGooglePopup();
+        onUserChange(profile);
+        onNotification(`Bem-vindo(a), ${profile.name}! Conta Google ativada.`);
+      } catch (fallbackErr: any) {
+        onNotification(err.message || 'Falha no login do Google.', 'error');
+      }
     } finally {
       setIsLoggingInGoogle(false);
     }
@@ -93,7 +105,8 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
     }
   };
 
-  const handleLogoutGoogle = () => {
+  const handleLogoutGoogle = async () => {
+    await signOutFirebase().catch(() => {});
     logoutGoogleUser();
     onUserChange(null);
     setIsOpen(false);
@@ -113,7 +126,7 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
       {/* Consolidated Unified Auth Header Badge */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 transition-all shadow-sm"
+        className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 transition-all shadow-xs active:scale-95"
         title="Central de Contas Google & Microsoft"
       >
         <div className="flex items-center -space-x-1">
@@ -138,7 +151,7 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
         </div>
 
         <span className="text-xs font-bold truncate max-w-[110px]">
-          {user ? user.name.split(' ')[0] : msUser ? msUser.name.split(' ')[0] : 'Entrar / Vincular'}
+          {user ? user.name.split(' ')[0] : msUser ? msUser.name.split(' ')[0] : 'Entrar Google'}
         </span>
 
         {(user || msUser) && (
@@ -148,24 +161,24 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
 
       {/* Unified Account Manager Popup */}
       {isOpen && (
-        <div className="absolute right-0 top-11 w-96 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-5 z-50 space-y-4 animate-[fadeIn_0.2s_ease]">
+        <div className="absolute right-0 top-11 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-5 z-50 space-y-4 animate-in fade-in duration-200">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              <IconShieldCheck className="w-4 h-4 text-emerald-500" />
               Central de Identidade & Nuvem
             </h3>
             <button onClick={() => setIsOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg text-xs font-bold">
-              ✕
+              <IconX className="w-4 h-4" />
             </button>
           </div>
 
           {/* Connected Accounts Status Card */}
           {(user || msUser) && (
             <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-700 dark:text-emerald-300">
-              <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-500" />
+              <IconShieldCheck className="w-5 h-5 shrink-0 text-emerald-500" />
               <div>
-                <p className="font-bold">Contas Vinculadas & Sincronizadas</p>
-                <p className="text-[10px] opacity-80">Edição e sincronização direta habilitadas para Word, Excel, Drive e OneDrive.</p>
+                <p className="font-bold">Conta Ativa & Sincronizada</p>
+                <p className="text-[10px] opacity-80">Documentos e chats salvos automaticamente no seu perfil do Google.</p>
               </div>
             </div>
           )}
@@ -185,7 +198,7 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
                     Google Workspace
                     {user && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded font-bold">Conectado</span>}
                   </h4>
-                  <p className="text-[10px] text-slate-500 truncate max-w-[170px]">{user ? user.email : 'Google Drive & Docs'}</p>
+                  <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{user ? user.email : 'Google Drive & Docs'}</p>
                 </div>
               </div>
 
@@ -194,16 +207,16 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
                   onClick={handleLogoutGoogle}
                   className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100 rounded-xl text-[10px] font-bold transition-colors"
                 >
-                  Desconectar
+                  Sair
                 </button>
               ) : (
                 <button
                   onClick={handleLoginGoogle}
                   disabled={isLoggingInGoogle}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
                 >
-                  {isLoggingInGoogle ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />}
-                  Logar com Google
+                  {isLoggingInGoogle ? <IconLoader2 className="w-3.5 h-3.5 animate-spin" /> : <IconLogin className="w-3.5 h-3.5" />}
+                  Entrar com Google
                 </button>
               )}
             </div>
@@ -211,11 +224,11 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
             {user && (
               <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <HardDrive className="w-3.5 h-3.5 text-indigo-500" />
+                  <IconHardDrive className="w-3.5 h-3.5 text-indigo-500" />
                   Google Drive Cloud
                 </span>
                 <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-bold">
-                  {driveFiles.length} arquivos salvos
+                  {driveFiles.length} arquivos
                 </span>
               </div>
             )}
@@ -234,9 +247,9 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     Microsoft Office 365
-                    {msUser && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">Vanculado</span>}
+                    {msUser && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">Vinculado</span>}
                   </h4>
-                  <p className="text-[10px] text-amber-700 dark:text-amber-400 truncate max-w-[170px]">{msUser ? msUser.email : 'OneDrive & Office Apps'}</p>
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400 truncate max-w-[150px]">{msUser ? msUser.email : 'OneDrive & Office Apps'}</p>
                 </div>
               </div>
 
@@ -245,15 +258,15 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
                   onClick={handleLogoutMicrosoft}
                   className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100 rounded-xl text-[10px] font-bold transition-colors"
                 >
-                  Desconectar
+                  Sair
                 </button>
               ) : (
                 <button
                   onClick={handleLoginMicrosoft}
                   disabled={isLoggingInMs}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
                 >
-                  {isLoggingInMs ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />}
+                  {isLoggingInMs ? <IconLoader2 className="w-3.5 h-3.5 animate-spin" /> : <IconLogin className="w-3.5 h-3.5" />}
                   Vincular Microsoft
                 </button>
               )}
@@ -262,11 +275,11 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
             {msUser && (
               <div className="pt-2 border-t border-amber-200/50 dark:border-amber-900/40 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <Cloud className="w-3.5 h-3.5 text-amber-600" />
+                  <IconCloud className="w-3.5 h-3.5 text-amber-600" />
                   OneDrive / Office 365
                 </span>
                 <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
-                  {oneDriveFiles.length} documentos sincronizados
+                  {oneDriveFiles.length} docs
                 </span>
               </div>
             )}
@@ -274,7 +287,7 @@ export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
 
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center space-y-1">
             <p className="text-[10px] text-slate-400">
-              Vincule suas contas do Google e Microsoft para salvar e carregar arquivos diretamente na nuvem.
+              Faça login com sua Conta do Google para sincronizar e salvar todos os seus chats e documentos na nuvem!
             </p>
           </div>
         </div>
