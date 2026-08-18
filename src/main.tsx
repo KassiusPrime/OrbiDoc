@@ -1,14 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css';
 import { registerSW } from 'virtual:pwa-register';
+import App from './App';
+import { AiRuntimeStatus } from './components/AiRuntimeStatus';
+import './index.css';
 
-// Isso garante que o app se atualize sozinho sempre que houver novidade no GitHub
-registerSW({ immediate: true });
+registerSW({
+  immediate: true,
+  onRegisterError(error) {
+    console.error('DocSwiss service worker registration failed:', error);
+  },
+});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    <AiRuntimeStatus />
   </React.StrictMode>
 );
