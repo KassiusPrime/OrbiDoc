@@ -9,6 +9,8 @@ const PROVIDER_TIMEOUT_MS = 30_000;
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_REQUESTS = 120;
 const IMAGE_RATE_MAX_REQUESTS = 30;
+const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
+const GROQ_RETIRED_MODELS = new Set(["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]);
 
 type RateEntry = { count: number; resetAt: number };
 const rateBuckets = new Map<string, RateEntry>();
@@ -53,6 +55,13 @@ function validateMessages(messages: unknown): messages is Array<{ role: string; 
     if (totalChars > MAX_MESSAGE_CHARS) return false;
   }
   return true;
+}
+
+function normalizeGroqModel(model: unknown) {
+  if (typeof model !== "string" || !model.trim() || GROQ_RETIRED_MODELS.has(model)) {
+    return GROQ_DEFAULT_MODEL;
+  }
+  return model;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = PROVIDER_TIMEOUT_MS) {
@@ -176,7 +185,7 @@ async function startServer() {
               Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ model: model || "llama-3.3-70b-versatile", messages, stream: true }),
+            body: JSON.stringify({ model: normalizeGroqModel(model), messages, stream: true }),
           });
           if (response.ok && response.body) {
             const reader = response.body.getReader();
@@ -219,7 +228,7 @@ async function startServer() {
       const responseStream = await ai.models.generateContentStream({
         model: selectedModel,
         contents,
-        config: { systemInstruction, temperature: 0.7 },
+        config: { systemInstruction },
       });
       for await (const chunk of responseStream) {
         if (chunk.text) writeSSE({ chunk: chunk.text, engine: "gemini" });
@@ -272,7 +281,7 @@ async function startServer() {
               Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ model: model || "llama-3.3-70b-versatile", messages }),
+            body: JSON.stringify({ model: normalizeGroqModel(model), messages }),
           });
           if (response.ok) {
             const data = await response.json();
@@ -298,7 +307,7 @@ async function startServer() {
       const response = await ai.models.generateContent({
         model: selectedModel,
         contents,
-        config: { systemInstruction, temperature: 0.7 },
+        config: { systemInstruction },
       });
       res.json({ answer: response.text || "Sem resposta gerada pelo modelo.", engine: "gemini" });
     } catch (error: any) {
@@ -432,7 +441,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath, { index: false }));
-    app.get("*", (_req, res) => res.sendFile(path.join(distPath, "index.html")));
+    app.use((_req, res) => res.sendFile(path.join(distPath, "index.html")));
   }
 
   app.listen(PORT, "0.0.0.0", () => {
