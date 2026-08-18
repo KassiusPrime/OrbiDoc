@@ -1,4 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import {
   getFirestore,
   doc,
@@ -9,16 +10,14 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   onSnapshot
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Initialize Firebase App
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
 
-// Get Firestore instance with custom database ID if specified in config
-export const db = firebaseConfig.firestoreDatabaseId 
+export const db = firebaseConfig.firestoreDatabaseId
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
@@ -47,15 +46,24 @@ export interface FirestoreUserSettings {
   updatedAt: string;
 }
 
-/**
- * Save or update a document in Firestore
- */
+function currentIdentity() {
+  const user = auth.currentUser;
+  if (!user?.uid || !user.email) return null;
+  return { uid: user.uid, email: user.email };
+}
+
+/** Save to cloud only for a real authenticated Firebase user. Local-first callers can treat false as "not synced". */
 export async function saveDocumentToFirestore(documentData: FirestoreDocument): Promise<boolean> {
+  const identity = currentIdentity();
+  if (!identity) return false;
+
   try {
     const docRef = doc(db, 'documents', documentData.id);
     await setDoc(docRef, {
       ...documentData,
-      updatedAt: new Date().toISOString()
+      userId: identity.uid,
+      userEmail: identity.email,
+      updatedAt: new Date().toISOString(),
     }, { merge: true });
     return true;
   } catch (err) {
@@ -64,34 +72,39 @@ export async function saveDocumentToFirestore(documentData: FirestoreDocument): 
   }
 }
 
-/**
- * Load documents from Firestore for a specific user
- */
-export async function loadDocumentsFromFirestore(userEmail?: string): Promise<FirestoreDocument[]> {
+/** Load only the authenticated user's documents. The email argument is retained for API compatibility but ignored. */
+export async function loadDocumentsFromFirestore(_userEmail?: string): Promise<FirestoreDocument[]> {
+  const identity = currentIdentity();
+  if (!identity) return [];
+
   try {
     const docsRef = collection(db, 'documents');
-    let q = query(docsRef);
-    if (userEmail) {
-      q = query(docsRef, where('userEmail', '==', userEmail));
-    }
+    const q = query(docsRef, where('userId', '==', identity.uid));
     const querySnapshot = await getDocs(q);
-    const results: FirestoreDocument[] = [];
-    querySnapshot.forEach((docSnap) => {
-      results.push({ id: docSnap.id, ...docSnap.data() } as FirestoreDocument);
-    });
-    return results;
+    return querySnapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    } as FirestoreDocument));
   } catch (err) {
     console.warn('Firestore loadDocuments error:', err);
     return [];
   }
 }
 
-/**
- * Delete a document from Firestore
- */
 export async function deleteDocumentFromFirestore(docId: string): Promise<boolean> {
+  const identity = currentIdentity();
+  if (!identity) return false;
+
   try {
     const docRef = doc(db, 'documents', docId);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return true;
+
+    const data = snapshot.data();
+    const ownsDocument = data.userId === identity.uid
+      || (!data.userId && data.userEmail === identity.email);
+    if (!ownsDocument) return false;
+
     await deleteDoc(docRef);
     return true;
   } catch (err) {
@@ -100,16 +113,16 @@ export async function deleteDocumentFromFirestore(docId: string): Promise<boolea
   }
 }
 
-/**
- * Save user theme & auto-save settings to Firestore
- */
 export async function saveUserSettingsToFirestore(settings: FirestoreUserSettings): Promise<boolean> {
+  const identity = currentIdentity();
+  if (!identity) return false;
+
   try {
-    const settingKey = settings.userEmail ? settings.userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'default_user';
-    const docRef = doc(db, 'user_settings', settingKey);
+    const docRef = doc(db, 'user_settings', identity.uid);
     await setDoc(docRef, {
       ...settings,
-      updatedAt: new Date().toISOString()
+      userEmail: identity.email,
+      updatedAt: new Date().toISOString(),
     }, { merge: true });
     return true;
   } catch (err) {
@@ -118,38 +131,40 @@ export async function saveUserSettingsToFirestore(settings: FirestoreUserSetting
   }
 }
 
-/**
- * Load user settings from Firestore
- */
-export async function loadUserSettingsFromFirestore(userEmail?: string): Promise<FirestoreUserSettings | null> {
+export async function loadUserSettingsFromFirestore(_userEmail?: string): Promise<FirestoreUserSettings | null> {
+  const identity = currentIdentity();
+  if (!identity) return null;
+
   try {
-    const settingKey = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'default_user';
-    const docRef = doc(db, 'user_settings', settingKey);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return docSnap.data() as FirestoreUserSettings;
-    }
-    return null;
+    const currentRef = doc(db, 'user_settings', identity.uid);
+    const currentSnap = await getDoc(currentRef);
+    if (currentSnap.exists()) return currentSnap.data() as FirestoreUserSettings;
+
+    // Read-only compatibility with the previous email-derived settings ID.
+    const legacyKey = identity.email.replace(/[^a-zA-Z0-9]/g, '_');
+    const legacySnap = await getDoc(doc(db, 'user_settings', legacyKey));
+    return legacySnap.exists() ? legacySnap.data() as FirestoreUserSettings : null;
   } catch (err) {
     console.warn('Firestore loadUserSettings error:', err);
     return null;
   }
 }
 
-/**
- * Realtime listener for documents
- */
 export function subscribeToDocuments(
-  userEmail: string | undefined,
+  _userEmail: string | undefined,
   callback: (docs: FirestoreDocument[]) => void
 ) {
+  const identity = currentIdentity();
+  if (!identity) {
+    callback([]);
+    return () => {};
+  }
+
   try {
     const docsRef = collection(db, 'documents');
-    const q = userEmail ? query(docsRef, where('userEmail', '==', userEmail)) : query(docsRef);
+    const q = query(docsRef, where('userId', '==', identity.uid));
     return onSnapshot(q, (snapshot) => {
-      const items: FirestoreDocument[] = [];
-      snapshot.forEach((d) => items.push({ id: d.id, ...d.data() } as FirestoreDocument));
-      callback(items);
+      callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreDocument)));
     }, (error) => {
       console.warn('Firestore documents subscription error:', error);
     });
