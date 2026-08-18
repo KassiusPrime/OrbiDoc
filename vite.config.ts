@@ -36,9 +36,6 @@ export default defineConfig({
           ) return "vendor-react";
           if (moduleId.includes("/motion/") || moduleId.includes("/framer-motion/")) return "vendor-motion";
 
-          // Mammoth and docx share document/ZIP internals. Keeping them together
-          // avoids a Rollup circular chunk while remaining comfortably below the
-          // workspace chunk-size budget.
           if (moduleId.includes("/docx/") || moduleId.includes("/mammoth/")) return "vendor-doc-processing";
           if (moduleId.includes("/jszip/")) return "vendor-zip";
           if (moduleId.includes("/jspdf/") || moduleId.includes("/html2canvas/")) return "vendor-pdf";
@@ -73,14 +70,35 @@ export default defineConfig({
         "logo-maskable-192.png",
         "logo-maskable-512.png",
         "favicon.ico",
-        "apple-touch-icon.png"
+        "apple-touch-icon.png",
       ],
       workbox: {
         cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
-        navigateFallbackDenylist: [/^\/api/],
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,mjs}"],
         runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "google-font-styles",
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-font-files",
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/huggingface\.co\/.*/i,
             handler: "CacheFirst",
@@ -113,17 +131,20 @@ export default defineConfig({
       },
       manifest: {
         id: "/",
-        name: "DocPlus+",
-        short_name: "DocPlus+",
-        description: "Suite para OCR, IA, áudio, tradução, PDF e edição de documentos.",
-        theme_color: "#0f172a",
-        background_color: "#0f172a",
+        name: "DocSwiss",
+        short_name: "DocSwiss",
+        description: "Workspace para documentos, planilhas, apresentações, PDF, OCR, conversão de arquivos e IA.",
+        lang: "pt-BR",
+        dir: "ltr",
+        theme_color: "#f8fafc",
+        background_color: "#f8fafc",
         display: "standalone",
+        display_override: ["window-controls-overlay", "standalone"],
         orientation: "any",
         start_url: "/",
         scope: "/",
         prefer_related_applications: false,
-        categories: ["productivity", "utilities"],
+        categories: ["productivity", "business", "utilities"],
         icons: [
           { src: "/logo-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
           { src: "/logo-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
