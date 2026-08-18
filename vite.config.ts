@@ -28,7 +28,6 @@ export default defineConfig({
           const moduleId = id.replace(/\\/g, "/");
           if (!moduleId.includes("/node_modules/")) return undefined;
 
-          // Keep UI foundations predictable and separately cacheable.
           if (moduleId.includes("/@tabler/icons-react/") || moduleId.includes("/lucide-react/")) return "vendor-icons";
           if (
             moduleId.includes("/node_modules/react/")
@@ -37,15 +36,14 @@ export default defineConfig({
           ) return "vendor-react";
           if (moduleId.includes("/motion/") || moduleId.includes("/framer-motion/")) return "vendor-motion";
 
-          // Document libraries are intentionally split independently. Several of
-          // them share ZIP/PDF helpers; placing them in one manual chunk creates
-          // circular chunk dependencies and an oversized initial payload.
+          // Mammoth and docx share document/ZIP internals. Keeping them together
+          // avoids a Rollup circular chunk while remaining comfortably below the
+          // workspace chunk-size budget.
+          if (moduleId.includes("/docx/") || moduleId.includes("/mammoth/")) return "vendor-doc-processing";
           if (moduleId.includes("/jszip/")) return "vendor-zip";
-          if (moduleId.includes("/docx/")) return "vendor-docx";
           if (moduleId.includes("/jspdf/") || moduleId.includes("/html2canvas/")) return "vendor-pdf";
           if (moduleId.includes("/pptxgenjs/")) return "vendor-pptx";
           if (moduleId.includes("/xlsx/")) return "vendor-xlsx";
-          if (moduleId.includes("/mammoth/")) return "vendor-mammoth";
           if (moduleId.includes("/file-saver/")) return "vendor-file-saver";
 
           if (moduleId.includes("/tesseract.js/") || moduleId.includes("/pdfjs-dist/")) return "vendor-ocr";
