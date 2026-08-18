@@ -1,4 +1,4 @@
-const CLIENT_AI_TIMEOUT_MS = 30000;
+const CLIENT_AI_TIMEOUT_MS = 45000;
 const CHAT_API_ENDPOINT = '/api/chat';
 const CHAT_STREAM_ENDPOINT = '/api/chat/stream';
 
@@ -7,12 +7,42 @@ export interface AiMessage {
   content: string;
 }
 
+export interface AiRuntimeMeta {
+  requestId?: string;
+  requestedProvider?: string;
+  requestedModel?: string;
+  provider?: string;
+  model?: string;
+  routedModel?: string;
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
+}
+
+const RUNTIME_EVENT = 'docswiss:ai-runtime';
+
 function parseApiResponse(text: string) {
   try {
     return text ? JSON.parse(text) : {};
   } catch {
     return {};
   }
+}
+
+function publishRuntime(meta?: AiRuntimeMeta) {
+  if (!meta || typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<AiRuntimeMeta>(RUNTIME_EVENT, { detail: meta }));
+}
+
+function publishFailure(error: unknown, provider: string, model: string) {
+  const message = error instanceof Error ? error.message : String(error || 'Falha na IA');
+  publishRuntime({
+    requestedProvider: provider,
+    requestedModel: model,
+    provider,
+    model,
+    fallbackUsed: false,
+    fallbackReason: message,
+  });
 }
 
 export async function sendToVercel(
@@ -35,11 +65,29 @@ export async function sendToVercel(
 
     const text = await response.text();
     const data = parseApiResponse(text);
-    if (!response.ok) throw new Error(data.error || `Erro no servidor: ${response.status}`);
+    if (!response.ok) {
+      const error = new Error(data.error || `Erro no servidor: ${response.status}`);
+      publishFailure(error, provider, model);
+      throw error;
+    }
+
+    publishRuntime({
+      requestId: data.requestId,
+      requestedProvider: data.requestedProvider || provider,
+      requestedModel: data.requestedModel || model,
+      provider: data.provider || data.engine || provider,
+      model: data.model || model,
+      routedModel: data.routedModel,
+      fallbackUsed: Boolean(data.fallbackUsed),
+      fallbackReason: data.fallbackReason,
+    });
+
     return data.answer || data.text || '';
   } catch (error: any) {
     if (error?.name === 'AbortError') {
-      throw new Error('Tempo limite ao aguardar a IA. Tente uma mensagem menor ou outro modelo.');
+      const timeoutError = new Error('Tempo limite ao aguardar a IA. Tente uma mensagem menor ou outro modelo.');
+      publishFailure(timeoutError, provider, model);
+      throw timeoutError;
     }
     throw error;
   } finally {
@@ -80,7 +128,9 @@ export async function sendToVercelStream(
     if (!response.ok) {
       const text = await response.text();
       const data = parseApiResponse(text);
-      throw new Error(data.error || `Erro no servidor (${response.status})`);
+      const error = new Error(data.error || `Erro no servidor (${response.status})`);
+      publishFailure(error, provider, model);
+      throw error;
     }
     if (!response.body) throw new Error('Resposta sem corpo de dados.');
 
@@ -102,7 +152,12 @@ export async function sendToVercelStream(
         return false;
       }
 
-      if (parsed.error) throw new Error(String(parsed.error));
+      if (parsed.error) {
+        const error = new Error(String(parsed.error));
+        publishFailure(error, provider, model);
+        throw error;
+      }
+      if (parsed.meta) publishRuntime(parsed.meta as AiRuntimeMeta);
       if (typeof parsed.chunk === 'string' && parsed.chunk) onChunk(parsed.chunk);
       return false;
     };
@@ -123,7 +178,9 @@ export async function sendToVercelStream(
   } catch (error: any) {
     if (error?.name === 'AbortError') {
       if (options?.signal?.aborted) throw error;
-      throw new Error('Tempo limite durante a resposta em streaming da IA.');
+      const timeoutError = new Error('Tempo limite durante a resposta em streaming da IA.');
+      publishFailure(timeoutError, provider, model);
+      throw timeoutError;
     }
     throw error;
   } finally {
@@ -131,3 +188,5 @@ export async function sendToVercelStream(
     options?.signal?.removeEventListener('abort', abortFromCaller);
   }
 }
+
+export const AI_RUNTIME_EVENT = RUNTIME_EVENT;
