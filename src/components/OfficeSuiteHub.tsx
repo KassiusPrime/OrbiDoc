@@ -1,10 +1,17 @@
 import React from 'react';
-import { 
-  IconFileText as FileText, IconFileSpreadsheet as FileSpreadsheet, IconPresentation as Presentation, 
-  IconPencil as PenTool, IconArrowUpRight as ArrowUpRight, IconExternalLink as ExternalLink, 
-  IconSparkles as Sparkles, IconFolderOpen as FolderOpen, IconPlus as Plus, IconCloud as Cloud, 
-  IconCircleCheck as CheckCircle2, IconShieldCheck as ShieldCheck, IconFileCode as FileCode, 
-  IconStack2 as Layers, IconCpu as Cpu, IconCompass as Compass
+import {
+  IconFileText as FileText,
+  IconFileSpreadsheet as FileSpreadsheet,
+  IconPresentation as Presentation,
+  IconPencil as PenTool,
+  IconArrowRight as ArrowRight,
+  IconPlus as Plus,
+  IconCloud as Cloud,
+  IconCircleCheck as CheckCircle2,
+  IconAlertCircle as AlertCircle,
+  IconLayoutGrid as Grid,
+  IconTemplate as Template,
+  IconFileCheck as FileCheck,
 } from '@tabler/icons-react';
 import { TabType, MicrosoftUserProfile } from '../types';
 
@@ -17,195 +24,165 @@ export interface OfficeSuiteHubProps {
   showNotification?: (msg: string, type?: 'success' | 'error') => void;
 }
 
-export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({ 
-  onSelectTool, 
+const APPS = [
+  {
+    id: 'word' as TabType,
+    title: 'Documento',
+    subtitle: 'Word Pro',
+    description: 'Textos, relatórios, contratos e documentos longos.',
+    icon: FileText,
+    iconClass: 'bg-blue-600 text-white',
+    softClass: 'bg-blue-50 dark:bg-blue-950/40',
+  },
+  {
+    id: 'excel' as TabType,
+    title: 'Planilha',
+    subtitle: 'Excel Pro',
+    description: 'Tabelas, fórmulas, controles e análises de dados.',
+    icon: FileSpreadsheet,
+    iconClass: 'bg-emerald-600 text-white',
+    softClass: 'bg-emerald-50 dark:bg-emerald-950/40',
+  },
+  {
+    id: 'powerpoint' as TabType,
+    title: 'Apresentação',
+    subtitle: 'PowerPoint Pro',
+    description: 'Slides, pitch decks, aulas e apresentações executivas.',
+    icon: Presentation,
+    iconClass: 'bg-orange-600 text-white',
+    softClass: 'bg-orange-50 dark:bg-orange-950/40',
+  },
+  {
+    id: 'canva' as TabType,
+    title: 'Design',
+    subtitle: 'Canva Studio',
+    description: 'Peças visuais, banners, cartões e layouts gráficos.',
+    icon: PenTool,
+    iconClass: 'bg-fuchsia-600 text-white',
+    softClass: 'bg-fuchsia-50 dark:bg-fuchsia-950/40',
+  },
+  {
+    id: 'extract' as TabType,
+    title: 'PDF & OCR',
+    subtitle: 'Leitor inteligente',
+    description: 'Digitalização, leitura e extração de documentos.',
+    icon: FileCheck,
+    iconClass: 'bg-cyan-600 text-white',
+    softClass: 'bg-cyan-50 dark:bg-cyan-950/40',
+  },
+];
+
+const TEMPLATES = [
+  { title: 'Relatório executivo', type: 'word' as TabType, icon: FileText },
+  { title: 'Fluxo de caixa', type: 'excel' as TabType, icon: FileSpreadsheet },
+  { title: 'Pitch de projeto', type: 'powerpoint' as TabType, icon: Presentation },
+  { title: 'Post para redes', type: 'canva' as TabType, icon: PenTool },
+];
+
+export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({
+  onSelectTool,
   onOpenTool,
-  msUser, 
-  setMsUser,
-  onLoginMs,
-  showNotification
+  msUser,
 }) => {
-  const handleSelect = (tool: TabType) => {
-    if (onOpenTool) onOpenTool(tool);
-    if (onSelectTool) onSelectTool(tool);
+  const open = (tool: TabType) => {
+    onOpenTool?.(tool);
+    onSelectTool?.(tool);
   };
-  const officeTools = [
-    {
-      id: 'extract' as TabType,
-      title: 'DocPlus+ PDF & Leitor OCR',
-      category: 'Visualizador & Extrator PDF',
-      icon: FileText,
-      color: 'from-rose-600 to-red-700',
-      badgeColor: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
-      description: 'Abra arquivos PDF, escaneie imagens com IA OCR, extraia textos automaticamente e converta para Word, TXT ou Markdown.',
-      templates: ['Escanear Fatura', 'Leitura de Contrato', 'Extrair Tabela PDF', 'Resumo com IA'],
-    },
-    {
-      id: 'word' as TabType,
-      title: 'DocPlus+ Word Pro',
-      category: 'Processador de Texto',
-      icon: FileText,
-      color: 'from-blue-600 to-indigo-700',
-      badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-      description: 'Editor de documentos profissional com formatação rica, tabelas, numeração de páginas, exportação para DOCX, PDF e integração Microsoft Word.',
-      templates: ['Relatório Executivo', 'Contrato Comercial', 'Carta de Apresentação', 'Declaração'],
-    },
-    {
-      id: 'excel' as TabType,
-      title: 'DocPlus+ Excel Pro',
-      category: 'Planilhas & Dados',
-      icon: FileSpreadsheet,
-      color: 'from-emerald-600 to-teal-700',
-      badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-      description: 'Gradi de planilhas inteligentes com suporte a fórmulas matematicas, soma, média, exportação XLSX/CSV e análise automática com IA.',
-      templates: ['Orçamento Mensal', 'Fluxo de Caixa', 'Controle de Estoque', 'Cronograma'],
-    },
-    {
-      id: 'powerpoint' as TabType,
-      title: 'DocPlus+ PowerPoint Pro',
-      category: 'Apresentações IA',
-      icon: Presentation,
-      color: 'from-amber-500 to-orange-600',
-      badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-      description: 'Gerador e editor de slides profissional com layouts modernos, temas elegantes, notas do orador e inteligência artificial integrada.',
-      templates: ['Pitch Deck de Vendas', 'Apresentação de Projeto', 'Relatório Trimestral', 'Treinamento'],
-    },
-    {
-      id: 'canva' as TabType,
-      title: 'DocPlus+ Canva Studio',
-      category: 'Design & Visual',
-      icon: PenTool,
-      color: 'from-pink-500 to-purple-600',
-      badgeColor: 'bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-300',
-      description: 'Studio de design visual interativo com canvas de desenho, vetores, formas geometrics, texto estilizado e exportação de artes em PNG.',
-      templates: ['Banner Promocional', 'Post Redes Sociais', 'Cartão de Visita', 'Infográfico'],
-    },
-  ].sort((a, b) => a.title.localeCompare(b.title)); // Alphabetically ordered
 
   return (
-    <div className="space-y-8 animate-[fadeIn_0.3s_ease]">
-      {/* Hero Suite Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-8 text-white shadow-xl border border-slate-800">
-        <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute right-20 top-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-200">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            Central Microsoft Office 365 & Design Suite
+    <div className="space-y-6 animate-[fadeIn_0.2s_ease]">
+      <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-5 flex flex-col lg:flex-row lg:items-center gap-5">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <Grid className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Aplicativos de produtividade</span>
+            </div>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">Central de criação</h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
+              Um ponto de entrada único para documentos, planilhas, apresentações, designs e PDFs.
+            </p>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            Produtividade Completa para PC & Nuvem
-          </h2>
-
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-            Acesse seus aplicativos profissionais em um ambiente dedicado e otimizado. Crie, edite e exporte projetos do Word, Excel, PowerPoint e Canva Studio com integração nativa ao Microsoft 365 e Google Drive.
-          </p>
-
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            {msUser ? (
-              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl text-xs font-bold text-emerald-300">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Conta Microsoft Conectada ({msUser.email})
-              </div>
-            ) : (
-              <button
-                onClick={onLoginMs}
-                className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-2xl text-xs shadow-lg transition-all"
-              >
-                <Cloud className="w-4 h-4" />
-                Conectar Conta Office 365 / OneDrive
-              </button>
-            )}
-
-            <button
-              onClick={() => handleSelect('word')}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-2xl text-xs border border-white/20 backdrop-blur-md transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Novo Documento
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Office Applications Suite Grid */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Compass className="w-5 h-5 text-indigo-500" />
-            Aplicativos do Suite (Ordem Alfabética)
-          </h3>
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            Clique para abrir a estação de trabalho completa
-          </span>
+          <button
+            onClick={() => open('word')}
+            className="h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
+          >
+            <Plus className="w-4.5 h-4.5" />
+            Novo documento
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {officeTools.map((tool) => {
-            const Icon = tool.icon;
+        <div className="border-t border-slate-100 dark:border-slate-800 px-5 sm:px-6 py-3 bg-slate-50/60 dark:bg-slate-950/30 flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-slate-300">
+          <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Editores locais disponíveis</span>
+          {msUser ? (
+            <span className="inline-flex items-center gap-1.5"><Cloud className="w-4 h-4 text-blue-500" /> Microsoft conectado: {msUser.email}</span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-500" /> Microsoft 365 aguardando OAuth oficial</span>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 px-1">
+          <h2 className="text-base font-black text-slate-900 dark:text-white">Aplicativos</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Abra uma estação de trabalho dedicada.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+          {APPS.map((app) => {
+            const Icon = app.icon;
             return (
-              <div
-                key={tool.id}
-                onClick={() => handleSelect(tool.id)}
-                className="group relative bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm hover:shadow-xl border border-slate-200/80 dark:border-slate-800 transition-all duration-300 cursor-pointer flex flex-col justify-between hover:-translate-y-1"
+              <button
+                key={app.id}
+                onClick={() => open(app.id)}
+                className="group rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 text-left overflow-hidden hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all"
               >
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${tool.color} text-white flex items-center justify-center shadow-lg`}>
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">
-                          {tool.title}
-                        </h4>
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${tool.badgeColor}`}>
-                          {tool.category}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-indigo-600 group-hover:text-white text-slate-400 transition-all">
-                      <ArrowUpRight className="w-4 h-4" />
-                    </div>
+                <div className={`${app.softClass} p-4 min-h-[104px] flex items-start justify-between`}>
+                  <div className={`w-11 h-11 rounded-xl ${app.iconClass} flex items-center justify-center shadow-sm`}>
+                    <Icon className="w-5 h-5" />
                   </div>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {tool.description}
-                  </p>
-
-                  <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Modelos de Início Rápido:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {tool.templates.map((tpl, i) => (
-                        <span
-                          key={i}
-                          className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-600 dark:text-slate-300 text-[11px] font-medium rounded-lg border border-slate-200/60 dark:border-slate-700/60 transition-colors"
-                        >
-                          {tpl}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                  <ArrowRight className="w-4 h-4 text-slate-300 dark:text-slate-700 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all" />
                 </div>
-
-                <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-1">
-                    Abrir Estação de Trabalho
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    Suporta importação & exportação Microsoft
-                  </span>
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{app.title}</div>
+                  <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">{app.subtitle}</div>
+                  <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{app.description}</p>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
-      </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+          <Template className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <div>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">Começar com um modelo</h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Atalhos para os formatos mais comuns.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-slate-800">
+          {TEMPLATES.map((template) => {
+            const Icon = template.icon;
+            return (
+              <button
+                key={template.title}
+                onClick={() => open(template.type)}
+                className="p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group flex items-center gap-3"
+              >
+                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center"><Icon className="w-4 h-4" /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{template.title}</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Abrir editor</div>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700 group-hover:text-indigo-500" />
+              </button>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 };
