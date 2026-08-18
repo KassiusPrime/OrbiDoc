@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
-import App from './AppV2';
+import App from './AppV3';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
 import './index.css';
 
