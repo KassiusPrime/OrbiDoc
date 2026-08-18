@@ -30,3 +30,6 @@ jobs:
 
       - name: Production build
         run: bun run build
+
+      - name: Verify PWA WebAPK and TWA prerequisites
+        run: bun run verify:pwa
