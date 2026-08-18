@@ -130,6 +130,38 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
     localStorage.setItem('docswiss_project_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
+  const createProject = (type: SavedProject['type']) => {
+    const labels: Record<SavedProject['type'], string> = {
+      word: 'Novo Documento',
+      excel: 'Nova Planilha',
+      powerpoint: 'Nova Apresentação',
+      canva: 'Novo Design',
+      extract: 'Nova Digitalização',
+      chat: 'Novo Chat',
+    };
+    const tags: Record<SavedProject['type'], string[]> = {
+      word: ['Documento', 'DOCX'],
+      excel: ['Planilha', 'XLSX'],
+      powerpoint: ['Apresentação', 'PPTX'],
+      canva: ['Design'],
+      extract: ['OCR', 'PDF'],
+      chat: ['IA', 'Chat'],
+    };
+    const now = new Date().toISOString();
+    const project: SavedProject = {
+      id: `proj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: `${labels[type]} ${new Date().toLocaleDateString('pt-BR')}`,
+      type,
+      createdAt: now,
+      updatedAt: now,
+      previewSnippet: 'Projeto criado no workspace DocSwiss. Abra para começar a editar.',
+      tags: tags[type],
+    };
+    setProjects((current) => [project, ...current]);
+    onCreateNewProject?.(type);
+    showNotification(`${project.title} criado e adicionado aos Meus Arquivos.`);
+  };
+
   const filteredProjects = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const filtered = projects.filter((project) => {
@@ -227,7 +259,7 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
               Exportar
             </button>
             <button
-              onClick={() => onCreateNewProject?.('word')}
+              onClick={() => createProject('word')}
               className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -239,7 +271,7 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
         <div className="border-t border-slate-100 dark:border-slate-800 px-5 sm:px-6 py-3 bg-slate-50/60 dark:bg-slate-950/30 flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-slate-300">
           <span className="inline-flex items-center gap-1.5"><HardDrive className="w-4 h-4 text-indigo-500" /> Offline-first</span>
           <span className="inline-flex items-center gap-1.5"><Star className="w-4 h-4 text-amber-500" /> {favorites.length} favoritos</span>
-          <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4 text-slate-400" /> Ordenação persistente nesta sessão</span>
+          <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4 text-slate-400" /> Biblioteca salva no dispositivo</span>
         </div>
       </header>
 
@@ -247,7 +279,7 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
         <div className="flex items-center justify-between mb-3 px-1">
           <div>
             <h2 className="text-sm font-black text-slate-900 dark:text-white">Criar rapidamente</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Como no Canva: escolha o formato e entre direto no editor.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Escolha o formato e entre direto no editor.</p>
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -256,7 +288,7 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
             return (
               <button
                 key={item.type}
-                onClick={() => onCreateNewProject?.(item.type)}
+                onClick={() => createProject(item.type)}
                 className="group rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 text-left hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all"
               >
                 <div className={`w-9 h-9 ${item.className} text-white rounded-xl flex items-center justify-center shadow-sm`}>
