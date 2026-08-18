@@ -25,10 +25,51 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("react")) return "vendor-react";
-          if (id.includes("docx") || id.includes("jspdf") || id.includes("file-saver")) return "vendor-docx";
-          if (id.includes("lucide-react") || id.includes("@tabler/icons-react")) return "vendor-icons";
-          if (id.includes("tesseract.js") || id.includes("pdfjs-dist")) return "vendor-ocr";
+          const moduleId = id.replace(/\\/g, "/");
+          if (!moduleId.includes("/node_modules/")) return undefined;
+
+          // Order matters: icon package names also contain the word "react".
+          if (moduleId.includes("/@tabler/icons-react/") || moduleId.includes("/lucide-react/")) {
+            return "vendor-icons";
+          }
+          if (
+            moduleId.includes("/node_modules/react/")
+            || moduleId.includes("/node_modules/react-dom/")
+            || moduleId.includes("/node_modules/scheduler/")
+          ) {
+            return "vendor-react";
+          }
+          if (moduleId.includes("/motion/") || moduleId.includes("/framer-motion/")) {
+            return "vendor-motion";
+          }
+          if (
+            moduleId.includes("/docx/")
+            || moduleId.includes("/jspdf/")
+            || moduleId.includes("/file-saver/")
+            || moduleId.includes("/pptxgenjs/")
+            || moduleId.includes("/jszip/")
+          ) {
+            return "vendor-office-export";
+          }
+          if (moduleId.includes("/tesseract.js/") || moduleId.includes("/pdfjs-dist/")) {
+            return "vendor-ocr";
+          }
+          if (moduleId.includes("/xlsx/") || moduleId.includes("/mammoth/")) {
+            return "vendor-document-readers";
+          }
+          if (moduleId.includes("/firebase/") || moduleId.includes("/@firebase/")) {
+            return "vendor-firebase";
+          }
+          if (
+            moduleId.includes("/react-markdown/")
+            || moduleId.includes("/remark-")
+            || moduleId.includes("/rehype-")
+            || moduleId.includes("/micromark")
+          ) {
+            return "vendor-markdown";
+          }
+
+          return undefined;
         },
       },
     },
