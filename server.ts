@@ -1,18 +1,48 @@
 import express from "express";
 import path from "path";
+import crypto from "node:crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 
 const MAX_MESSAGES = 50;
 const MAX_MESSAGE_CHARS = 120_000;
-const PROVIDER_TIMEOUT_MS = 30_000;
+const PROVIDER_TIMEOUT_MS = 35_000;
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_REQUESTS = 120;
 const IMAGE_RATE_MAX_REQUESTS = 30;
-const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
-const GROQ_RETIRED_MODELS = new Set(["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]);
 
+const GEMINI_DEFAULT_MODEL = "gemini-3.6-flash";
+const GEMINI_ALLOWED_MODELS = new Set([
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-pro-preview",
+]);
+
+const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
+const GROQ_ALLOWED_MODELS = new Set([
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+]);
+
+const OPENROUTER_DEFAULT_MODEL = "openrouter/auto";
+const OPENROUTER_FALLBACK_MODEL = "openrouter/auto";
+
+type ProviderId = "gemini" | "openrouter" | "groq";
+type ChatMessage = { role: "system" | "user" | "assistant"; content: string; files?: unknown[] };
 type RateEntry = { count: number; resetAt: number };
+type ProviderMeta = {
+  requestId: string;
+  requestedProvider: string;
+  requestedModel: string;
+  provider: ProviderId;
+  model: string;
+  routedModel?: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+};
+
 const rateBuckets = new Map<string, RateEntry>();
 
 function clientIp(req: express.Request) {
@@ -43,7 +73,7 @@ function rateLimit(maxRequests: number) {
   };
 }
 
-function validateMessages(messages: unknown): messages is Array<{ role: string; content: string; files?: unknown[] }> {
+function validateMessages(messages: unknown): messages is ChatMessage[] {
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) return false;
   let totalChars = 0;
   for (const message of messages) {
@@ -57,11 +87,26 @@ function validateMessages(messages: unknown): messages is Array<{ role: string; 
   return true;
 }
 
+function normalizeProvider(value: unknown): ProviderId {
+  if (value === "groq" || value === "openrouter") return value;
+  return "gemini";
+}
+
+function normalizeGeminiModel(model: unknown) {
+  return typeof model === "string" && GEMINI_ALLOWED_MODELS.has(model)
+    ? model
+    : GEMINI_DEFAULT_MODEL;
+}
+
 function normalizeGroqModel(model: unknown) {
-  if (typeof model !== "string" || !model.trim() || GROQ_RETIRED_MODELS.has(model)) {
-    return GROQ_DEFAULT_MODEL;
-  }
-  return model;
+  return typeof model === "string" && GROQ_ALLOWED_MODELS.has(model)
+    ? model
+    : GROQ_DEFAULT_MODEL;
+}
+
+function normalizeOpenRouterModel(model: unknown) {
+  if (typeof model !== "string" || !model.trim()) return OPENROUTER_DEFAULT_MODEL;
+  return model.trim().slice(0, 160);
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = PROVIDER_TIMEOUT_MS) {
@@ -74,11 +119,17 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = PROV
   }
 }
 
+function compactError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "Falha desconhecida");
+  return message.replace(/\s+/g, " ").slice(0, 260);
+}
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
   app.use(express.json({ limit: "12mb" }));
 
   const getGeminiClient = () => {
@@ -86,9 +137,15 @@ async function startServer() {
     return apiKey ? new GoogleGenAI({ apiKey }) : null;
   };
 
-  const prepareGeminiPayload = (messages: any[], systemPromptOverride?: string, files?: any[]) => {
+  const providerEnabled = (provider: ProviderId) => {
+    if (provider === "gemini") return Boolean(process.env.GEMINI_API_KEY);
+    if (provider === "groq") return Boolean(process.env.GROQ_API_KEY);
+    return Boolean(process.env.OPENROUTER_API_KEY);
+  };
+
+  const prepareGeminiPayload = (messages: ChatMessage[], systemPromptOverride?: string, files?: any[]) => {
     let systemInstruction = systemPromptOverride ||
-      "Você é o assistente do DocPlus+, especializado em análise documental e criação de conteúdo. Seja claro, preciso, preserve a formatação solicitada e não invente informações.";
+      "Você é o assistente do DocSwiss. Analise documentos, escreva, revise e explique com precisão. Preserve a formatação solicitada, deixe limitações explícitas e não invente fatos.";
     const contents: any[] = [];
 
     for (const message of messages) {
@@ -101,7 +158,7 @@ async function startServer() {
       const role = message.role === "assistant" ? "model" : "user";
       const parts: any[] = [];
       if (role === "user") {
-        for (const file of message.files || files || []) {
+        for (const file of (message.files as any[]) || files || []) {
           if (typeof file?.preview !== "string") continue;
           const match = file.preview.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
           if (match) parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
@@ -114,20 +171,74 @@ async function startServer() {
       else contents.push({ role, parts });
     }
 
-    if (contents.length === 0) contents.push({ role: "user", parts: [{ text: "Olá" }] });
+    if (!contents.length) contents.push({ role: "user", parts: [{ text: "Olá" }] });
     return { systemInstruction, contents };
   };
 
+  async function requestOpenRouter(messages: ChatMessage[], requestedModel: string, stream: boolean) {
+    if (!process.env.OPENROUTER_API_KEY) throw new Error("OpenRouter não está configurado.");
+    const models = requestedModel === OPENROUTER_FALLBACK_MODEL
+      ? [requestedModel]
+      : [requestedModel, OPENROUTER_FALLBACK_MODEL];
+    let lastError = "OpenRouter não respondeu.";
+
+    for (const model of models) {
+      try {
+        const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "X-Title": "DocSwiss",
+          },
+          body: JSON.stringify({ model, messages, stream }),
+        });
+        if (response.ok) return { response, model, internalFallback: model !== requestedModel };
+        const text = await response.text();
+        lastError = `OpenRouter ${response.status}: ${text.slice(0, 180)}`;
+      } catch (error) {
+        lastError = compactError(error);
+      }
+    }
+    throw new Error(lastError);
+  }
+
+  async function requestGroq(messages: ChatMessage[], model: string, stream: boolean) {
+    if (!process.env.GROQ_API_KEY) throw new Error("Groq não está configurado.");
+    const response = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model, messages, stream }),
+    });
+    if (!response.ok) throw new Error(`Groq ${response.status}: ${(await response.text()).slice(0, 180)}`);
+    return response;
+  }
+
+  const chooseFallback = (requested: ProviderId): ProviderId | null => {
+    const order: ProviderId[] = requested === "gemini"
+      ? ["openrouter", "groq"]
+      : ["gemini", "openrouter", "groq"];
+    return order.find((provider) => provider !== requested && providerEnabled(provider)) || null;
+  };
+
   const handleChatStream = async (req: express.Request, res: express.Response) => {
-    const { provider, model, messages, systemPrompt, files } = req.body || {};
+    const { provider: rawProvider, model: rawModel, messages, systemPrompt, files } = req.body || {};
     if (!validateMessages(messages)) {
       res.status(400).json({ error: "Mensagens inválidas ou grandes demais." });
       return;
     }
 
+    const requestId = crypto.randomUUID();
+    const requestedProvider = normalizeProvider(rawProvider);
+    const requestedModel = typeof rawModel === "string" ? rawModel : "";
+
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-DocSwiss-Request-Id", requestId);
     res.flushHeaders?.();
 
     const writeSSE = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -136,183 +247,216 @@ async function startServer() {
       res.end();
     };
 
-    try {
-      if (provider === "openrouter" && process.env.OPENROUTER_API_KEY) {
-        try {
-          const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-              "Content-Type": "application/json",
-              "X-Title": "DocPlus+",
-            },
-            body: JSON.stringify({ model: model || "openai/gpt-4o", messages, stream: true }),
-          });
-          if (response.ok && response.body) {
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-              for (const line of lines) {
-                if (!line.startsWith("data: ")) continue;
-                const raw = line.slice(6).trim();
-                if (!raw || raw === "[DONE]") continue;
-                try {
-                  const parsed = JSON.parse(raw);
-                  const delta = parsed.choices?.[0]?.delta?.content;
-                  if (delta) writeSSE({ chunk: delta, engine: "openrouter" });
-                } catch { /* provider keepalive/non-JSON fragment */ }
+    const streamProvider = async (provider: ProviderId, fallbackUsed: boolean, fallbackReason?: string) => {
+      if (provider === "openrouter") {
+        const desired = normalizeOpenRouterModel(rawModel);
+        const { response, model, internalFallback } = await requestOpenRouter(messages, desired, true);
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("OpenRouter retornou resposta sem stream.");
+        const meta: ProviderMeta = {
+          requestId,
+          requestedProvider,
+          requestedModel,
+          provider: "openrouter",
+          model,
+          fallbackUsed: fallbackUsed || internalFallback,
+          fallbackReason: internalFallback ? `O modelo ${desired} não respondeu; OpenRouter Auto foi usado.` : fallbackReason,
+        };
+        writeSSE({ meta });
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let routedModel = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const raw = line.slice(6).trim();
+            if (!raw || raw === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(raw);
+              if (typeof parsed.model === "string" && parsed.model && parsed.model !== routedModel) {
+                routedModel = parsed.model;
+                writeSSE({ meta: { ...meta, routedModel } });
               }
-            }
-            finish();
-            return;
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) writeSSE({ chunk: delta });
+            } catch { /* provider keepalive */ }
           }
-        } catch (error: any) {
-          console.warn("OpenRouter stream failed; using Gemini fallback:", error?.message);
         }
-      }
-
-      if (provider === "groq" && process.env.GROQ_API_KEY) {
-        try {
-          const response = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ model: normalizeGroqModel(model), messages, stream: true }),
-          });
-          if (response.ok && response.body) {
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-              for (const line of lines) {
-                if (!line.startsWith("data: ")) continue;
-                const raw = line.slice(6).trim();
-                if (!raw || raw === "[DONE]") continue;
-                try {
-                  const parsed = JSON.parse(raw);
-                  const delta = parsed.choices?.[0]?.delta?.content;
-                  if (delta) writeSSE({ chunk: delta, engine: "groq" });
-                } catch { /* provider fragment */ }
-              }
-            }
-            finish();
-            return;
-          }
-        } catch (error: any) {
-          console.warn("Groq stream failed; using Gemini fallback:", error?.message);
-        }
-      }
-
-      const ai = getGeminiClient();
-      if (!ai) {
-        writeSSE({ error: "Nenhum provedor de IA está configurado no servidor." });
-        finish();
         return;
       }
 
+      if (provider === "groq") {
+        const model = normalizeGroqModel(rawModel);
+        const response = await requestGroq(messages, model, true);
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("Groq retornou resposta sem stream.");
+        const meta: ProviderMeta = {
+          requestId,
+          requestedProvider,
+          requestedModel,
+          provider: "groq",
+          model,
+          fallbackUsed,
+          fallbackReason,
+        };
+        writeSSE({ meta });
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const raw = line.slice(6).trim();
+            if (!raw || raw === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(raw);
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) writeSSE({ chunk: delta });
+            } catch { /* provider keepalive */ }
+          }
+        }
+        return;
+      }
+
+      const ai = getGeminiClient();
+      if (!ai) throw new Error("Gemini não está configurado.");
+      const model = normalizeGeminiModel(rawModel);
       const { systemInstruction, contents } = prepareGeminiPayload(messages, systemPrompt, files);
-      const selectedModel = model === "gemini-3.1-pro-preview" ? "gemini-3.1-pro-preview" : "gemini-3.6-flash";
-      const responseStream = await ai.models.generateContentStream({
-        model: selectedModel,
-        contents,
-        config: { systemInstruction },
-      });
+      const meta: ProviderMeta = {
+        requestId,
+        requestedProvider,
+        requestedModel,
+        provider: "gemini",
+        model,
+        fallbackUsed,
+        fallbackReason,
+      };
+      writeSSE({ meta });
+      const responseStream = await ai.models.generateContentStream({ model, contents, config: { systemInstruction } });
       for await (const chunk of responseStream) {
-        if (chunk.text) writeSSE({ chunk: chunk.text, engine: "gemini" });
+        if (chunk.text) writeSSE({ chunk: chunk.text });
+      }
+    };
+
+    try {
+      if (!providerEnabled(requestedProvider)) {
+        const fallback = chooseFallback(requestedProvider);
+        if (!fallback) throw new Error("Nenhum provedor de IA está configurado no servidor.");
+        await streamProvider(fallback, true, `${requestedProvider} não está configurado no servidor.`);
+      } else {
+        try {
+          await streamProvider(requestedProvider, false);
+        } catch (error) {
+          const fallback = chooseFallback(requestedProvider);
+          if (!fallback) throw error;
+          await streamProvider(fallback, true, compactError(error));
+        }
       }
       finish();
-    } catch (error: any) {
-      console.error("Chat stream error:", error);
-      writeSSE({ error: error?.message || "Falha durante a resposta da IA." });
+    } catch (error) {
+      console.error("Chat stream error", requestId, error);
+      writeSSE({ error: compactError(error), requestId });
       finish();
     }
   };
 
   const handleChat = async (req: express.Request, res: express.Response) => {
-    const { provider, model, messages, systemPrompt, files } = req.body || {};
+    const { provider: rawProvider, model: rawModel, messages, systemPrompt, files } = req.body || {};
     if (!validateMessages(messages)) {
       res.status(400).json({ error: "Mensagens inválidas ou grandes demais." });
       return;
     }
 
-    try {
-      if (provider === "openrouter" && process.env.OPENROUTER_API_KEY) {
-        try {
-          const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-              "Content-Type": "application/json",
-              "X-Title": "DocPlus+",
-            },
-            body: JSON.stringify({ model: model || "openai/gpt-4o", messages }),
-          });
-          if (response.ok) {
-            const data = await response.json();
-            const answer = data.choices?.[0]?.message?.content;
-            if (answer) {
-              res.json({ answer, engine: "openrouter" });
-              return;
-            }
-          }
-        } catch (error: any) {
-          console.warn("OpenRouter request failed; using Gemini fallback:", error?.message);
-        }
+    const requestId = crypto.randomUUID();
+    const requestedProvider = normalizeProvider(rawProvider);
+    const requestedModel = typeof rawModel === "string" ? rawModel : "";
+    res.setHeader("X-DocSwiss-Request-Id", requestId);
+
+    const execute = async (provider: ProviderId, fallbackUsed: boolean, fallbackReason?: string) => {
+      if (provider === "openrouter") {
+        const desired = normalizeOpenRouterModel(rawModel);
+        const { response, model, internalFallback } = await requestOpenRouter(messages, desired, false);
+        const data: any = await response.json();
+        const answer = data.choices?.[0]?.message?.content;
+        if (!answer) throw new Error("OpenRouter não retornou conteúdo textual.");
+        const meta: ProviderMeta = {
+          requestId,
+          requestedProvider,
+          requestedModel,
+          provider: "openrouter",
+          model,
+          routedModel: typeof data.model === "string" ? data.model : undefined,
+          fallbackUsed: fallbackUsed || internalFallback,
+          fallbackReason: internalFallback ? `O modelo ${desired} não respondeu; OpenRouter Auto foi usado.` : fallbackReason,
+        };
+        return { answer, ...meta };
       }
 
-      if (provider === "groq" && process.env.GROQ_API_KEY) {
-        try {
-          const response = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ model: normalizeGroqModel(model), messages }),
-          });
-          if (response.ok) {
-            const data = await response.json();
-            const answer = data.choices?.[0]?.message?.content;
-            if (answer) {
-              res.json({ answer, engine: "groq" });
-              return;
-            }
-          }
-        } catch (error: any) {
-          console.warn("Groq request failed; using Gemini fallback:", error?.message);
-        }
+      if (provider === "groq") {
+        const model = normalizeGroqModel(rawModel);
+        const response = await requestGroq(messages, model, false);
+        const data: any = await response.json();
+        const answer = data.choices?.[0]?.message?.content;
+        if (!answer) throw new Error("Groq não retornou conteúdo textual.");
+        return {
+          answer,
+          requestId,
+          requestedProvider,
+          requestedModel,
+          provider: "groq" as const,
+          model,
+          fallbackUsed,
+          fallbackReason,
+        };
       }
 
       const ai = getGeminiClient();
-      if (!ai) {
-        res.status(503).json({ error: "Nenhum provedor de IA está configurado no servidor." });
+      if (!ai) throw new Error("Gemini não está configurado.");
+      const model = normalizeGeminiModel(rawModel);
+      const { systemInstruction, contents } = prepareGeminiPayload(messages, systemPrompt, files);
+      const response = await ai.models.generateContent({ model, contents, config: { systemInstruction } });
+      return {
+        answer: response.text || "Sem resposta gerada pelo modelo.",
+        requestId,
+        requestedProvider,
+        requestedModel,
+        provider: "gemini" as const,
+        model,
+        fallbackUsed,
+        fallbackReason,
+      };
+    };
+
+    try {
+      if (!providerEnabled(requestedProvider)) {
+        const fallback = chooseFallback(requestedProvider);
+        if (!fallback) {
+          res.status(503).json({ error: "Nenhum provedor de IA está configurado no servidor.", requestId });
+          return;
+        }
+        res.json(await execute(fallback, true, `${requestedProvider} não está configurado no servidor.`));
         return;
       }
 
-      const { systemInstruction, contents } = prepareGeminiPayload(messages, systemPrompt, files);
-      const selectedModel = model === "gemini-3.1-pro-preview" ? "gemini-3.1-pro-preview" : "gemini-3.6-flash";
-      const response = await ai.models.generateContent({
-        model: selectedModel,
-        contents,
-        config: { systemInstruction },
-      });
-      res.json({ answer: response.text || "Sem resposta gerada pelo modelo.", engine: "gemini" });
-    } catch (error: any) {
-      console.error("Chat error:", error);
-      res.status(500).json({ error: error?.message || "Erro interno ao processar a requisição de IA." });
+      try {
+        res.json(await execute(requestedProvider, false));
+      } catch (error) {
+        const fallback = chooseFallback(requestedProvider);
+        if (!fallback) throw error;
+        res.json(await execute(fallback, true, compactError(error)));
+      }
+    } catch (error) {
+      console.error("Chat error", requestId, error);
+      res.status(502).json({ error: compactError(error), requestId });
     }
   };
 
@@ -323,6 +467,7 @@ async function startServer() {
       return;
     }
 
+    const requestId = crypto.randomUUID();
     const cleanPrompt = prompt.trim();
     const ai = getGeminiClient();
     if (ai) {
@@ -335,12 +480,12 @@ async function startServer() {
         for (const part of response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData?.data) {
             const mimeType = part.inlineData.mimeType || "image/png";
-            res.json({ imageUrl: `data:${mimeType};base64,${part.inlineData.data}`, provider: "gemini-3.1-flash-image" });
+            res.json({ imageUrl: `data:${mimeType};base64,${part.inlineData.data}`, provider: "gemini", model: "gemini-3.1-flash-image", requestId, fallbackUsed: false });
             return;
           }
         }
-      } catch (error: any) {
-        console.warn("Gemini image generation failed; using fallback:", error?.message);
+      } catch (error) {
+        console.warn("Gemini image generation failed", requestId, compactError(error));
       }
     }
 
@@ -351,21 +496,19 @@ async function startServer() {
     const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${safeWidth}&height=${safeHeight}&model=${encodeURIComponent(String(model))}&nologo=true&seed=${seed}`;
 
     try {
-      const imageResponse = await fetchWithTimeout(pollinationsUrl, {
-        headers: { Accept: "image/webp,image/apng,image/*,*/*;q=0.8" },
-      }, 20_000);
+      const imageResponse = await fetchWithTimeout(pollinationsUrl, { headers: { Accept: "image/webp,image/apng,image/*,*/*;q=0.8" } }, 20_000);
       if (imageResponse.ok) {
         const bytes = await imageResponse.arrayBuffer();
         const base64 = Buffer.from(bytes).toString("base64");
         const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
-        res.json({ imageUrl: `data:${contentType};base64,${base64}`, provider: "pollinations" });
+        res.json({ imageUrl: `data:${contentType};base64,${base64}`, provider: "pollinations", model: String(model), requestId, fallbackUsed: Boolean(ai), fallbackReason: ai ? "Gemini Image não respondeu; gerador alternativo foi usado." : undefined });
         return;
       }
-    } catch (error: any) {
-      console.warn("Image fallback failed:", error?.message);
+    } catch (error) {
+      console.warn("Image fallback failed", requestId, compactError(error));
     }
 
-    res.status(502).json({ error: "Nenhum gerador de imagens respondeu corretamente." });
+    res.status(502).json({ error: "Nenhum gerador de imagens respondeu corretamente.", requestId });
   };
 
   const handleImageEdit = async (req: express.Request, res: express.Response) => {
@@ -389,31 +532,44 @@ async function startServer() {
       return;
     }
 
+    const requestId = crypto.randomUUID();
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-image",
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType } },
-            { text: `Edite a imagem conforme esta instrução, preservando coerência e qualidade: ${prompt.trim()}` },
-          ],
-        },
+        contents: { parts: [
+          { inlineData: { data: base64Data, mimeType } },
+          { text: `Edite a imagem conforme esta instrução, preservando coerência e qualidade: ${prompt.trim()}` },
+        ] },
         config: { responseModalities: ["IMAGE"] },
       });
 
       for (const part of response.candidates?.[0]?.content?.parts || []) {
         if (part.inlineData?.data) {
           const outputMime = part.inlineData.mimeType || "image/png";
-          res.json({ imageUrl: `data:${outputMime};base64,${part.inlineData.data}`, provider: "gemini-3.1-flash-image" });
+          res.json({ imageUrl: `data:${outputMime};base64,${part.inlineData.data}`, provider: "gemini", model: "gemini-3.1-flash-image", requestId });
           return;
         }
       }
-      res.status(502).json({ error: "O modelo não retornou uma imagem editada." });
-    } catch (error: any) {
-      console.error("Image edit error:", error);
-      res.status(500).json({ error: error?.message || "Falha na edição da imagem." });
+      res.status(502).json({ error: "O modelo não retornou uma imagem editada.", requestId });
+    } catch (error) {
+      console.error("Image edit error", requestId, error);
+      res.status(502).json({ error: compactError(error), requestId });
     }
   };
+
+  app.get("/api/ai/models", (_req, res) => {
+    res.json({
+      models: [
+        { id: "gemini-3.6-flash", provider: "gemini", label: "Gemini 3.6 Flash", enabled: providerEnabled("gemini"), recommended: true },
+        { id: "gemini-3.5-flash-lite", provider: "gemini", label: "Gemini 3.5 Flash-Lite", enabled: providerEnabled("gemini") },
+        { id: "gemini-3.1-pro-preview", provider: "gemini", label: "Gemini 3.1 Pro", enabled: providerEnabled("gemini"), preview: true },
+        { id: "openrouter/auto", provider: "openrouter", label: "OpenRouter Auto", enabled: providerEnabled("openrouter"), recommended: true },
+        { id: "openrouter/free", provider: "openrouter", label: "OpenRouter Free Router", enabled: providerEnabled("openrouter") },
+        { id: "openai/gpt-oss-120b", provider: "groq", label: "Groq GPT-OSS 120B", enabled: providerEnabled("groq"), recommended: true },
+        { id: "openai/gpt-oss-20b", provider: "groq", label: "Groq GPT-OSS 20B", enabled: providerEnabled("groq") },
+      ],
+    });
+  });
 
   app.post("/api/chat/stream", rateLimit(RATE_MAX_REQUESTS), handleChatStream);
   app.post("/api/chat", rateLimit(RATE_MAX_REQUESTS), handleChat);
@@ -424,19 +580,22 @@ async function startServer() {
   app.get("/api/health", (_req, res) => {
     res.json({
       status: "ok",
+      app: "DocSwiss",
       ai: {
-        gemini: Boolean(process.env.GEMINI_API_KEY),
-        openrouter: Boolean(process.env.OPENROUTER_API_KEY),
-        groq: Boolean(process.env.GROQ_API_KEY),
+        gemini: providerEnabled("gemini"),
+        openrouter: providerEnabled("openrouter"),
+        groq: providerEnabled("groq"),
+      },
+      defaults: {
+        gemini: GEMINI_DEFAULT_MODEL,
+        openrouter: OPENROUTER_DEFAULT_MODEL,
+        groq: GROQ_DEFAULT_MODEL,
       },
     });
   });
 
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true, host: "0.0.0.0" },
-      appType: "spa",
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true, host: "0.0.0.0" }, appType: "spa" });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
@@ -445,7 +604,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`DocPlus+ server listening on port ${PORT}`);
+    console.log(`DocSwiss server listening on port ${PORT}`);
   });
 }
 
