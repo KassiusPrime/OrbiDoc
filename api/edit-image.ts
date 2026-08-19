@@ -1,4 +1,4 @@
-import { compactError, editImage } from './_lib/ai';
+import { compactError, editImage } from './_lib/ai.js';
 
 function parseBody(body: any) {
   if (typeof body !== 'string') return body || {};
