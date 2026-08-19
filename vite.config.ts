@@ -79,7 +79,7 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//],
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,mjs}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,mjs,wasm}"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -96,6 +96,24 @@ export default defineConfig({
             options: {
               cacheName: "google-font-files",
               expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/(?:tesseract\.js(?:-core)?|@tesseract\.js-data)\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "tesseract-runtime",
+              expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/tessdata\.projectnaptha\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "tesseract-language-data",
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 180 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
