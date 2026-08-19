@@ -57,7 +57,7 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
   onForceSave
 }) => {
   const [themeMode, setThemeMode] = useState<AppThemeMode>(() => {
-    return (localStorage.getItem('orbidoc_theme_mode') as AppThemeMode) || (localStorage.getItem('orbidoc_theme_mode') as AppThemeMode) || 'auto';
+    return (localStorage.getItem('orbidoc_theme_mode') as AppThemeMode) || 'auto';
   });
 
   const [themePreset, setThemePreset] = useState<AppThemePreset>(() => {
@@ -69,11 +69,11 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
   });
 
   const [fontFamily, setFontFamily] = useState<AppFontFamily>(() => {
-    return (localStorage.getItem('orbidoc_font_family') as AppFontFamily) || (localStorage.getItem('orbidoc_font_family') as AppFontFamily) || 'sans';
+    return (localStorage.getItem('orbidoc_font_family') as AppFontFamily) || 'sans';
   });
 
   const [fontSize, setFontSize] = useState<AppFontSize>(() => {
-    return (localStorage.getItem('orbidoc_font_size') as AppFontSize) || (localStorage.getItem('orbidoc_font_size') as AppFontSize) || 'normal';
+    return (localStorage.getItem('orbidoc_font_size') as AppFontSize) || 'normal';
   });
 
   const [cornerRadius, setCornerRadius] = useState<AppCornerRadius>(() => {
@@ -85,7 +85,6 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
 
   // Apply Theme Mode (Dark / Light / Auto)
   useEffect(() => {
-    localStorage.setItem('orbidoc_theme_mode', themeMode);
     localStorage.setItem('orbidoc_theme_mode', themeMode);
 
     const applyTheme = (isDark: boolean) => {
@@ -120,7 +119,6 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
   // Apply Font Family
   useEffect(() => {
     localStorage.setItem('orbidoc_font_family', fontFamily);
-    localStorage.setItem('orbidoc_font_family', fontFamily);
 
     const fontFamilies = {
       sans: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
@@ -135,7 +133,6 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
 
   // Apply Font Size
   useEffect(() => {
-    localStorage.setItem('orbidoc_font_size', fontSize);
     localStorage.setItem('orbidoc_font_size', fontSize);
 
     const fontScales = {
@@ -479,8 +476,8 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                     Sua conta está integrada ao banco de dados em tempo real do Google Firebase. Todos os documentos auto-salvos são mantidos na nuvem de forma segura.
                   </p>
-                  <div className="p-3 bg-white/80 dark:bg-slate-900/80 rounded-xl text-[11px] font-mono text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
-                    Database ID: <span className="text-indigo-600 dark:text-indigo-400 font-bold">ai-studio-orbidoc-116c7e86-02a0-4cef-95a3-4f36aa66518a</span>
+                  <div className="p-3 bg-white/80 dark:bg-slate-900/80 rounded-xl text-[11px] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
+                    Banco Firestore existente preservado para manter compatibilidade com os dados já criados.
                   </div>
                 </div>
 

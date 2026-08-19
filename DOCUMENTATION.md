@@ -27,7 +27,7 @@
 ## 📁 Estrutura do Projeto
 
 ```
-docutools-pro/
+orbidoc/
 ├── public/
 │   └── logo.png              # Ícone do PWA (192x192 / 512x512)
 ├── src/

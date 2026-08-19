@@ -66,9 +66,7 @@ export interface AiWorkspaceProps {
 const SESSION_KEY = 'orbidoc_ai_sessions_v2';
 const MODEL_KEY = 'orbidoc_ai_model_v2';
 
-const FALLBACK_CATALOG: AiModelOption[] = [
-  { id: 'gemini-3.6-flash', provider: 'gemini', label: 'Gemini 3.6 Flash', enabled: true, recommended: true },
-];
+const FALLBACK_CATALOG: AiModelOption[] = [];
 
 const modelKey = (model: Pick<AiModelOption, 'provider' | 'id'>) => `${model.provider}:${model.id}`;
 
@@ -108,7 +106,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
 }) => {
   const [tab, setTab] = useState<AiTab>('chat');
   const [catalog, setCatalog] = useState<AiModelOption[]>(FALLBACK_CATALOG);
-  const [localModelKey, setLocalModelKey] = useState(() => selectedModelKey || localStorage.getItem(MODEL_KEY) || 'gemini:gemini-3.6-flash');
+  const [localModelKey, setLocalModelKey] = useState(() => selectedModelKey || localStorage.getItem(MODEL_KEY) || '');
   const [sessions, setSessions] = useState<StoredSession[]>(loadSessions);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => loadSessions()[0]?.id || null);
   const [input, setInput] = useState('');
@@ -137,7 +135,13 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
       .then((data) => {
         if (cancelled || !Array.isArray(data.models)) return;
         const enabled = (data.models as AiModelOption[]).filter((model) => model.enabled);
-        if (!enabled.length) return;
+        if (!enabled.length) {
+          setCatalog([]);
+          setArenaModels([]);
+          setLocalModelKey('');
+          localStorage.removeItem(MODEL_KEY);
+          return;
+        }
         setCatalog(enabled);
         setArenaModels(enabled.slice(0, 3).map(modelKey));
         const desired = selectedModelKey || localStorage.getItem(MODEL_KEY);
@@ -147,7 +151,11 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
         localStorage.setItem(MODEL_KEY, next);
         onSelectedModelChange?.(next);
       })
-      .catch(() => setCatalog(FALLBACK_CATALOG));
+      .catch(() => {
+        setCatalog([]);
+        setArenaModels([]);
+        setLocalModelKey('');
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -395,6 +403,13 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
 
       {runtime?.fallbackUsed && (
         <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-200 flex items-start gap-2"><AlertTriangle className="w-4 h-4 shrink-0" /><span>Fallback ativo: {runtime.requestedProvider}/{runtime.requestedModel || 'auto'} → <strong>{runtime.provider}/{runtime.routedModel || runtime.model}</strong>. {runtime.fallbackReason}</span></div>
+      )}
+
+      {!catalog.length && (
+        <div className="px-4 py-3 bg-rose-50 dark:bg-rose-950/30 border-b border-rose-200 dark:border-rose-900/50 text-[11px] text-rose-800 dark:text-rose-200 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span><strong>Nenhum provedor de IA está ativo.</strong> Configure pelo menos uma credencial segura no servidor (Gemini, Groq ou OpenRouter). O OrbiDoc não simula um modelo disponível quando o backend não possui uma chave válida.</span>
+        </div>
       )}
 
       {tab === 'chat' && (

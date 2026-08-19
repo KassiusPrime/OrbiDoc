@@ -24,6 +24,7 @@ function walk(dir, files = []) {
 const failures = [];
 for (const file of walk(root)) {
   const rel = path.relative(root, file).replace(/\\/g, '/');
+  if (rel === 'scripts/check-orbidoc-brand.mjs') continue;
   const ext = path.extname(file).toLowerCase();
   if (!textExtensions.has(ext) && path.basename(file) !== 'bun.lock') continue;
 
