@@ -8,7 +8,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
 ].join(' ');
 
-const STORAGE_KEY_USER = 'docswiss_google_user';
+const STORAGE_KEY_USER = 'orbidoc_google_user';
 const TOKEN_SAFETY_WINDOW_MS = 60_000;
 
 export function isGoogleOAuthConfigured(): boolean {
@@ -112,7 +112,7 @@ export async function uploadToGoogleDrive(
   mimeType: string,
   content: string | Blob
 ): Promise<DriveFile> {
-  const metadata = { name: fileName, mimeType, description: 'Documento criado via DocSwiss' };
+  const metadata = { name: fileName, mimeType, description: 'Documento criado via OrbiDoc' };
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   form.append('file', typeof content === 'string' ? new Blob([content], { type: mimeType }) : content);
@@ -129,7 +129,7 @@ export async function uploadToGoogleDrive(
   return { id: data.id, name: data.name, mimeType: data.mimeType, modifiedTime: data.modifiedTime, webViewLink: data.webViewLink, size: data.size };
 }
 
-/** Lists files that the drive.file OAuth scope makes available to this DocSwiss client. */
+/** Lists files that the drive.file OAuth scope makes available to this OrbiDoc client. */
 export async function listGoogleDriveFiles(accessToken: string): Promise<DriveFile[]> {
   const query = encodeURIComponent('trashed = false');
   const response = await fetch(
@@ -138,7 +138,7 @@ export async function listGoogleDriveFiles(accessToken: string): Promise<DriveFi
   );
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Falha ao listar os arquivos do Google Drive disponíveis ao DocSwiss.');
+    throw new Error(err.error?.message || 'Falha ao listar os arquivos do Google Drive disponíveis ao OrbiDoc.');
   }
   const data = await response.json();
   return data.files || [];

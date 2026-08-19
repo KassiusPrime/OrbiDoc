@@ -99,7 +99,7 @@ export const AudioWorkspace: React.FC<AudioWorkspaceProps> = ({
 
   const startListening = () => {
     if (!recognitionCtor) {
-      showNotification('Reconhecimento de fala ao vivo não é suportado neste navegador. O DocSwiss não simula uma transcrição quando a API não existe.', 'error');
+      showNotification('Reconhecimento de fala ao vivo não é suportado neste navegador. O OrbiDoc não simula uma transcrição quando a API não existe.', 'error');
       return;
     }
     const recognition = new recognitionCtor();
@@ -149,7 +149,7 @@ export const AudioWorkspace: React.FC<AudioWorkspaceProps> = ({
 
   const downloadText = () => {
     if (!text.trim()) return;
-    saveAs(new Blob([text], { type: 'text/plain;charset=utf-8' }), `DocSwiss_Transcricao_${new Date().toISOString().slice(0, 10)}.txt`);
+    saveAs(new Blob([text], { type: 'text/plain;charset=utf-8' }), `OrbiDoc_Transcricao_${new Date().toISOString().slice(0, 10)}.txt`);
   };
 
   return (
@@ -159,7 +159,7 @@ export const AudioWorkspace: React.FC<AudioWorkspaceProps> = ({
           <div className="flex-1">
             <div className="inline-flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400"><Volume className="w-4 h-4" /> Áudio & fala</div>
             <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Ouvir texto e ditar ao vivo</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Usa as APIs de voz do próprio dispositivo. Quando o navegador não oferece reconhecimento de fala, o DocSwiss informa a limitação em vez de inventar uma transcrição.</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Usa as APIs de voz do próprio dispositivo. Quando o navegador não oferece reconhecimento de fala, o OrbiDoc informa a limitação em vez de inventar uma transcrição.</p>
           </div>
           <select value={language} onChange={(event) => setLanguage(event.target.value)} className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs font-bold"><option value="pt-BR">Português (Brasil)</option><option value="en-US">English (US)</option><option value="es-ES">Español</option><option value="fr-FR">Français</option><option value="de-DE">Deutsch</option></select>
         </div>

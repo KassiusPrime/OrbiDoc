@@ -12,7 +12,7 @@ fs.mkdirSync(outDir, { recursive: true });
 let payload = [];
 if (packageName && fingerprint) {
   if (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName)) {
-    console.error('ANDROID_PACKAGE_NAME inválido. Exemplo: app.docswiss.workspace');
+    console.error('ANDROID_PACKAGE_NAME inválido. Exemplo: app.orbidoc.workspace');
     process.exit(1);
   }
   if (!fingerprintPattern.test(fingerprint)) {

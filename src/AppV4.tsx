@@ -36,7 +36,7 @@ import { AnalyticsWorkspace } from './components/AnalyticsWorkspace';
 import { CloudWorkspace } from './components/CloudWorkspace';
 import { HistoryVault } from './components/HistoryVault';
 import { BrowserGuideModal } from './components/BrowserGuideModal';
-import { DocPlusLogo } from './components/DocPlusLogo';
+import { OrbiDocLogo } from './components/OrbiDocLogo';
 import { GoogleProfileBadge } from './components/GoogleProfileBadge';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
@@ -55,10 +55,10 @@ type AppView = TabType | 'cloud';
 type Notice = { message: string; type: 'success' | 'error' } | null;
 type ThemeMode = 'light' | 'dark';
 
-const PROJECTS_KEY = 'docswiss_projects_v1';
-const HISTORY_KEY = 'docswiss_history_v2';
-const THEME_KEY = 'docswiss_theme_v2';
-const MODEL_KEY = 'docswiss_ai_model_v2';
+const PROJECTS_KEY = 'orbidoc_projects_v1';
+const HISTORY_KEY = 'orbidoc_history_v2';
+const THEME_KEY = 'orbidoc_theme_v2';
+const MODEL_KEY = 'orbidoc_ai_model_v2';
 const PROJECT_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'extract']);
 
 const readArray = <T,>(key: string): T[] => {
@@ -98,7 +98,7 @@ const createProjectRecord = (type: SavedProject['type'], content?: unknown): Sav
     type,
     createdAt: now,
     updatedAt: now,
-    previewSnippet: 'Criado no workspace DocSwiss.',
+    previewSnippet: 'Criado no workspace OrbiDoc.',
     tags: [],
     content,
   };
@@ -192,7 +192,7 @@ export default function AppV4() {
 
   useEffect(() => {
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-    window.dispatchEvent(new Event('docswiss:projects-updated'));
+    window.dispatchEvent(new Event('orbidoc:projects-updated'));
   }, [projects]);
 
   useEffect(() => { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 250))); }, [history]);
@@ -207,7 +207,7 @@ export default function AppV4() {
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
     const onInstall = (event: Event) => { event.preventDefault(); setDeferredPrompt(event); };
-    const onInstalled = () => { setDeferredPrompt(null); showNotification('DocSwiss instalado no dispositivo.', 'success'); };
+    const onInstalled = () => { setDeferredPrompt(null); showNotification('OrbiDoc instalado no dispositivo.', 'success'); };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     window.addEventListener('beforeinstallprompt', onInstall);
@@ -344,7 +344,7 @@ export default function AppV4() {
     return CREATE_ITEMS.filter((item) => item.label.toLowerCase().includes(normalized));
   }, [search]);
 
-  const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'DocSwiss';
+  const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'OrbiDoc';
   const editorView = PROJECT_VIEWS.has(view) || view === 'chat' || view === 'ai' || view === 'compare' || view === 'image';
   const currentProject = (type: SavedProject['type']) => activeProject?.type === type ? activeProject : null;
 
@@ -407,13 +407,13 @@ export default function AppV4() {
   return (
     <div className="h-dvh min-h-[560px] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden flex">
       <aside className="hidden lg:flex w-[252px] shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col">
-        <div className="h-16 px-4 flex items-center border-b border-slate-100 dark:border-slate-800"><button onClick={() => navigate('home')} aria-label="Ir para o início"><DocPlusLogo size="md" /></button></div>
+        <div className="h-16 px-4 flex items-center border-b border-slate-100 dark:border-slate-800"><button onClick={() => navigate('home')} aria-label="Ir para o início"><OrbiDocLogo size="md" /></button></div>
         <div className="p-3 flex-1 overflow-y-auto">
           <nav className="space-y-1">{NAV_ITEMS.map((item) => { const Icon = item.icon; const active = view === item.id || (item.id === 'chat' && (view === 'ai' || view === 'compare')); return <button key={item.id} onClick={() => navigate(item.id)} className={`w-full h-10 px-3 rounded-xl flex items-center gap-3 text-xs font-bold ${active ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><Icon className="w-4 h-4" />{item.label}</button>; })}</nav>
           <div className="mt-5 px-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Criar novo</div>
           <div className="mt-2 space-y-1">{CREATE_ITEMS.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => launchTool(item.id as TabType)} className="w-full h-9 px-3 rounded-xl flex items-center gap-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"><Icon className={`w-4 h-4 ${item.iconClass}`} />{item.label}</button>; })}</div>
         </div>
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800"><button onClick={() => setInstallGuideOpen(true)} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800"><div className="text-xs font-black">Instalar DocSwiss</div><div className="text-[10px] text-slate-500 mt-0.5">PWA · WebAPK · TWA</div></button></div>
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800"><button onClick={() => setInstallGuideOpen(true)} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800"><div className="text-xs font-black">Instalar OrbiDoc</div><div className="text-[10px] text-slate-500 mt-0.5">PWA · WebAPK · TWA</div></button></div>
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -437,7 +437,7 @@ export default function AppV4() {
         </nav>
       </div>
 
-      {menuOpen && <div className="lg:hidden fixed inset-0 z-50 bg-slate-950/50" onClick={() => setMenuOpen(false)}><aside className="w-[300px] max-w-[88vw] h-full bg-white dark:bg-slate-900 shadow-2xl p-3 overflow-y-auto" onClick={(event) => event.stopPropagation()}><div className="h-14 flex items-center justify-between px-2"><DocPlusLogo size="md" /><button onClick={() => setMenuOpen(false)} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center"><X className="w-5 h-5" /></button></div><nav className="mt-3 space-y-1">{NAV_ITEMS.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => navigate(item.id)} className="w-full h-11 px-3 rounded-xl flex items-center gap-3 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"><Icon className="w-4 h-4" />{item.label}</button>; })}</nav><div className="mt-5 border-t border-slate-100 dark:border-slate-800 pt-4 space-y-1">{CREATE_ITEMS.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => launchTool(item.id as TabType)} className="w-full h-10 px-3 rounded-xl flex items-center gap-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"><Icon className={`w-4 h-4 ${item.iconClass}`} />Novo {item.label.toLowerCase()}</button>; })}</div><button onClick={() => { setInstallGuideOpen(true); setMenuOpen(false); }} className="mt-5 w-full h-11 rounded-xl bg-indigo-600 text-white text-xs font-black">Instalar / Android</button></aside></div>}
+      {menuOpen && <div className="lg:hidden fixed inset-0 z-50 bg-slate-950/50" onClick={() => setMenuOpen(false)}><aside className="w-[300px] max-w-[88vw] h-full bg-white dark:bg-slate-900 shadow-2xl p-3 overflow-y-auto" onClick={(event) => event.stopPropagation()}><div className="h-14 flex items-center justify-between px-2"><OrbiDocLogo size="md" /><button onClick={() => setMenuOpen(false)} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center"><X className="w-5 h-5" /></button></div><nav className="mt-3 space-y-1">{NAV_ITEMS.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => navigate(item.id)} className="w-full h-11 px-3 rounded-xl flex items-center gap-3 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"><Icon className="w-4 h-4" />{item.label}</button>; })}</nav><div className="mt-5 border-t border-slate-100 dark:border-slate-800 pt-4 space-y-1">{CREATE_ITEMS.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => launchTool(item.id as TabType)} className="w-full h-10 px-3 rounded-xl flex items-center gap-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"><Icon className={`w-4 h-4 ${item.iconClass}`} />Novo {item.label.toLowerCase()}</button>; })}</div><button onClick={() => { setInstallGuideOpen(true); setMenuOpen(false); }} className="mt-5 w-full h-11 rounded-xl bg-indigo-600 text-white text-xs font-black">Instalar / Android</button></aside></div>}
 
       <BrowserGuideModal isOpen={installGuideOpen} onClose={() => setInstallGuideOpen(false)} deferredPrompt={deferredPrompt} onTriggerInstall={triggerInstall} />
       {notice && <div className={`fixed z-[90] top-4 left-1/2 -translate-x-1/2 max-w-[92vw] px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold ${notice.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950 dark:border-rose-900 dark:text-rose-200' : 'bg-white border-slate-200 text-slate-800 dark:bg-slate-900 dark:border-slate-700 dark:text-white'}`}>{notice.message}</div>}

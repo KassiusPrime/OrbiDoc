@@ -22,7 +22,7 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
   savedProjects = [],
   onOpenTool,
   showNotification = () => {},
-  userEmail = 'usuario@docplus.com'
+  userEmail = 'usuario@orbidoc.com'
 }) => {
   // Batch Export selection state
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
@@ -88,7 +88,7 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
           pdf.setFont('helvetica', 'bold');
           pdf.setFontSize(10);
           pdf.setTextColor(255, 255, 255);
-          pdf.text(`DocPlus+ Suite — Exportação em Lote | ${item.type.toUpperCase()}`, 15, 10);
+          pdf.text(`OrbiDoc Suite — Exportação em Lote | ${item.type.toUpperCase()}`, 15, 10);
         }
 
         // Title
@@ -131,11 +131,11 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
         if (includePageNumbers) {
           pdf.setFontSize(8);
           pdf.setTextColor(148, 163, 184);
-          pdf.text(`Página ${pdf.internal.pages.length - 1} de DocPlus+`, 105, 287, { align: 'center' });
+          pdf.text(`Página ${pdf.internal.pages.length - 1} de OrbiDoc`, 105, 287, { align: 'center' });
         }
       });
 
-      pdf.save(`DocPlus_Exportacao_Lote_${Date.now()}.pdf`);
+      pdf.save(`OrbiDoc_Exportacao_Lote_${Date.now()}.pdf`);
       showNotification(`Lote de ${itemsToExport.length} documentos exportado em PDF com sucesso!`, 'success');
     } catch (err) {
       console.error('Erro na exportação em lote:', err);
@@ -354,7 +354,7 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
               onChange={(e: any) => setBatchTheme(e.target.value)}
               className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none"
             >
-              <option value="swiss">DocPlus+ Swiss Red & White</option>
+              <option value="swiss">OrbiDoc Swiss Red & White</option>
               <option value="navy">Executivo Azul Marinho</option>
               <option value="emerald">Verde Esmeralda Corporativo</option>
               <option value="slate">Cinza Elegante Minimalista</option>

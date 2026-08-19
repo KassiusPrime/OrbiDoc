@@ -63,12 +63,10 @@ export interface AiWorkspaceProps {
   showNotification?: (message: string, type?: 'success' | 'error') => void;
 }
 
-const SESSION_KEY = 'docswiss_ai_sessions_v2';
-const MODEL_KEY = 'docswiss_ai_model_v2';
+const SESSION_KEY = 'orbidoc_ai_sessions_v2';
+const MODEL_KEY = 'orbidoc_ai_model_v2';
 
-const FALLBACK_CATALOG: AiModelOption[] = [
-  { id: 'gemini-3.6-flash', provider: 'gemini', label: 'Gemini 3.6 Flash', enabled: true, recommended: true },
-];
+const FALLBACK_CATALOG: AiModelOption[] = [];
 
 const modelKey = (model: Pick<AiModelOption, 'provider' | 'id'>) => `${model.provider}:${model.id}`;
 
@@ -108,7 +106,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
 }) => {
   const [tab, setTab] = useState<AiTab>('chat');
   const [catalog, setCatalog] = useState<AiModelOption[]>(FALLBACK_CATALOG);
-  const [localModelKey, setLocalModelKey] = useState(() => selectedModelKey || localStorage.getItem(MODEL_KEY) || 'gemini:gemini-3.6-flash');
+  const [localModelKey, setLocalModelKey] = useState(() => selectedModelKey || localStorage.getItem(MODEL_KEY) || '');
   const [sessions, setSessions] = useState<StoredSession[]>(loadSessions);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => loadSessions()[0]?.id || null);
   const [input, setInput] = useState('');
@@ -137,7 +135,13 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
       .then((data) => {
         if (cancelled || !Array.isArray(data.models)) return;
         const enabled = (data.models as AiModelOption[]).filter((model) => model.enabled);
-        if (!enabled.length) return;
+        if (!enabled.length) {
+          setCatalog([]);
+          setArenaModels([]);
+          setLocalModelKey('');
+          localStorage.removeItem(MODEL_KEY);
+          return;
+        }
         setCatalog(enabled);
         setArenaModels(enabled.slice(0, 3).map(modelKey));
         const desired = selectedModelKey || localStorage.getItem(MODEL_KEY);
@@ -147,7 +151,11 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
         localStorage.setItem(MODEL_KEY, next);
         onSelectedModelChange?.(next);
       })
-      .catch(() => setCatalog(FALLBACK_CATALOG));
+      .catch(() => {
+        setCatalog([]);
+        setArenaModels([]);
+        setLocalModelKey('');
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -260,7 +268,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
     const aiMessages = [
       {
         role: 'system' as const,
-        content: 'Você é o assistente principal do DocSwiss. Trabalhe como um copiloto de produtividade e documentos: responda em português claro, use Markdown quando ajudar, não invente conteúdo dos anexos e diga quando algo não puder ser verificado. Para tarefas de escrita, preserve estrutura e intenção do usuário.',
+        content: 'Você é o assistente principal do OrbiDoc. Trabalhe como um copiloto de produtividade e documentos: responda em português claro, use Markdown quando ajudar, não invente conteúdo dos anexos e diga quando algo não puder ser verificado. Para tarefas de escrita, preserve estrutura e intenção do usuário.',
       },
       ...contextMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
       { role: 'user' as const, content: prompt },
@@ -371,7 +379,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
       <div className="h-14 border-b border-slate-200 dark:border-slate-800 flex items-center px-3 sm:px-4 gap-2 shrink-0">
         <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center"><Robot className="w-5 h-5" /></div>
         <div className="min-w-0 hidden sm:block">
-          <div className="text-sm font-black text-slate-900 dark:text-white">Assistente DocSwiss</div>
+          <div className="text-sm font-black text-slate-900 dark:text-white">Assistente OrbiDoc</div>
           <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{selectedModel?.label || 'Nenhum modelo disponível'}</div>
         </div>
 
@@ -395,6 +403,13 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
 
       {runtime?.fallbackUsed && (
         <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-200 flex items-start gap-2"><AlertTriangle className="w-4 h-4 shrink-0" /><span>Fallback ativo: {runtime.requestedProvider}/{runtime.requestedModel || 'auto'} → <strong>{runtime.provider}/{runtime.routedModel || runtime.model}</strong>. {runtime.fallbackReason}</span></div>
+      )}
+
+      {!catalog.length && (
+        <div className="px-4 py-3 bg-rose-50 dark:bg-rose-950/30 border-b border-rose-200 dark:border-rose-900/50 text-[11px] text-rose-800 dark:text-rose-200 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span><strong>Nenhum provedor de IA está ativo.</strong> Configure pelo menos uma credencial segura no servidor (Gemini, Groq ou OpenRouter). O OrbiDoc não simula um modelo disponível quando o backend não possui uma chave válida.</span>
+        </div>
       )}
 
       {tab === 'chat' && (
@@ -450,7 +465,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({
               <div className="max-w-4xl mx-auto">
                 {attachments.length > 0 && <div className="mb-2 flex flex-wrap gap-1.5">{attachments.map((file, index) => <span key={`${file.name}-${index}`} className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 inline-flex items-center gap-1.5"><Paperclip className="w-3 h-3" /><span className="max-w-[160px] truncate">{file.name}</span><button onClick={() => setAttachments((current) => current.filter((_, i) => i !== index))}><X className="w-3 h-3" /></button></span>)}</div>}
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-500/10">
-                  <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} rows={2} placeholder="Mensagem para o DocSwiss…" className="w-full min-h-[52px] max-h-40 resize-y bg-transparent px-2 py-1 text-sm text-slate-900 dark:text-slate-100 outline-none" />
+                  <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} rows={2} placeholder="Mensagem para o OrbiDoc…" className="w-full min-h-[52px] max-h-40 resize-y bg-transparent px-2 py-1 text-sm text-slate-900 dark:text-slate-100 outline-none" />
                   <div className="flex items-center gap-2 mt-1">
                     <input ref={fileRef} type="file" multiple className="hidden" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.html,.png,.jpg,.jpeg,.webp,.avif" onChange={(event) => { if (event.target.files) handleFiles(Array.from(event.target.files)); event.target.value = ''; }} />
                     <button disabled={loadingFiles} onClick={() => fileRef.current?.click()} className="h-9 px-2.5 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 inline-flex items-center gap-1.5 text-[11px] font-bold"><Paperclip className="w-4 h-4" />{loadingFiles ? 'Lendo…' : 'Anexar'}</button>

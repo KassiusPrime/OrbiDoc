@@ -168,9 +168,9 @@ export async function exportRichHtmlToDocx(html: string, title: string): Promise
   if (!children.length) children.push(new docx.Paragraph(''));
 
   const document = new docx.Document({
-    creator: 'DocSwiss',
+    creator: 'OrbiDoc',
     title,
-    description: 'Documento exportado pelo DocSwiss',
+    description: 'Documento exportado pelo OrbiDoc',
     sections: [{
       properties: {
         page: {

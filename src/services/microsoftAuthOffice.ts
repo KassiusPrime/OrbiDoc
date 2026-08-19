@@ -18,9 +18,9 @@ export interface OneDriveFile {
   isFolder?: boolean;
 }
 
-const STORAGE_KEY_MS = 'docswiss_microsoft_user';
-const PKCE_KEY_PREFIX = 'docswiss_ms_pkce_';
-const OAUTH_MESSAGE = 'docswiss:microsoft-oauth';
+const STORAGE_KEY_MS = 'orbidoc_microsoft_user';
+const PKCE_KEY_PREFIX = 'orbidoc_ms_pkce_';
+const OAUTH_MESSAGE = 'orbidoc:microsoft-oauth';
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const TENANT = 'common';
 const SCOPES = ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite'];
@@ -174,10 +174,10 @@ export async function loginWithMicrosoftPopup(): Promise<MicrosoftUserProfile> {
   authorize.searchParams.set('code_challenge_method', 'S256');
   authorize.searchParams.set('prompt', 'select_account');
 
-  const popup = window.open(authorize.toString(), 'docswiss_microsoft_oauth', 'popup=yes,width=520,height=720,resizable=yes,scrollbars=yes');
+  const popup = window.open(authorize.toString(), 'orbidoc_microsoft_oauth', 'popup=yes,width=520,height=720,resizable=yes,scrollbars=yes');
   if (!popup) {
     localStorage.removeItem(`${PKCE_KEY_PREFIX}${state}`);
-    throw new Error('O navegador bloqueou a janela de login Microsoft. Permita pop-ups para o DocSwiss e tente novamente.');
+    throw new Error('O navegador bloqueou a janela de login Microsoft. Permita pop-ups para o OrbiDoc e tente novamente.');
   }
 
   return await new Promise<MicrosoftUserProfile>((resolve, reject) => {

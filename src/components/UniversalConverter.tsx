@@ -136,7 +136,7 @@ export const UniversalConverter: React.FC<UniversalConverterProps> = ({ showNoti
         const JSZip = (module as any).default || module;
         const zip = new JSZip();
         results.forEach((result) => zip.file(result.fileName, result.blob));
-        saveAs(await zip.generateAsync({ type: 'blob' }), `DocSwiss_Conversoes_${new Date().toISOString().slice(0, 10)}.zip`);
+        saveAs(await zip.generateAsync({ type: 'blob' }), `OrbiDoc_Conversoes_${new Date().toISOString().slice(0, 10)}.zip`);
       }
       if (results.length) showNotification(`${results.length} conversão(ões) concluída(s).`, 'success');
     } finally {

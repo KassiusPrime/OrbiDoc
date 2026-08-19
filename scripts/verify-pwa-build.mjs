@@ -24,8 +24,8 @@ if (fs.existsSync(manifestPath)) {
 }
 
 if (manifest) {
-  if (manifest.name !== 'DocSwiss') failures.push(`manifest.name deve ser DocSwiss (atual: ${manifest.name}).`);
-  if (manifest.short_name !== 'DocSwiss') failures.push(`manifest.short_name deve ser DocSwiss (atual: ${manifest.short_name}).`);
+  if (manifest.name !== 'OrbiDoc') failures.push(`manifest.name deve ser OrbiDoc (atual: ${manifest.name}).`);
+  if (manifest.short_name !== 'OrbiDoc') failures.push(`manifest.short_name deve ser OrbiDoc (atual: ${manifest.short_name}).`);
   if (manifest.lang !== 'pt-BR') failures.push(`manifest.lang deve ser pt-BR (atual: ${manifest.lang}).`);
   if (manifest.start_url !== '/') failures.push(`manifest.start_url deve ser / (atual: ${manifest.start_url}).`);
   if (manifest.scope !== '/') failures.push(`manifest.scope deve ser / (atual: ${manifest.scope}).`);

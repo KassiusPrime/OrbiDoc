@@ -1,4 +1,4 @@
-name: DocSwiss CI
+name: OrbiDoc CI
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: docswiss-ci-${{ github.workflow }}-${{ github.ref }}
+  group: orbidoc-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,6 +29,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: OrbiDoc brand audit
+        run: node scripts/check-orbidoc-brand.mjs
 
       - name: Lint source syntax
         run: bun run lint

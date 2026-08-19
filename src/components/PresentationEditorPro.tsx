@@ -70,7 +70,7 @@ export const PresentationEditorPro: React.FC<PresentationEditorProProps> = ({
   engineProvider = 'gemini',
   engineModel = 'gemini-3.6-flash',
 }) => {
-  const storageKey = `docswiss_presentation_v3_${project.id}`;
+  const storageKey = `orbidoc_presentation_v3_${project.id}`;
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [deck, setDeck] = useState<DeckState>(() => {
     try {
@@ -202,7 +202,7 @@ export const PresentationEditorPro: React.FC<PresentationEditorProProps> = ({
     try {
       const pptx = new PptxGenJS();
       pptx.layout = 'LAYOUT_WIDE';
-      pptx.author = 'DocSwiss';
+      pptx.author = 'OrbiDoc';
       pptx.subject = deck.title;
       pptx.title = deck.title;
       for (const source of deck.slides) await addPptxSlide(pptx, source);

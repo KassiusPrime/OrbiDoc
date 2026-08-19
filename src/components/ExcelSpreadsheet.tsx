@@ -9,8 +9,8 @@ interface ExcelSpreadsheetProps {
   engineModel?: string;
 }
 
-const PROJECTS_KEY = 'docswiss_projects_v1';
-const ACTIVE_KEY = 'docswiss_active_excel_project';
+const PROJECTS_KEY = 'orbidoc_projects_v1';
+const ACTIVE_KEY = 'orbidoc_active_excel_project';
 
 const resolveProject = (): SavedProject => {
   let projects: SavedProject[] = [];
@@ -56,7 +56,7 @@ export const ExcelSpreadsheet: React.FC<ExcelSpreadsheetProps> = ({
         : [updated, ...projects];
       localStorage.setItem(PROJECTS_KEY, JSON.stringify(next));
       localStorage.setItem(ACTIVE_KEY, updated.id);
-      window.dispatchEvent(new CustomEvent('docswiss:projects-updated', { detail: updated }));
+      window.dispatchEvent(new CustomEvent('orbidoc:projects-updated', { detail: updated }));
     } catch (error) {
       console.warn('Falha ao atualizar projeto da planilha:', error);
     }

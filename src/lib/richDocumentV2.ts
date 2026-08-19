@@ -77,7 +77,7 @@ const parseCssColor = (value: string | null): string | undefined => {
 export async function richHtmlToDocxBlob(html: string, title: string): Promise<Blob> {
   const docx = await import('docx');
   const document = new DOMParser().parseFromString(sanitizeRichHtml(html), 'text/html');
-  const numberingReference = 'docswiss-numbering';
+  const numberingReference = 'orbidoc-numbering';
 
   const textRuns = (node: Node, inherited: Record<string, any> = {}): any[] => {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -197,7 +197,7 @@ export async function richHtmlToDocxBlob(html: string, title: string): Promise<B
 
   const doc = new docx.Document({
     title,
-    creator: 'DocSwiss',
+    creator: 'OrbiDoc',
     numbering: {
       config: [{
         reference: numberingReference,

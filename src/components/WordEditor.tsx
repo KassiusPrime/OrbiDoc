@@ -10,8 +10,8 @@ interface WordEditorProps {
   engineModel?: string;
 }
 
-const PROJECTS_KEY = 'docswiss_projects_v1';
-const ACTIVE_KEY = 'docswiss_active_word_project';
+const PROJECTS_KEY = 'orbidoc_projects_v1';
+const ACTIVE_KEY = 'orbidoc_active_word_project';
 
 const plainToHtml = (value: string) => {
   if (!value.trim()) return '';
@@ -76,7 +76,7 @@ export const WordEditor: React.FC<WordEditorProps> = ({
         : [updated, ...projects];
       localStorage.setItem(PROJECTS_KEY, JSON.stringify(next));
       localStorage.setItem(ACTIVE_KEY, updated.id);
-      window.dispatchEvent(new CustomEvent('docswiss:projects-updated', { detail: updated }));
+      window.dispatchEvent(new CustomEvent('orbidoc:projects-updated', { detail: updated }));
     } catch (error) {
       console.warn('Falha ao atualizar projeto do documento:', error);
     }

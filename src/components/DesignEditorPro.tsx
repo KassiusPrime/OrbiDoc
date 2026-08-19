@@ -65,7 +65,7 @@ const TEMPLATES: Array<{ label: string; background: string; objects: Omit<Design
     objects: [
       { type: 'text', x: 80, y: 100, width: 820, height: 180, rotation: 0, opacity: 1, fill: '#0f172a', content: 'SUA IDEIA\nEM DESTAQUE', fontSize: 72, fontFamily: 'Inter', fontWeight: 800, textAlign: 'left' },
       { type: 'rect', x: 80, y: 310, width: 180, height: 18, rotation: 0, opacity: 1, fill: '#4f46e5', content: '', fontSize: 16, fontFamily: 'Inter', fontWeight: 400, textAlign: 'left' },
-      { type: 'text', x: 80, y: 370, width: 760, height: 120, rotation: 0, opacity: 1, fill: '#475569', content: 'Edite textos, cores, imagens e camadas diretamente no DocSwiss.', fontSize: 34, fontFamily: 'Inter', fontWeight: 500, textAlign: 'left' },
+      { type: 'text', x: 80, y: 370, width: 760, height: 120, rotation: 0, opacity: 1, fill: '#475569', content: 'Edite textos, cores, imagens e camadas diretamente no OrbiDoc.', fontSize: 34, fontFamily: 'Inter', fontWeight: 500, textAlign: 'left' },
     ],
   },
   {
@@ -132,7 +132,7 @@ export const DesignEditorPro: React.FC<DesignEditorProProps> = ({
   engineProvider = 'gemini',
   engineModel = 'gemini-3.6-flash',
 }) => {
-  const storageKey = `docswiss_design_v3_${project.id}`;
+  const storageKey = `orbidoc_design_v3_${project.id}`;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [design, setDesign] = useState<DesignState>(() => {

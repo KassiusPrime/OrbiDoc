@@ -71,7 +71,7 @@ export const DocumentEditorPro: React.FC<DocumentEditorProProps> = ({
   engineProvider = 'gemini',
   engineModel = 'gemini-3.6-flash',
 }) => {
-  const storageKey = `docswiss_document_v3_${project.id}`;
+  const storageKey = `orbidoc_document_v3_${project.id}`;
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -298,7 +298,7 @@ export const DocumentEditorPro: React.FC<DocumentEditorProProps> = ({
 
       <div className="flex-1 overflow-auto p-4 sm:p-7 bg-slate-200/60 dark:bg-slate-950">
         <div className="mx-auto bg-white text-slate-900 shadow-lg min-h-[1123px] p-[70px] origin-top" style={{ width: '794px', maxWidth: '100%', transform: `scale(${zoom / 100})`, marginBottom: `${Math.max(0, (zoom - 100) * 8)}px` }}>
-          <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={syncFromEditor} onBlur={syncFromEditor} className="docswiss-rich-editor min-h-[900px] outline-none text-[15px] leading-7" />
+          <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={syncFromEditor} onBlur={syncFromEditor} className="orbidoc-rich-editor min-h-[900px] outline-none text-[15px] leading-7" />
         </div>
       </div>
     </div>

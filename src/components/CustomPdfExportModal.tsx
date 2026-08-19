@@ -154,13 +154,13 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
   isOpen,
   onClose,
   initialText,
-  defaultTitle = 'Documento DocPlus+',
+  defaultTitle = 'Documento OrbiDoc',
   googleUser,
   onNotification,
 }) => {
   const [title, setTitle] = useState(defaultTitle);
   const [subtitle, setSubtitle] = useState('');
-  const [author, setAuthor] = useState(googleUser?.name || 'DocPlus+ User');
+  const [author, setAuthor] = useState(googleUser?.name || 'OrbiDoc User');
   const [fontFamily, setFontFamily] = useState<'helvetica' | 'times' | 'courier'>('helvetica');
   const [fontSize, setFontSize] = useState(11);
   const [margin, setMargin] = useState<'narrow' | 'normal' | 'wide'>('normal');
@@ -222,7 +222,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(148, 163, 184);
-      doc.text('DocPlus+ Studio', marginMm, pageHeight - marginMm);
+      doc.text('OrbiDoc Studio', marginMm, pageHeight - marginMm);
       doc.text(`Página ${pageNum}`, pageWidth - marginMm, pageHeight - marginMm, { align: 'right' });
     };
 
@@ -279,7 +279,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
     doc.rect(marginMm, marginMm, contentWidth, 3, 'F');
     currentY = marginMm + 9;
 
-    writeWrapped(title || 'Documento DocPlus+', {
+    writeWrapped(title || 'Documento OrbiDoc', {
       size: fontSize + 8,
       style: 'bold',
       color: [30, 41, 59],
@@ -618,7 +618,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
                 </div>
 
                 {watermark && <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.08] font-black text-xl rotate-[35deg] uppercase">{watermark}</div>}
-                {showPageNumbers && <div className="absolute bottom-3 left-5 right-5 border-t border-slate-100 pt-1 flex justify-between text-[6px] text-slate-400"><span>DocPlus+ Studio</span><span>Página 1</span></div>}
+                {showPageNumbers && <div className="absolute bottom-3 left-5 right-5 border-t border-slate-100 pt-1 flex justify-between text-[6px] text-slate-400"><span>OrbiDoc Studio</span><span>Página 1</span></div>}
               </div>
             </div>
           </section>

@@ -127,7 +127,7 @@ export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({
             </div>
             <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-slate-950 dark:text-white">Central de trabalho</h1>
             <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-              Abra um editor especializado ou converta arquivos sem sair do DocSwiss. A proposta é trabalhar como uma suíte, não como ferramentas isoladas.
+              Abra um editor especializado ou converta arquivos sem sair do OrbiDoc. A proposta é trabalhar como uma suíte, não como ferramentas isoladas.
             </p>
           </div>
 
@@ -235,7 +235,7 @@ export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({
           <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0"><Photo className="w-5 h-5 text-slate-600 dark:text-slate-300" /></div>
           <div>
             <h3 className="text-sm font-black text-slate-900 dark:text-white">Fidelidade de formato é explícita</h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Conversões locais preservam o que o navegador e as bibliotecas conseguem representar. Quando um formato complexo não pode ser reconstruído 1:1, o DocSwiss mostra um aviso em vez de fingir que a conversão foi perfeita.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Conversões locais preservam o que o navegador e as bibliotecas conseguem representar. Quando um formato complexo não pode ser reconstruído 1:1, o OrbiDoc mostra um aviso em vez de fingir que a conversão foi perfeita.</p>
           </div>
         </div>
       </section>
