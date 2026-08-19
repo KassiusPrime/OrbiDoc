@@ -9,7 +9,6 @@ const replacements = [
   ['DOCSWISS', 'ORBIDOC'],
   ['DocSwiss', 'OrbiDoc'],
   ['docswiss', 'orbidoc'],
-  ['doc-swiss', 'orbidoc'],
   ['DOCPLUS', 'ORBIDOC'],
   ['DocPlus+', 'OrbiDoc'],
   ['DocPlus', 'OrbiDoc'],
@@ -51,7 +50,8 @@ const brandModule = `export const ORBIDOC_BRAND = {
   productLine: 'Workspace inteligente',
   storagePrefix: 'orbidoc',
   repository: 'KassiusPrime/OrbiDoc',
-  preferredHost: 'orbidoc.vercel.app',
+  currentProductionHost: 'doc-swiss.vercel.app',
+  preferredFutureHost: 'orbidoc.vercel.app',
 } as const;
 `;
 
