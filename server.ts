@@ -3,14 +3,13 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import {
   compactError,
-  editImage,
-  generateImage,
   getHealth,
   getModelCatalog,
   getProviderStatus,
   runChat,
 } from './api/_lib/ai.js';
 import { streamChatSafely } from './api/_lib/aiSafeStream.js';
+import { editImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_REQUESTS = 120;
@@ -107,7 +106,7 @@ async function startServer() {
   app.post('/api/generate-image', rateLimit(IMAGE_RATE_MAX_REQUESTS), async (req, res) => {
     try {
       res.setHeader('Cache-Control', 'no-store');
-      res.json(await generateImage(req.body || {}));
+      res.json(await generateImageResilient(req.body || {}));
     } catch (error) {
       res.status(502).json({ error: compactError(error) });
     }
@@ -116,7 +115,7 @@ async function startServer() {
   app.post('/api/edit-image', rateLimit(IMAGE_RATE_MAX_REQUESTS), async (req, res) => {
     try {
       res.setHeader('Cache-Control', 'no-store');
-      res.json(await editImage(req.body || {}));
+      res.json(await editImageResilient(req.body || {}));
     } catch (error) {
       res.status(502).json({ error: compactError(error) });
     }
