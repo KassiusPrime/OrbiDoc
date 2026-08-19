@@ -1,4 +1,4 @@
-import { streamChat as streamChatWithFallback } from './ai';
+import { streamChat as streamChatWithFallback } from './ai.js';
 
 /**
  * Preserves live streaming while preventing a partial response from one provider
