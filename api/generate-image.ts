@@ -1,4 +1,5 @@
-import { compactError, generateImage } from './_lib/ai.js';
+import { compactError } from './_lib/ai.js';
+import { generateImageResilient } from './_lib/imageRuntime.js';
 
 function parseBody(body: any) {
   if (typeof body !== 'string') return body || {};
@@ -13,7 +14,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const result = await generateImage(parseBody(req.body));
+    const result = await generateImageResilient(parseBody(req.body));
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json(result);
   } catch (error) {
