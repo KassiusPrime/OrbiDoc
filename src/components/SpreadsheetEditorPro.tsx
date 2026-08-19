@@ -268,7 +268,7 @@ export const SpreadsheetEditorPro: React.FC<SpreadsheetEditorProProps> = ({
       if (format === 'xlsx') {
         const output = XLSX.utils.book_new();
         workbook.sheets.forEach((source, index) => XLSX.utils.book_append_sheet(output, toXlsxSheet(source), sanitizeSheetName(source.name, `Planilha${index + 1}`)));
-        const bytes = XLSX.write(output, { type: 'array', bookType: 'xlsx', cellFormula: true });
+        const bytes = XLSX.write(output, { type: 'array', bookType: 'xlsx' });
         saveAs(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${base}.xlsx`);
       } else if (format === 'csv') {
         const worksheet = XLSX.utils.aoa_to_sheet(toSheetArray(sheet));
