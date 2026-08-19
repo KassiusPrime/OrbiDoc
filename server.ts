@@ -81,8 +81,7 @@ async function startServer() {
 
     const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
     try {
-      const requestId = await streamChatSafely(req.body || {}, write);
-      res.setHeader?.('X-OrbiDoc-Request-Id', requestId);
+      await streamChatSafely(req.body || {}, write);
     } catch (error) {
       write({ error: compactError(error) });
     } finally {
