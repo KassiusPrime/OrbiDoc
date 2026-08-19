@@ -67,7 +67,7 @@ function walk(dir, files = []) {
 
 for (const file of walk(root)) {
   const rel = path.relative(root, file).replace(/\\/g, '/');
-  if (rel === 'scripts/rebrand-orbidoc.mjs' || rel === '.github/workflows/orbidoc-rebrand.yml') continue;
+  if (rel === 'scripts/rebrand-orbidoc.mjs' || rel.startsWith('.github/workflows/')) continue;
   const ext = path.extname(file).toLowerCase();
   const base = path.basename(file);
   if (!textExts.has(ext) && base !== 'bun.lock') continue;
@@ -91,7 +91,7 @@ if (!main.includes("legacyBrandMigration")) {
 
 function renameEntries(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (skipDirs.has(entry.name)) continue;
+    if (skipDirs.has(entry.name) || (dir.endsWith(path.join('.github')) && entry.name === 'workflows')) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) renameEntries(full);
     let nextName = entry.name;
@@ -104,9 +104,7 @@ function renameEntries(dir) {
 }
 renameEntries(root);
 
-for (const removable of ['scripts/rebrand-orbidoc.mjs', '.github/workflows/orbidoc-rebrand.yml']) {
-  const target = path.join(root, removable);
-  if (fs.existsSync(target)) fs.rmSync(target, { force: true });
-}
+const scriptPath = path.join(root, 'scripts/rebrand-orbidoc.mjs');
+if (fs.existsSync(scriptPath)) fs.rmSync(scriptPath, { force: true });
 
 console.log('OrbiDoc rebrand applied with legacy storage migration.');
