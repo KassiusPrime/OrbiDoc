@@ -37,7 +37,7 @@ interface HomeDashboardProps {
 
 const readPersistedProjects = (fallback: SavedProject[]) => {
   try {
-    const saved = localStorage.getItem('docswiss_projects_v1');
+    const saved = localStorage.getItem('orbidoc_projects_v1');
     const parsed = saved ? JSON.parse(saved) : null;
     return Array.isArray(parsed) && parsed.length ? parsed as SavedProject[] : fallback;
   } catch {
@@ -109,7 +109,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               <span className="truncate">{cloudConnected ? 'Conta conectada' : 'Modo local'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-              {firstName ? `Olá, ${firstName}` : 'Bem-vindo ao DocSwiss'}
+              {firstName ? `Olá, ${firstName}` : 'Bem-vindo ao OrbiDoc'}
             </h1>
             <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
               Seus documentos, conversões e ferramentas em um único ambiente. Comece um arquivo novo ou continue exatamente de onde parou.
@@ -199,7 +199,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
             <div className="p-5">
               <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 flex items-center justify-center"><Bot className="w-5 h-5" /></div>
-              <h2 className="mt-4 text-base font-black text-slate-900 dark:text-white">Assistente DocSwiss</h2>
+              <h2 className="mt-4 text-base font-black text-slate-900 dark:text-white">Assistente OrbiDoc</h2>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Pergunte sobre documentos, gere conteúdo, revise texto ou use arquivos como contexto. O app agora identifica o modelo que realmente respondeu e deixa fallback visível.</p>
               <button onClick={onNewChat} className="mt-4 w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black inline-flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" /> Novo chat</button>
             </div>

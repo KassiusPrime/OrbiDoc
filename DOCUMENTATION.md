@@ -1,4 +1,4 @@
-# 📚 DocuTools Pro - Documentação Completa
+# 📚 OrbiDoc - Documentação Completa
 
 ## 📋 Índice
 
@@ -14,7 +14,7 @@
 
 ## 🎯 Visão Geral
 
-**DocuTools Pro** é uma aplicação web PWA (Progressive Web App) desenvolvida com React, TypeScript, Vite e Tailwind CSS. Oferece ferramentas inteligentes para processamento de documentos:
+**OrbiDoc** é uma aplicação web PWA (Progressive Web App) desenvolvida com React, TypeScript, Vite e Tailwind CSS. Oferece ferramentas inteligentes para processamento de documentos:
 
 - 📄 **OCR (Extração de Texto)** - Extrai texto de imagens usando Tesseract.js
 - 🤖 **IA de Texto** - Tradução, resumo, correção gramatical e melhoria de texto
@@ -114,7 +114,7 @@ docutools-pro/
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#6366f1" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <title>DocuTools Pro</title>
+    <title>OrbiDoc</title>
   </head>
   <body>
     <div id="root"></div>

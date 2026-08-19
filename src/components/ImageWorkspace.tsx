@@ -172,7 +172,7 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
     if (!active) return;
     try {
       const blob = await imageDataToBlob(active.imageUrl, downloadFormat);
-      saveAs(blob, `DocSwiss_Imagem_${new Date(active.createdAt).toISOString().replace(/[:.]/g, '-')}.${downloadFormat}`);
+      saveAs(blob, `OrbiDoc_Imagem_${new Date(active.createdAt).toISOString().replace(/[:.]/g, '-')}.${downloadFormat}`);
     } catch (error: any) {
       showNotification(error?.message || 'Falha ao converter a imagem.', 'error');
     }
@@ -181,7 +181,7 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
   const sendToDesign = () => {
     if (!active || !onSendToCanva) return;
     try {
-      sessionStorage.setItem('docswiss_design_import_image', active.imageUrl);
+      sessionStorage.setItem('orbidoc_design_import_image', active.imageUrl);
       onSendToCanva(active.imageUrl);
       showNotification('Imagem enviada para o Design.', 'success');
     } catch {

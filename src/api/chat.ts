@@ -18,7 +18,7 @@ export interface AiRuntimeMeta {
   fallbackReason?: string;
 }
 
-const RUNTIME_EVENT = 'docswiss:ai-runtime';
+const RUNTIME_EVENT = 'orbidoc:ai-runtime';
 
 function parseApiResponse(text: string) {
   try {

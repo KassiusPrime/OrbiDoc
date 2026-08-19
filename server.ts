@@ -135,7 +135,7 @@ async function startServer() {
 
   const prepareGeminiPayload = (messages: ChatMessage[], systemPromptOverride?: string, files?: any[]) => {
     let systemInstruction = systemPromptOverride ||
-      "Você é o assistente do DocSwiss. Analise documentos, escreva, revise e explique com precisão. Preserve a formatação solicitada, deixe limitações explícitas e não invente fatos.";
+      "Você é o assistente do OrbiDoc. Analise documentos, escreva, revise e explique com precisão. Preserve a formatação solicitada, deixe limitações explícitas e não invente fatos.";
     const contents: any[] = [];
 
     for (const message of messages) {
@@ -170,7 +170,7 @@ async function startServer() {
       try {
         const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
-          headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json", "X-Title": "DocSwiss" },
+          headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json", "X-Title": "OrbiDoc" },
           body: JSON.stringify({ model, messages, stream }),
         });
         if (response.ok) return { response, model, internalFallback: model !== requestedModel };
@@ -213,7 +213,7 @@ async function startServer() {
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-DocSwiss-Request-Id", requestId);
+    res.setHeader("X-OrbiDoc-Request-Id", requestId);
     res.flushHeaders?.();
 
     const writeSSE = (data: any) => {
@@ -310,7 +310,7 @@ async function startServer() {
           await streamProvider(requestedProvider, false);
         } catch (error) {
           if (contentStarted) {
-            writeSSE({ chunk: "\n\n> ⚠️ A conexão com o modelo foi interrompida. O DocSwiss não misturou a resposta com outro provedor; regenere para obter um resultado completo." });
+            writeSSE({ chunk: "\n\n> ⚠️ A conexão com o modelo foi interrompida. O OrbiDoc não misturou a resposta com outro provedor; regenere para obter um resultado completo." });
           } else {
             const fallback = chooseFallback(requestedProvider);
             if (!fallback) throw error;
@@ -336,7 +336,7 @@ async function startServer() {
     const requestId = crypto.randomUUID();
     const requestedProvider = normalizeProvider(rawProvider);
     const requestedModel = typeof rawModel === "string" ? rawModel : "";
-    res.setHeader("X-DocSwiss-Request-Id", requestId);
+    res.setHeader("X-OrbiDoc-Request-Id", requestId);
     const modelFor = (provider: ProviderId) => provider === requestedProvider ? rawModel : undefined;
 
     const execute = async (provider: ProviderId, fallbackUsed: boolean, fallbackReason?: string) => {
@@ -494,7 +494,7 @@ async function startServer() {
   app.get("/api/health", (_req, res) => {
     res.json({
       status: "ok",
-      app: "DocSwiss",
+      app: "OrbiDoc",
       ai: { gemini: providerEnabled("gemini"), openrouter: providerEnabled("openrouter"), groq: providerEnabled("groq") },
       defaults: { gemini: GEMINI_DEFAULT_MODEL, openrouter: OPENROUTER_DEFAULT_MODEL, groq: GROQ_DEFAULT_MODEL },
     });
@@ -509,7 +509,7 @@ async function startServer() {
     app.use((_req, res) => res.sendFile(path.join(distPath, "index.html")));
   }
 
-  app.listen(PORT, "0.0.0.0", () => console.log(`DocSwiss server listening on port ${PORT}`));
+  app.listen(PORT, "0.0.0.0", () => console.log(`OrbiDoc server listening on port ${PORT}`));
 }
 
 startServer().catch((error) => {

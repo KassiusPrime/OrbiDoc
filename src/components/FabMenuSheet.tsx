@@ -100,7 +100,7 @@ export const FabMenuSheet: React.FC<FabMenuSheetProps> = ({
                   O que deseja criar?
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Escolha uma ação rápida para abrir no DocSwiss
+                  Escolha uma ação rápida para abrir no OrbiDoc
                 </p>
               </div>
             </div>

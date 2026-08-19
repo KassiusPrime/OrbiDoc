@@ -232,7 +232,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
               <Cloud className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               <h2 className="text-base font-black text-slate-900 dark:text-white">Google Drive</h2>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Importe arquivos usando a mesma sessão Google do DocSwiss.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Importe arquivos usando a mesma sessão Google do OrbiDoc.</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-5 h-5" /></button>
         </header>
@@ -242,7 +242,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
             <div className="max-w-sm text-center">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-300 flex items-center justify-center"><Cloud className="w-7 h-7" /></div>
               <h3 className="mt-4 text-lg font-black text-slate-900 dark:text-white">Conectar ao Drive</h3>
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">O DocSwiss usa OAuth real. Nenhum token manual ou conta de demonstração é aceito.</p>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">O OrbiDoc usa OAuth real. Nenhum token manual ou conta de demonstração é aceito.</p>
               <button onClick={connect} disabled={connecting} className="mt-5 h-11 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold inline-flex items-center gap-2 disabled:opacity-60">
                 {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Login className="w-4 h-4" />}
                 Entrar com Google

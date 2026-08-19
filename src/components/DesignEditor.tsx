@@ -5,8 +5,8 @@ export const DesignEditor: React.FC<React.ComponentProps<typeof DesignEditorPro>
   const importedImageRef = useRef<string | null | undefined>(undefined);
   if (importedImageRef.current === undefined) {
     try {
-      importedImageRef.current = sessionStorage.getItem('docswiss_design_import_image');
-      sessionStorage.removeItem('docswiss_design_import_image');
+      importedImageRef.current = sessionStorage.getItem('orbidoc_design_import_image');
+      sessionStorage.removeItem('orbidoc_design_import_image');
     } catch {
       importedImageRef.current = null;
     }

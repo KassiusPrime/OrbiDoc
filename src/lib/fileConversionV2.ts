@@ -189,7 +189,7 @@ async function blocksToPdf(blocks: StructuredBlock[], title: string) {
 
 async function blocksToDocx(blocks: StructuredBlock[], title: string) {
   const docx = await import('docx');
-  const numberingReference = 'docswiss-numbering';
+  const numberingReference = 'orbidoc-numbering';
   const children: any[] = [new docx.Paragraph({ text: title, heading: docx.HeadingLevel.TITLE, spacing: { after: 240 } })];
   for (const block of blocks) {
     if (block.kind === 'h1') { children.push(new docx.Paragraph({ text: block.text, heading: docx.HeadingLevel.HEADING_1 })); continue; }

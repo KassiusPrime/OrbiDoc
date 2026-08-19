@@ -15,7 +15,7 @@ export default async function handler(req: any, res: any) {
   try {
     const result = await runChat(parseBody(req.body));
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-DocSwiss-Request-Id', result.requestId);
+    res.setHeader('X-OrbiDoc-Request-Id', result.requestId);
     res.status(200).json(result);
   } catch (error) {
     res.status(502).json({ error: compactError(error) });

@@ -234,7 +234,7 @@ export const PdfOcrWorkspace: React.FC<PdfOcrWorkspaceProps> = ({
     setBatchBusy(true);
     try {
       const zip = new JSZip();
-      const folder = zip.folder('DocSwiss_Extracoes');
+      const folder = zip.folder('OrbiDoc_Extracoes');
       completed.forEach((item) => {
         const base = baseName(item.fileName);
         folder?.file(`${base}.txt`, item.text);
@@ -243,7 +243,7 @@ export const PdfOcrWorkspace: React.FC<PdfOcrWorkspaceProps> = ({
       const blob = await zip.generateAsync({ type: 'blob' });
       saveAs(
         blob,
-        `DocSwiss_Extracoes_${new Date().toISOString().slice(0, 10)}.zip`,
+        `OrbiDoc_Extracoes_${new Date().toISOString().slice(0, 10)}.zip`,
       );
       showNotification(
         `${completed.length} extração(ões) empacotada(s).`,

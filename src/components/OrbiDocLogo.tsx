@@ -1,12 +1,12 @@
 import React from 'react';
 
-interface DocPlusLogoProps {
+interface OrbiDocLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
   className?: string;
 }
 
-export const DocPlusLogo: React.FC<DocPlusLogoProps> = ({
+export const OrbiDocLogo: React.FC<OrbiDocLogoProps> = ({
   size = 'md',
   showText = true,
   className = '',

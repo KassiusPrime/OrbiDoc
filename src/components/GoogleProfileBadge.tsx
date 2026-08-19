@@ -144,7 +144,7 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
             />
           </div>
 
-          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed flex items-start gap-2"><Cloud className="w-3.5 h-3.5 shrink-0 mt-0.5" /><span><strong>Conectado não significa sincronizado.</strong> O DocSwiss mantém a biblioteca local separada. A página Nuvem mostra somente os arquivos que Google Drive ou OneDrive retornarem pelas APIs.</span></div>
+          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed flex items-start gap-2"><Cloud className="w-3.5 h-3.5 shrink-0 mt-0.5" /><span><strong>Conectado não significa sincronizado.</strong> O OrbiDoc mantém a biblioteca local separada. A página Nuvem mostra somente os arquivos que Google Drive ou OneDrive retornarem pelas APIs.</span></div>
         </div>
       )}
     </div>

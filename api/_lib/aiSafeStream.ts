@@ -22,7 +22,7 @@ export async function streamChatSafely(body: any, write: (payload: object) => vo
       if (!warned) {
         warned = true;
         write({
-          chunk: '\n\n> ⚠️ A conexão com o modelo foi interrompida depois que a resposta começou. O DocSwiss não misturou a saída de outro provedor. Tente regenerar a resposta para obter um resultado completo.',
+          chunk: '\n\n> ⚠️ A conexão com o modelo foi interrompida depois que a resposta começou. O OrbiDoc não misturou a saída de outro provedor. Tente regenerar a resposta para obter um resultado completo.',
         });
         write({
           meta: {

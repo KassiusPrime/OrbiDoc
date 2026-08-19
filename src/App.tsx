@@ -29,7 +29,7 @@ import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 
 import { TabType, AiActionType, AudioSubTabType, AiMessage, ChatMessage, ChatFile, HistoryItem, OcrItem, ChatSession, GoogleUserProfile, MicrosoftUserProfile, SavedProject } from './types';
-import { DocPlusLogo } from './components/DocPlusLogo';
+import { OrbiDocLogo } from './components/OrbiDocLogo';
 import { HistoryVault } from './components/HistoryVault';
 import { WordEditor } from './components/WordEditor';
 import { ExcelSpreadsheet } from './components/ExcelSpreadsheet';
@@ -217,7 +217,7 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<SavedProject | null>(null);
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>(() => {
     try {
-      const saved = localStorage.getItem('docswiss_projects_v1');
+      const saved = localStorage.getItem('orbidoc_projects_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -279,7 +279,7 @@ export default function App() {
       deferredPrompt.prompt();
       deferredPrompt.userChoice.then((choiceResult: any) => {
         if (choiceResult.outcome === 'accepted') {
-          showNotification('DocPlus+ instalado com sucesso!', 'success');
+          showNotification('OrbiDoc instalado com sucesso!', 'success');
         }
         setDeferredPrompt(null);
       });
@@ -304,7 +304,7 @@ export default function App() {
     const handleAppInstalled = () => {
       setIsAppInstalled(true);
       setDeferredPrompt(null);
-      showNotification('DocPlus+ foi instalado no seu dispositivo com sucesso!', 'success');
+      showNotification('OrbiDoc foi instalado no seu dispositivo com sucesso!', 'success');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -376,7 +376,7 @@ export default function App() {
   // Auto-Save Engine State & Firestore Integration
   const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('docplus_autosave_enabled');
+      const saved = localStorage.getItem('orbidoc_autosave_enabled');
       return saved !== null ? JSON.parse(saved) : true;
     } catch {
       return true;
@@ -385,7 +385,7 @@ export default function App() {
 
   const [autoSaveDelayMs, setAutoSaveDelayMs] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('docplus_autosave_delay');
+      const saved = localStorage.getItem('orbidoc_autosave_delay');
       return saved ? parseInt(saved, 10) : 5000;
     } catch {
       return 5000;
@@ -397,11 +397,11 @@ export default function App() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('docplus_autosave_enabled', JSON.stringify(autoSaveEnabled));
+    localStorage.setItem('orbidoc_autosave_enabled', JSON.stringify(autoSaveEnabled));
   }, [autoSaveEnabled]);
 
   useEffect(() => {
-    localStorage.setItem('docplus_autosave_delay', autoSaveDelayMs.toString());
+    localStorage.setItem('orbidoc_autosave_delay', autoSaveDelayMs.toString());
   }, [autoSaveDelayMs]);
 
   const handleForceAutoSave = useCallback(async () => {
@@ -414,12 +414,12 @@ export default function App() {
         title: activeDocumentTitle || 'Documento Sem Título',
         content: activeDocumentTitle,
         docType: activeTab,
-        userEmail: googleUser?.email || msUser?.email || 'usuario@docplus.com',
+        userEmail: googleUser?.email || msUser?.email || 'usuario@orbidoc.com',
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       };
 
-      localStorage.setItem('docplus_last_autosave', JSON.stringify(docPayload));
+      localStorage.setItem('orbidoc_last_autosave', JSON.stringify(docPayload));
       await saveDocumentToFirestore(docPayload);
 
       setLastSavedAt(now);
@@ -451,12 +451,12 @@ export default function App() {
           title: activeDocumentTitle || 'Documento Sem Título',
           content: activeDocumentTitle,
           docType: activeTab,
-          userEmail: googleUser?.email || msUser?.email || 'usuario@docplus.com',
+          userEmail: googleUser?.email || msUser?.email || 'usuario@orbidoc.com',
           createdAt: now.toISOString(),
           updatedAt: now.toISOString(),
         };
 
-        localStorage.setItem('docplus_last_autosave', JSON.stringify(docPayload));
+        localStorage.setItem('orbidoc_last_autosave', JSON.stringify(docPayload));
         await saveDocumentToFirestore(docPayload);
 
         setLastSavedAt(now);
@@ -479,12 +479,12 @@ export default function App() {
   // Custom PDF Export Modal State
   const [isCustomPdfOpen, setIsCustomPdfOpen] = useState(false);
   const [pdfExportText, setPdfExportText] = useState('');
-  const [pdfExportTitle, setPdfExportTitle] = useState('Documento DocPlus+');
+  const [pdfExportTitle, setPdfExportTitle] = useState('Documento OrbiDoc');
 
   // Chat Sessions History State
   const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
     try {
-      const saved = localStorage.getItem('docplus_chat_sessions') || localStorage.getItem('docswiss_chat_sessions');
+      const saved = localStorage.getItem('orbidoc_chat_sessions') || localStorage.getItem('orbidoc_chat_sessions');
       if (saved) {
         const parsed = JSON.parse(saved);
         return parsed.map((s: any) => ({
@@ -503,7 +503,7 @@ export default function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'active' | 'history'>('active');
 
-  const openCustomPdf = (text: string, title = 'Documento DocPlus+') => {
+  const openCustomPdf = (text: string, title = 'Documento OrbiDoc') => {
     setPdfExportText(text);
     setPdfExportTitle(title);
     setIsCustomPdfOpen(true);
@@ -765,7 +765,7 @@ export default function App() {
   };
 
   const exportAsMd = (text: string, name: string) => {
-    const mdContent = text.startsWith('#') ? text : `# ${name || 'Documento DocPlus+'}\n\n${text}`;
+    const mdContent = text.startsWith('#') ? text : `# ${name || 'Documento OrbiDoc'}\n\n${text}`;
     const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
     saveAs(blob, `${name || 'documento'}.md`);
     showNotification('Exportado como Markdown (.md)');
@@ -887,7 +887,7 @@ export default function App() {
       return;
     }
     const combined = completed.map((o) => `=== ${o.fileName} ===\n${o.text}`).join('\n\n');
-    const filename = `docswiss_ocr_lote_${new Date().toISOString().slice(0, 10)}`;
+    const filename = `orbidoc_ocr_lote_${new Date().toISOString().slice(0, 10)}`;
     if (format === 'txt') exportAsTxt(combined, filename);
     if (format === 'docx') exportAsDocx(combined, filename);
     if (format === 'pdf') exportAsPdf(combined, filename);
@@ -1051,7 +1051,7 @@ export default function App() {
       const messages: AiMessage[] = [
         { 
           role: 'system', 
-          content: 'Você é o assistente inteligente de análise documental e criação de conteúdo do DocuTools Pro. Responda com clareza, autoridade técnica e excelente estruturação em português. Utilize Markdown limpo com títulos, marcadores organizados e blocos de código bem formatados com identificação de linguagem sempre que relevante.' 
+          content: 'Você é o assistente inteligente de análise documental e criação de conteúdo do OrbiDoc. Responda com clareza, autoridade técnica e excelente estruturação em português. Utilize Markdown limpo com títulos, marcadores organizados e blocos de código bem formatados com identificação de linguagem sempre que relevante.' 
         },
         ...chatMessages.slice(-10).map((msg) => ({ role: msg.role, content: msg.content })),
         { role: 'user', content: prompt },
@@ -1311,9 +1311,9 @@ export default function App() {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white transition-opacity duration-500">
         <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl mb-6 animate-pulse">
-          <DocPlusLogo size="xl" showText={false} />
+          <OrbiDocLogo size="xl" showText={false} />
         </div>
-        <DocPlusLogo size="lg" showText={true} />
+        <OrbiDocLogo size="lg" showText={true} />
         <p className="text-sm text-slate-400 mt-3 font-medium tracking-wide">Digitalize, Crie e Edite Seus Documentos</p>
       </div>
     );
@@ -1404,7 +1404,7 @@ export default function App() {
       <ThemeFontConfig
         isOpen={isThemeFontOpen}
         onClose={() => setIsThemeFontOpen(false)}
-        userEmail={googleUser?.email || msUser?.email || 'usuario@docplus.com'}
+        userEmail={googleUser?.email || msUser?.email || 'usuario@orbidoc.com'}
         autoSaveEnabled={autoSaveEnabled}
         setAutoSaveEnabled={setAutoSaveEnabled}
         autoSaveDelayMs={autoSaveDelayMs}
@@ -1439,7 +1439,7 @@ export default function App() {
                   <DownloadCloud className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Instalar o Aplicativo Nativo DocPlus+ (WebAPK)</h2>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Instalar o Aplicativo Nativo OrbiDoc (WebAPK)</h2>
                   <p className="text-xs text-slate-500">Instalação direta no Celular/PC e Download do Projeto</p>
                 </div>
               </div>
@@ -1502,7 +1502,7 @@ export default function App() {
                 )}
 
                 <p className="leading-relaxed">
-                  O <strong>DocPlus+</strong> é configurado com PWA / WebAPK de última geração. No Android, quando você seleciona "Adicionar à tela de início" ou "Instalar", o Google gera automaticamente um <strong>WebAPK nativo</strong> no seu celular com ícone próprio e funcionamento em tela cheia offline!
+                  O <strong>OrbiDoc</strong> é configurado com PWA / WebAPK de última geração. No Android, quando você seleciona "Adicionar à tela de início" ou "Instalar", o Google gera automaticamente um <strong>WebAPK nativo</strong> no seu celular com ícone próprio e funcionamento em tela cheia offline!
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
@@ -1529,7 +1529,7 @@ export default function App() {
                       <Monitor className="w-3.5 h-3.5 text-emerald-600" /> PC (Chrome / Edge)
                     </div>
                     <p className="text-[11px] text-slate-500 leading-normal">
-                      Na nova aba, clique no ícone de tela na barra de endereço (canto direito da URL) → <strong>"Instalar DocPlus+"</strong>.
+                      Na nova aba, clique no ícone de tela na barra de endereço (canto direito da URL) → <strong>"Instalar OrbiDoc"</strong>.
                     </p>
                   </div>
                 </div>
@@ -1542,7 +1542,7 @@ export default function App() {
                   2. Converter em APK Android (.apk / .aab) via PWABuilder / Web2APK
                 </div>
                 <p className="leading-relaxed">
-                  Deseja gerar um pacote <strong>.APK instalável</strong> ou arquivo para publicar na Google Play Store? O DocPlus+ inclui manifesto WebManifest completo, suporte a ícones maskable e Service Worker otimizado.
+                  Deseja gerar um pacote <strong>.APK instalável</strong> ou arquivo para publicar na Google Play Store? O OrbiDoc inclui manifesto WebManifest completo, suporte a ícones maskable e Service Worker otimizado.
                 </p>
 
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -1570,7 +1570,7 @@ export default function App() {
 
                   <button
                     onClick={() => {
-                      saveAs('/manifest.json', 'docswiss-manifest.json');
+                      saveAs('/manifest.json', 'orbidoc-manifest.json');
                       showNotification('Manifesto WebManifest baixado com sucesso!');
                     }}
                     className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
@@ -1625,7 +1625,7 @@ export default function App() {
           </button>
 
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
-            <DocPlusLogo size="md" showText={true} />
+            <OrbiDocLogo size="md" showText={true} />
           </div>
         </div>
 
@@ -1739,7 +1739,7 @@ export default function App() {
               >
                 <div>
                   <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-4">
-                    <DocPlusLogo size="md" showText={true} />
+                    <OrbiDocLogo size="md" showText={true} />
                     <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                       <X className="w-5 h-5" />
                     </button>
@@ -1783,7 +1783,7 @@ export default function App() {
 
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium text-center">
-                    DocPlus+ Studio Office — Pronto para Uso
+                    OrbiDoc Studio Office — Pronto para Uso
                   </div>
                 </div>
               </motion.div>
@@ -2037,8 +2037,8 @@ export default function App() {
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => {
-                            const fullChatText = chatMessages.map(m => `${m.role === 'user' ? 'Usuário' : 'DocPlus+'}: ${cleanAsterisks(m.content)}`).join('\n\n');
-                            openCustomPdf(fullChatText, 'Conversa DocPlus+ IA');
+                            const fullChatText = chatMessages.map(m => `${m.role === 'user' ? 'Usuário' : 'OrbiDoc'}: ${cleanAsterisks(m.content)}`).join('\n\n');
+                            openCustomPdf(fullChatText, 'Conversa OrbiDoc IA');
                           }}
                           className="px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-indigo-100 transition-all"
                         >
@@ -2074,13 +2074,13 @@ export default function App() {
                       onDeleteSession={(id) => {
                         const updated = chatSessions.filter(s => s.id !== id);
                         setChatSessions(updated);
-                        localStorage.setItem('docplus_chat_sessions', JSON.stringify(updated));
+                        localStorage.setItem('orbidoc_chat_sessions', JSON.stringify(updated));
                         showNotification('Sessão removida do histórico.');
                       }}
                       onClearAllSessions={() => {
                         setChatSessions([]);
-                        localStorage.removeItem('docplus_chat_sessions');
-                        localStorage.removeItem('docswiss_chat_sessions');
+                        localStorage.removeItem('orbidoc_chat_sessions');
+                        localStorage.removeItem('orbidoc_chat_sessions');
                         showNotification('Histórico de chats limpo com sucesso.');
                       }}
                       onExportPdf={(sessionText, title) => {
@@ -2184,13 +2184,13 @@ export default function App() {
 
                                       <div className="flex items-center gap-1.5">
                                         <button
-                                          onClick={() => exportAsMd(msg.content, 'Resposta_DocPlus')}
+                                          onClick={() => exportAsMd(msg.content, 'Resposta_OrbiDoc')}
                                           className="hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold px-2 py-1 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-md transition-colors"
                                         >
                                           <FileOutput className="w-3.5 h-3.5" /> .md
                                         </button>
                                         <button
-                                          onClick={() => openCustomPdf(msg.content, 'Resposta DocPlus+ IA')}
+                                          onClick={() => openCustomPdf(msg.content, 'Resposta OrbiDoc IA')}
                                           className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold px-2 py-1 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-md transition-colors"
                                         >
                                           <FileOutput className="w-3.5 h-3.5" /> PDF
@@ -2579,7 +2579,7 @@ export default function App() {
                 historyRecords={historyItems}
                 onOpenTool={(tool) => setActiveTab(tool)}
                 showNotification={showNotification}
-                userEmail="usuario@docplus.com"
+                userEmail="usuario@orbidoc.com"
               />
             )}
 
@@ -2606,7 +2606,7 @@ export default function App() {
 
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>DocPlus+ Workspace</span>
+              <span>OrbiDoc Workspace</span>
             </div>
           </footer>
         </main>
@@ -2724,7 +2724,7 @@ export default function App() {
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
                 <Terminal className="w-5 h-5" />
-                <span>Atalhos do Teclado DocPlus+</span>
+                <span>Atalhos do Teclado OrbiDoc</span>
               </div>
               <button onClick={() => setShowShortcutsModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
                 <X className="w-5 h-5" />

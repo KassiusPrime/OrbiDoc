@@ -9,8 +9,8 @@ interface PowerPointStudioProps {
   engineModel?: string;
 }
 
-const PROJECTS_KEY = 'docswiss_projects_v1';
-const ACTIVE_KEY = 'docswiss_active_powerpoint_project';
+const PROJECTS_KEY = 'orbidoc_projects_v1';
+const ACTIVE_KEY = 'orbidoc_active_powerpoint_project';
 
 const resolveProject = (): SavedProject => {
   let projects: SavedProject[] = [];
@@ -36,7 +36,7 @@ export const PowerPointStudio: React.FC<PowerPointStudioProps> = ({ onSaveToHist
       const exists = projects.some((item) => item.id === updated.id);
       localStorage.setItem(PROJECTS_KEY, JSON.stringify(exists ? projects.map((item) => item.id === updated.id ? updated : item) : [updated, ...projects]));
       localStorage.setItem(ACTIVE_KEY, updated.id);
-      window.dispatchEvent(new CustomEvent('docswiss:projects-updated', { detail: updated }));
+      window.dispatchEvent(new CustomEvent('orbidoc:projects-updated', { detail: updated }));
     } catch (error) {
       console.warn('Falha ao atualizar projeto da apresentação:', error);
     }

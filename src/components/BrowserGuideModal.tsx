@@ -11,7 +11,7 @@ import {
   Smartphone,
   X,
 } from 'lucide-react';
-import { DocPlusLogo } from './DocPlusLogo';
+import { OrbiDocLogo } from './OrbiDocLogo';
 
 interface BrowserGuideModalProps {
   isOpen: boolean;
@@ -59,7 +59,7 @@ export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
   };
 
   const resetPwa = async () => {
-    if (!window.confirm('Isso removerá os caches do DocSwiss neste navegador e recarregará o app. Seus arquivos salvos em localStorage não serão apagados, mas conteúdos offline em cache precisarão ser baixados novamente. Continuar?')) return;
+    if (!window.confirm('Isso removerá os caches do OrbiDoc neste navegador e recarregará o app. Seus arquivos salvos em localStorage não serão apagados, mas conteúdos offline em cache precisarão ser baixados novamente. Continuar?')) return;
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(registrations.map((registration) => registration.unregister()));
@@ -84,9 +84,9 @@ export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
       <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
         <header className="p-5 sm:p-6 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="flex items-center gap-3 min-w-0">
-            <DocPlusLogo size="md" showText={false} />
+            <OrbiDocLogo size="md" showText={false} />
             <div className="min-w-0">
-              <h2 className="text-lg sm:text-xl font-black text-slate-950 dark:text-white truncate">Instalação do DocSwiss</h2>
+              <h2 className="text-lg sm:text-xl font-black text-slate-950 dark:text-white truncate">Instalação do OrbiDoc</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">PWA, WebAPK do Chrome e pacote Android TWA são caminhos diferentes.</p>
             </div>
           </div>
@@ -123,17 +123,17 @@ export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Info title="Sem barra do navegador" text="O modo standalone abre o DocSwiss em uma janela própria, usando o ícone e o nome do manifesto." />
+                <Info title="Sem barra do navegador" text="O modo standalone abre o OrbiDoc em uma janela própria, usando o ícone e o nome do manifesto." />
                 <Info title="Atualizações automáticas" text="O service worker atualiza os arquivos da aplicação sem exigir download manual de uma nova versão." />
                 <Info title="Offline parcial" text="Editores e recursos armazenados no cache continuam disponíveis; serviços de IA e nuvem continuam dependentes de rede." />
               </div>
 
               {!isInstalled && deferredPrompt && onTriggerInstall ? (
-                <button onClick={onTriggerInstall} className="h-12 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black inline-flex items-center gap-2"><Download className="w-4 h-4" /> Instalar DocSwiss agora</button>
+                <button onClick={onTriggerInstall} className="h-12 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black inline-flex items-center gap-2"><Download className="w-4 h-4" /> Instalar OrbiDoc agora</button>
               ) : isInstalled ? (
-                <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" /><div><strong className="text-emerald-800 dark:text-emerald-200">O DocSwiss já está em modo instalado.</strong><p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">Se o ícone/nome ainda estiver antigo, atualize ou reinstale após a nova versão entrar em produção.</p></div></div>
+                <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" /><div><strong className="text-emerald-800 dark:text-emerald-200">O OrbiDoc já está em modo instalado.</strong><p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">Se o ícone/nome ainda estiver antigo, atualize ou reinstale após a nova versão entrar em produção.</p></div></div>
               ) : (
-                <div className="rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 text-xs leading-relaxed">Se o botão de instalação não aparecer, abra o DocSwiss diretamente em uma aba HTTPS do Chrome/Edge. Em visualizações incorporadas ou navegadores sem evento de instalação, use o menu do navegador.</div>
+                <div className="rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 text-xs leading-relaxed">Se o botão de instalação não aparecer, abra o OrbiDoc diretamente em uma aba HTTPS do Chrome/Edge. Em visualizações incorporadas ou navegadores sem evento de instalação, use o menu do navegador.</div>
               )}
             </div>
           )}
@@ -142,12 +142,12 @@ export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
             <div className="space-y-5">
               <div>
                 <h3 className="text-lg font-black text-slate-950 dark:text-white">Android: PWA → WebAPK pelo Chrome</h3>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">WebAPK é o pacote criado e administrado pelo Chrome/Google Play quando uma PWA elegível é instalada. Você não baixa esse APK do DocSwiss nem precisa de Digital Asset Links para esse fluxo.</p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">WebAPK é o pacote criado e administrado pelo Chrome/Google Play quando uma PWA elegível é instalada. Você não baixa esse APK do OrbiDoc nem precisa de Digital Asset Links para esse fluxo.</p>
               </div>
               <ol className="space-y-3 text-sm">
                 <Step n="1" text="Abra https://doc-swiss.vercel.app diretamente no Chrome do Android, fora de iframe ou navegador interno de outro app." />
                 <Step n="2" text="Use “Instalar app” no menu do Chrome ou o prompt de instalação que o próprio site exibir." />
-                <Step n="3" text="Confirme o nome DocSwiss e o ícone. O manifesto usa ícones separados para uso normal e maskable, evitando recorte/genericização." />
+                <Step n="3" text="Confirme o nome OrbiDoc e o ícone. O manifesto usa ícones separados para uso normal e maskable, evitando recorte/genericização." />
                 <Step n="4" text="Depois de atualizar o manifesto/ícone, uma instalação antiga pode manter metadados em cache. Nesse caso remova a instalação antiga e instale novamente." />
               </ol>
               <div className="rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 p-4 text-xs leading-relaxed text-indigo-800 dark:text-indigo-200"><strong>Importante:</strong> “Adicionar à tela inicial” pode criar apenas um atalho em alguns navegadores. A experiência WebAPK completa depende do Chrome considerar a PWA instalável.</div>
@@ -165,9 +165,9 @@ export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
                 <div className="p-4 bg-slate-50 dark:bg-slate-950 font-black text-slate-900 dark:text-white">Fluxo correto</div>
                 <div className="p-4 space-y-3">
                   <Step n="1" text="Gere o pacote usando a URL canônica de produção, não uma URL temporária de preview protegida." />
-                  <Step n="2" text="Defina um package name estável (por exemplo app.docswiss.workspace) e gere/guarde a chave de assinatura Android." />
+                  <Step n="2" text="Defina um package name estável (por exemplo app.orbidoc.workspace) e gere/guarde a chave de assinatura Android." />
                   <Step n="3" text="Copie o SHA-256 do certificado de assinatura para ANDROID_SHA256_CERT_FINGERPRINT e o package para ANDROID_PACKAGE_NAME no ambiente de produção." />
-                  <Step n="4" text="Faça novo deploy. O build do DocSwiss gera /.well-known/assetlinks.json automaticamente e o CI valida a estrutura." />
+                  <Step n="4" text="Faça novo deploy. O build do OrbiDoc gera /.well-known/assetlinks.json automaticamente e o CI valida a estrutura." />
                   <Step n="5" text="Só depois disso a TWA consegue verificar o domínio e remover corretamente a barra do navegador." />
                 </div>
               </div>
@@ -177,7 +177,7 @@ export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
                 <button onClick={() => navigator.clipboard.writeText(CANONICAL_URL)} className="h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-black text-slate-700 dark:text-slate-200">Copiar URL canônica</button>
               </div>
 
-              <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-4 text-xs leading-relaxed text-amber-800 dark:text-amber-200"><strong>Não existe fingerprint universal:</strong> o SHA-256 depende da chave que assina seu APK/AAB. O DocSwiss agora gera assetlinks automaticamente quando esses dois valores reais são configurados.</div>
+              <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-4 text-xs leading-relaxed text-amber-800 dark:text-amber-200"><strong>Não existe fingerprint universal:</strong> o SHA-256 depende da chave que assina seu APK/AAB. O OrbiDoc agora gera assetlinks automaticamente quando esses dois valores reais são configurados.</div>
             </div>
           )}
 
@@ -188,9 +188,9 @@ export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">iOS não usa WebAPK. A instalação é feita pelo Safari como Web App na Tela de Início.</p>
               </div>
               <ol className="space-y-3">
-                <Step n="1" text="Abra o DocSwiss no Safari." />
+                <Step n="1" text="Abra o OrbiDoc no Safari." />
                 <Step n="2" text="Toque em Compartilhar." />
-                <Step n="3" text="Escolha “Adicionar à Tela de Início” e confirme DocSwiss." />
+                <Step n="3" text="Escolha “Adicionar à Tela de Início” e confirme OrbiDoc." />
                 <Step n="4" text="O apple-touch-icon e os metadados do site são usados para a identidade visual da instalação." />
               </ol>
             </div>
@@ -219,7 +219,7 @@ export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
         </main>
 
         <footer className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs text-slate-500">
-          <span>DocSwiss · PWA offline-first · Android WebAPK / TWA preparados separadamente</span>
+          <span>OrbiDoc · PWA offline-first · Android WebAPK / TWA preparados separadamente</span>
           <button onClick={onClose} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold">Fechar</button>
         </footer>
       </div>

@@ -60,7 +60,7 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
     try {
       if (exportFormat === 'zip') {
         const zip = new JSZip();
-        const docsFolder = zip.folder('Documentos_DocPlus');
+        const docsFolder = zip.folder('Documentos_OrbiDoc');
 
         selected.forEach((proj, i) => {
           const fileName = `${proj.title.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
@@ -92,7 +92,7 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
         setExportProgress(85);
         const content = await zip.generateAsync({ type: 'blob' });
         setExportProgress(100);
-        saveAs(content, `DocPlus_Exportacao_Lote_${Date.now()}.zip`);
+        saveAs(content, `OrbiDoc_Exportacao_Lote_${Date.now()}.zip`);
         showNotification(`${selected.length} projeto(s) exportado(s) em arquivo ZIP com sucesso!`, 'success');
       } else {
         // Merged PDF export
@@ -138,7 +138,7 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
         });
 
         setExportProgress(100);
-        pdf.save(`DocPlus_Relatorio_Unificado_${Date.now()}.pdf`);
+        pdf.save(`OrbiDoc_Relatorio_Unificado_${Date.now()}.pdf`);
         showNotification(`Relatório PDF unificado com ${selected.length} documento(s) gerado!`, 'success');
       }
 

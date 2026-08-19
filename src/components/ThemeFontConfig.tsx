@@ -34,7 +34,7 @@ const ACCENT_COLORS = [
 ];
 
 const THEME_PRESETS: { id: AppThemePreset; name: string; emoji: string; desc: string; bgClass: string; accentHex: string }[] = [
-  { id: 'swiss', name: 'DocPlus+ Classic', emoji: '🇨🇭', desc: 'Minimalismo Suíço de alta precisão', bgClass: 'from-slate-900 to-indigo-950', accentHex: '#6366f1' },
+  { id: 'swiss', name: 'OrbiDoc Classic', emoji: '🇨🇭', desc: 'Minimalismo Suíço de alta precisão', bgClass: 'from-slate-900 to-indigo-950', accentHex: '#6366f1' },
   { id: 'emerald', name: 'Emerald Forest', emoji: '🌲', desc: 'Verde calmo para alta produtividade', bgClass: 'from-slate-900 to-emerald-950', accentHex: '#10b981' },
   { id: 'sunset', name: 'Sunset Dusk', emoji: '🌅', desc: 'Degradê quente de pôr do sol', bgClass: 'from-rose-950 to-amber-950', accentHex: '#f43f5e' },
   { id: 'nordic', name: 'Nordic Ice', emoji: '❄️', desc: 'Frequência azul gélida e focada', bgClass: 'from-slate-950 to-cyan-950', accentHex: '#06b6d4' },
@@ -57,27 +57,27 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
   onForceSave
 }) => {
   const [themeMode, setThemeMode] = useState<AppThemeMode>(() => {
-    return (localStorage.getItem('docplus_theme_mode') as AppThemeMode) || (localStorage.getItem('docswiss_theme_mode') as AppThemeMode) || 'auto';
+    return (localStorage.getItem('orbidoc_theme_mode') as AppThemeMode) || (localStorage.getItem('orbidoc_theme_mode') as AppThemeMode) || 'auto';
   });
 
   const [themePreset, setThemePreset] = useState<AppThemePreset>(() => {
-    return (localStorage.getItem('docplus_theme_preset') as AppThemePreset) || 'swiss';
+    return (localStorage.getItem('orbidoc_theme_preset') as AppThemePreset) || 'swiss';
   });
 
   const [accentColor, setAccentColor] = useState<string>(() => {
-    return localStorage.getItem('docplus_accent_color') || '#6366f1';
+    return localStorage.getItem('orbidoc_accent_color') || '#6366f1';
   });
 
   const [fontFamily, setFontFamily] = useState<AppFontFamily>(() => {
-    return (localStorage.getItem('docplus_font_family') as AppFontFamily) || (localStorage.getItem('docswiss_font_family') as AppFontFamily) || 'sans';
+    return (localStorage.getItem('orbidoc_font_family') as AppFontFamily) || (localStorage.getItem('orbidoc_font_family') as AppFontFamily) || 'sans';
   });
 
   const [fontSize, setFontSize] = useState<AppFontSize>(() => {
-    return (localStorage.getItem('docplus_font_size') as AppFontSize) || (localStorage.getItem('docswiss_font_size') as AppFontSize) || 'normal';
+    return (localStorage.getItem('orbidoc_font_size') as AppFontSize) || (localStorage.getItem('orbidoc_font_size') as AppFontSize) || 'normal';
   });
 
   const [cornerRadius, setCornerRadius] = useState<AppCornerRadius>(() => {
-    return (localStorage.getItem('docplus_corner_radius') as AppCornerRadius) || 'rounded';
+    return (localStorage.getItem('orbidoc_corner_radius') as AppCornerRadius) || 'rounded';
   });
 
   const [activeTab, setActiveTab] = useState<'theme' | 'autosave' | 'cloud'>('theme');
@@ -85,8 +85,8 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
 
   // Apply Theme Mode (Dark / Light / Auto)
   useEffect(() => {
-    localStorage.setItem('docplus_theme_mode', themeMode);
-    localStorage.setItem('docswiss_theme_mode', themeMode);
+    localStorage.setItem('orbidoc_theme_mode', themeMode);
+    localStorage.setItem('orbidoc_theme_mode', themeMode);
 
     const applyTheme = (isDark: boolean) => {
       if (isDark) {
@@ -111,16 +111,16 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
 
   // Apply Theme Preset & Accent Color
   useEffect(() => {
-    localStorage.setItem('docplus_theme_preset', themePreset);
-    localStorage.setItem('docplus_accent_color', accentColor);
+    localStorage.setItem('orbidoc_theme_preset', themePreset);
+    localStorage.setItem('orbidoc_accent_color', accentColor);
     document.documentElement.setAttribute('data-theme-preset', themePreset);
     document.documentElement.style.setProperty('--accent-color', accentColor);
   }, [themePreset, accentColor]);
 
   // Apply Font Family
   useEffect(() => {
-    localStorage.setItem('docplus_font_family', fontFamily);
-    localStorage.setItem('docswiss_font_family', fontFamily);
+    localStorage.setItem('orbidoc_font_family', fontFamily);
+    localStorage.setItem('orbidoc_font_family', fontFamily);
 
     const fontFamilies = {
       sans: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
@@ -135,8 +135,8 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
 
   // Apply Font Size
   useEffect(() => {
-    localStorage.setItem('docplus_font_size', fontSize);
-    localStorage.setItem('docswiss_font_size', fontSize);
+    localStorage.setItem('orbidoc_font_size', fontSize);
+    localStorage.setItem('orbidoc_font_size', fontSize);
 
     const fontScales = {
       compact: '14px',
@@ -149,7 +149,7 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
 
   // Apply Corner Radius
   useEffect(() => {
-    localStorage.setItem('docplus_corner_radius', cornerRadius);
+    localStorage.setItem('orbidoc_corner_radius', cornerRadius);
     document.documentElement.setAttribute('data-radius', cornerRadius);
   }, [cornerRadius]);
 
@@ -158,7 +158,7 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
     setCloudSyncing(true);
     try {
       await saveUserSettingsToFirestore({
-        userEmail: userEmail || 'invitado@docplus.com',
+        userEmail: userEmail || 'invitado@orbidoc.com',
         themeMode,
         themePreset,
         accentColor,
@@ -200,7 +200,7 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
                     Firestore Sync
                   </span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Personalize a experiência e regras do DocPlus+</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Personalize a experiência e regras do OrbiDoc</p>
               </div>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
@@ -480,7 +480,7 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
                     Sua conta está integrada ao banco de dados em tempo real do Google Firebase. Todos os documentos auto-salvos são mantidos na nuvem de forma segura.
                   </p>
                   <div className="p-3 bg-white/80 dark:bg-slate-900/80 rounded-xl text-[11px] font-mono text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
-                    Database ID: <span className="text-indigo-600 dark:text-indigo-400 font-bold">ai-studio-docswiss-116c7e86-02a0-4cef-95a3-4f36aa66518a</span>
+                    Database ID: <span className="text-indigo-600 dark:text-indigo-400 font-bold">ai-studio-orbidoc-116c7e86-02a0-4cef-95a3-4f36aa66518a</span>
                   </div>
                 </div>
 
@@ -498,7 +498,7 @@ export const ThemeFontConfig: React.FC<ThemeFontConfigProps> = ({
 
           {/* Footer Actions */}
           <div className="p-4 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-400">DocPlus+ Studio Engine</span>
+            <span className="text-slate-400">OrbiDoc Studio Engine</span>
             <button
               onClick={() => {
                 handleSaveToCloud();

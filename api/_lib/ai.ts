@@ -104,7 +104,7 @@ function chooseFallback(requested: ProviderId): ProviderId | null {
 
 function prepareGeminiPayload(messages: ChatMessage[], systemPromptOverride?: string, files?: any[]) {
   let systemInstruction = systemPromptOverride ||
-    'Você é o assistente do DocSwiss. Analise documentos, escreva, revise e explique com precisão. Preserve a formatação solicitada, deixe limitações explícitas e não invente fatos.';
+    'Você é o assistente do OrbiDoc. Analise documentos, escreva, revise e explique com precisão. Preserve a formatação solicitada, deixe limitações explícitas e não invente fatos.';
   const contents: any[] = [];
 
   for (const message of messages) {
@@ -148,7 +148,7 @@ async function requestOpenRouter(messages: ChatMessage[], requestedModel: string
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
-          'X-Title': 'DocSwiss',
+          'X-Title': 'OrbiDoc',
         },
         body: JSON.stringify({ model, messages, stream }),
       });
@@ -396,7 +396,7 @@ export function getModelCatalog() {
 export function getHealth() {
   return {
     status: 'ok',
-    app: 'DocSwiss',
+    app: 'OrbiDoc',
     ai: {
       gemini: providerEnabled('gemini'),
       openrouter: providerEnabled('openrouter'),

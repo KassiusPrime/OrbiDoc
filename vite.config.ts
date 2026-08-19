@@ -149,8 +149,8 @@ export default defineConfig({
       },
       manifest: {
         id: "/",
-        name: "DocSwiss",
-        short_name: "DocSwiss",
+        name: "OrbiDoc",
+        short_name: "OrbiDoc",
         description: "Workspace para documentos, planilhas, apresentações, PDF, OCR, conversão de arquivos e IA.",
         lang: "pt-BR",
         dir: "ltr",

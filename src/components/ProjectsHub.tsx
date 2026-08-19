@@ -8,7 +8,7 @@ interface ProjectsHubProps {
   showNotification?: (message: string, type?: 'success' | 'error') => void;
 }
 
-const PROJECTS_KEY = 'docswiss_projects_v1';
+const PROJECTS_KEY = 'orbidoc_projects_v1';
 
 const readProjects = (): SavedProject[] => {
   try {
@@ -28,10 +28,10 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
 
   useEffect(() => {
     const refresh = () => setProjects(readProjects());
-    window.addEventListener('docswiss:projects-updated', refresh);
+    window.addEventListener('orbidoc:projects-updated', refresh);
     window.addEventListener('focus', refresh);
     return () => {
-      window.removeEventListener('docswiss:projects-updated', refresh);
+      window.removeEventListener('orbidoc:projects-updated', refresh);
       window.removeEventListener('focus', refresh);
     };
   }, []);
@@ -39,7 +39,7 @@ export const ProjectsHub: React.FC<ProjectsHubProps> = ({
   const commit = (next: SavedProject[]) => {
     setProjects(next);
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(next));
-    window.dispatchEvent(new CustomEvent('docswiss:projects-updated'));
+    window.dispatchEvent(new CustomEvent('orbidoc:projects-updated'));
   };
 
   const updateProject = (project: SavedProject) => {

@@ -127,7 +127,7 @@ export const SpreadsheetEditorPro: React.FC<SpreadsheetEditorProProps> = ({
   engineProvider = 'gemini',
   engineModel = 'gemini-3.6-flash',
 }) => {
-  const storageKey = `docswiss_spreadsheet_v3_${project.id}`;
+  const storageKey = `orbidoc_spreadsheet_v3_${project.id}`;
   const inputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(project.title || 'Nova planilha');
   const [workbook, setWorkbook] = useState<WorkbookState>(() => {
