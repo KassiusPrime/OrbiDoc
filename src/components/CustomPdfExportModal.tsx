@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { saveAs } from 'file-saver';
-import { X, FileOutput, CloudUpload, Check, FileText, Settings, Eye, Palette, Sparkles, Loader2 } from 'lucide-react';
-import { PdfExportOptions, GoogleUserProfile } from '../types';
-import { cleanMarkdownForExport } from '../lib/cleanText';
+import {
+  X,
+  FileOutput,
+  CloudUpload,
+  Check,
+  Loader2,
+  Heading1,
+  List,
+  Quote,
+  Code2,
+} from 'lucide-react';
+import { GoogleUserProfile } from '../types';
 import { uploadToGoogleDrive } from '../services/googleAuthDrive';
 
 interface CustomPdfExportModalProps {
@@ -14,6 +22,133 @@ interface CustomPdfExportModalProps {
   googleUser: GoogleUserProfile | null;
   onNotification: (msg: string, type?: 'success' | 'error') => void;
 }
+
+type PdfBlockType =
+  | 'heading1'
+  | 'heading2'
+  | 'heading3'
+  | 'paragraph'
+  | 'bullet'
+  | 'numbered'
+  | 'quote'
+  | 'code'
+  | 'divider'
+  | 'blank';
+
+interface PdfBlock {
+  type: PdfBlockType;
+  text: string;
+  marker?: string;
+}
+
+const stripInlineMarkdown = (value: string) => value
+  .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+  .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+  .replace(/<\/?(?:mark|span|p|div|strong|em|u|s)(?:\s+[^>]*)?>/gi, '')
+  .replace(/\*\*(.*?)\*\*/g, '$1')
+  .replace(/__(.*?)__/g, '$1')
+  .replace(/~~(.*?)~~/g, '$1')
+  .replace(/`([^`]+)`/g, '$1')
+  .replace(/\*(.*?)\*/g, '$1')
+  .replace(/_(.*?)_/g, '$1')
+  .replace(/<[^>]+>/g, '')
+  .trim();
+
+const parseMarkdownBlocks = (value: string): PdfBlock[] => {
+  if (!value.trim()) return [{ type: 'paragraph', text: '' }];
+
+  const blocks: PdfBlock[] = [];
+  const lines = value.replace(/\r\n?/g, '\n').split('\n');
+  let inCode = false;
+  let codeLines: string[] = [];
+
+  const flushCode = () => {
+    if (!codeLines.length) return;
+    blocks.push({ type: 'code', text: codeLines.join('\n') });
+    codeLines = [];
+  };
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+
+    if (/^```/.test(trimmed)) {
+      if (inCode) flushCode();
+      inCode = !inCode;
+      continue;
+    }
+
+    if (inCode) {
+      codeLines.push(rawLine);
+      continue;
+    }
+
+    if (!trimmed) {
+      blocks.push({ type: 'blank', text: '' });
+      continue;
+    }
+
+    if (/^(---+|___+|\*\*\*+)$/.test(trimmed)) {
+      blocks.push({ type: 'divider', text: '' });
+      continue;
+    }
+
+    const h1 = trimmed.match(/^#\s+(.+)$/);
+    if (h1) {
+      blocks.push({ type: 'heading1', text: stripInlineMarkdown(h1[1]) });
+      continue;
+    }
+
+    const h2 = trimmed.match(/^##\s+(.+)$/);
+    if (h2) {
+      blocks.push({ type: 'heading2', text: stripInlineMarkdown(h2[1]) });
+      continue;
+    }
+
+    const h3 = trimmed.match(/^###\s+(.+)$/);
+    if (h3) {
+      blocks.push({ type: 'heading3', text: stripInlineMarkdown(h3[1]) });
+      continue;
+    }
+
+    const bullet = trimmed.match(/^[-*•]\s+(.+)$/);
+    if (bullet) {
+      blocks.push({ type: 'bullet', text: stripInlineMarkdown(bullet[1]), marker: '•' });
+      continue;
+    }
+
+    const numbered = trimmed.match(/^(\d+[.)])\s+(.+)$/);
+    if (numbered) {
+      blocks.push({ type: 'numbered', text: stripInlineMarkdown(numbered[2]), marker: numbered[1] });
+      continue;
+    }
+
+    const quote = trimmed.match(/^>\s?(.*)$/);
+    if (quote) {
+      blocks.push({ type: 'quote', text: stripInlineMarkdown(quote[1]) });
+      continue;
+    }
+
+    blocks.push({ type: 'paragraph', text: stripInlineMarkdown(trimmed) });
+  }
+
+  if (inCode) flushCode();
+  return blocks;
+};
+
+const hexToRgb = (hex: string): [number, number, number] => {
+  const normalized = hex.replace('#', '');
+  const value = Number.parseInt(normalized.length === 3
+    ? normalized.split('').map((char) => char + char).join('')
+    : normalized, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+};
+
+const safeFilename = (value: string) => value
+  .trim()
+  .replace(/[\\/:*?"<>|]+/g, '-')
+  .replace(/\s+/g, '_')
+  .replace(/_+/g, '_')
+  .replace(/^_+|_+$/g, '') || 'documento';
 
 export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
   isOpen,
@@ -27,7 +162,7 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
   const [subtitle, setSubtitle] = useState('');
   const [author, setAuthor] = useState(googleUser?.name || 'DocPlus+ User');
   const [fontFamily, setFontFamily] = useState<'helvetica' | 'times' | 'courier'>('helvetica');
-  const [fontSize, setFontSize] = useState<number>(11);
+  const [fontSize, setFontSize] = useState(11);
   const [margin, setMargin] = useState<'narrow' | 'normal' | 'wide'>('normal');
   const [themeColor, setThemeColor] = useState<'indigo' | 'swiss-red' | 'emerald' | 'slate' | 'navy'>('indigo');
   const [showPageNumbers, setShowPageNumbers] = useState(true);
@@ -35,6 +170,8 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
   const [watermark, setWatermark] = useState('');
   const [lineSpacing, setLineSpacing] = useState(1.4);
   const [isSavingDrive, setIsSavingDrive] = useState(false);
+
+  const parsedBlocks = useMemo(() => parseMarkdownBlocks(initialText), [initialText]);
 
   if (!isOpen) return null;
 
@@ -44,129 +181,260 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
     emerald: '#059669',
     slate: '#334155',
     navy: '#1E3A8A',
-  };
+  } as const;
 
   const selectedHex = colorHexes[themeColor];
+  const selectedRgb = hexToRgb(selectedHex);
 
   const getMarginMm = () => {
-    switch (margin) {
-      case 'narrow': return 10;
-      case 'wide': return 25;
-      default: return 15;
-    }
+    if (margin === 'narrow') return 10;
+    if (margin === 'wide') return 25;
+    return 15;
   };
 
   const generatePdfBlob = (): { doc: jsPDF; blob: Blob } => {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const marginMm = getMarginMm();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const contentWidth = pageWidth - marginMm * 2;
+    const footerReserve = 13;
+    const bottomLimit = pageHeight - marginMm - footerReserve;
+    let currentY = marginMm;
+    let pageNum = 1;
 
-    let currentY = marginMm + 10;
-
-    // Header Accent Bar
-    doc.setFillColor(selectedHex);
-    doc.rect(marginMm, marginMm, contentWidth, 3, 'F');
-    currentY += 6;
-
-    // Title
-    doc.setFont(fontFamily, 'bold');
-    doc.setFontSize(fontSize + 8);
-    doc.setTextColor(30, 41, 59);
-    doc.text(title || 'Documento DocPlus+', marginMm, currentY);
-    currentY += 8;
-
-    // Subtitle / Author Meta
-    if (subtitle || author || showDate) {
-      doc.setFont(fontFamily, 'italic');
-      doc.setFontSize(fontSize - 1);
-      doc.setTextColor(100, 116, 139);
-
-      let metaString = '';
-      if (author) metaString += `Por: ${author}`;
-      if (showDate) metaString += ` • ${new Date().toLocaleDateString('pt-BR')}`;
-      if (subtitle) metaString = `${subtitle} ${metaString ? '| ' + metaString : ''}`;
-
-      doc.text(metaString, marginMm, currentY);
-      currentY += 8;
-    }
-
-    // Divider Line
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.5);
-    doc.line(marginMm, currentY, pageWidth - marginMm, currentY);
-    currentY += 8;
-
-    // Watermark
-    if (watermark) {
+    const drawWatermark = () => {
+      if (!watermark.trim()) return;
       doc.setFont(fontFamily, 'bold');
-      doc.setFontSize(36);
-      doc.setTextColor(240, 240, 245);
-      doc.text(watermark.toUpperCase(), pageWidth / 2, pageHeight / 2, {
+      doc.setFontSize(34);
+      doc.setTextColor(232, 236, 242);
+      doc.text(watermark.trim().toUpperCase(), pageWidth / 2, pageHeight / 2, {
         align: 'center',
         angle: 35,
       });
-    }
+    };
 
-    // Content Body
-    const cleanedContent = cleanMarkdownForExport(initialText);
-    doc.setFont(fontFamily, 'normal');
-    doc.setFontSize(fontSize);
-    doc.setTextColor(15, 23, 42);
+    const drawFooter = () => {
+      if (!showPageNumbers) return;
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.25);
+      doc.line(marginMm, pageHeight - marginMm - 5, pageWidth - marginMm, pageHeight - marginMm - 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text('DocPlus+ Studio', marginMm, pageHeight - marginMm);
+      doc.text(`Página ${pageNum}`, pageWidth - marginMm, pageHeight - marginMm, { align: 'right' });
+    };
 
-    const splitLines = doc.splitTextToSize(cleanedContent, contentWidth);
-    const lineStep = (fontSize * 0.35) * lineSpacing;
+    const newPage = () => {
+      drawFooter();
+      doc.addPage();
+      pageNum += 1;
+      currentY = marginMm + 5;
+      drawWatermark();
+    };
 
-    let pageNum = 1;
+    const ensureSpace = (height: number) => {
+      if (currentY + height > bottomLimit) newPage();
+    };
 
-    splitLines.forEach((line: string) => {
-      if (currentY + lineStep > pageHeight - marginMm - 10) {
-        // Add Page Footer
-        if (showPageNumbers) {
-          doc.setFontSize(9);
-          doc.setTextColor(148, 163, 184);
-          doc.text(`Página ${pageNum}`, pageWidth - marginMm, pageHeight - marginMm, { align: 'right' });
-          doc.text(`DocPlus+ Studio`, marginMm, pageHeight - marginMm);
-        }
+    const writeWrapped = (
+      text: string,
+      options: {
+        x?: number;
+        width?: number;
+        size?: number;
+        style?: 'normal' | 'bold' | 'italic' | 'bolditalic';
+        family?: 'helvetica' | 'times' | 'courier';
+        color?: [number, number, number];
+        lineHeightMultiplier?: number;
+        after?: number;
+      } = {},
+    ) => {
+      const x = options.x ?? marginMm;
+      const width = options.width ?? contentWidth;
+      const size = options.size ?? fontSize;
+      const family = options.family ?? fontFamily;
+      const style = options.style ?? 'normal';
+      const color = options.color ?? [15, 23, 42];
+      const lineHeight = size * 0.3528 * (options.lineHeightMultiplier ?? lineSpacing);
+      const lines = doc.splitTextToSize(text || ' ', width) as string[];
 
-        doc.addPage();
-        pageNum++;
-        currentY = marginMm + 10;
+      doc.setFont(family, style);
+      doc.setFontSize(size);
+      doc.setTextColor(...color);
 
-        // Watermark on new page
-        if (watermark) {
-          doc.setFont(fontFamily, 'bold');
-          doc.setFontSize(36);
-          doc.setTextColor(240, 240, 245);
-          doc.text(watermark.toUpperCase(), pageWidth / 2, pageHeight / 2, {
-            align: 'center',
-            angle: 35,
-          });
-        }
-
-        doc.setFont(fontFamily, 'normal');
-        doc.setFontSize(fontSize);
-        doc.setTextColor(15, 23, 42);
+      for (const line of lines) {
+        ensureSpace(lineHeight + 1);
+        doc.text(line, x, currentY);
+        currentY += lineHeight;
       }
+      currentY += options.after ?? 1.4;
+      return lines.length;
+    };
 
-      doc.text(line, marginMm, currentY);
-      currentY += lineStep;
+    drawWatermark();
+
+    doc.setFillColor(...selectedRgb);
+    doc.rect(marginMm, marginMm, contentWidth, 3, 'F');
+    currentY = marginMm + 9;
+
+    writeWrapped(title || 'Documento DocPlus+', {
+      size: fontSize + 8,
+      style: 'bold',
+      color: [30, 41, 59],
+      lineHeightMultiplier: 1.05,
+      after: 2,
     });
 
-    // Add Page Footer for final page
-    if (showPageNumbers) {
-      doc.setFontSize(9);
-      doc.setTextColor(148, 163, 184);
-      doc.text(`Página ${pageNum}`, pageWidth - marginMm, pageHeight - marginMm, { align: 'right' });
-      doc.text(`DocPlus+ Studio`, marginMm, pageHeight - marginMm);
+    const metaParts: string[] = [];
+    if (subtitle.trim()) metaParts.push(subtitle.trim());
+    if (author.trim()) metaParts.push(`Por: ${author.trim()}`);
+    if (showDate) metaParts.push(new Date().toLocaleDateString('pt-BR'));
+    if (metaParts.length) {
+      writeWrapped(metaParts.join('  •  '), {
+        size: Math.max(8.5, fontSize - 1),
+        style: 'italic',
+        color: [100, 116, 139],
+        lineHeightMultiplier: 1.15,
+        after: 3,
+      });
     }
 
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.4);
+    doc.line(marginMm, currentY, pageWidth - marginMm, currentY);
+    currentY += 7;
+
+    for (const block of parsedBlocks) {
+      switch (block.type) {
+        case 'blank':
+          currentY += fontSize * 0.22;
+          if (currentY > bottomLimit) newPage();
+          break;
+
+        case 'divider':
+          ensureSpace(6);
+          doc.setDrawColor(203, 213, 225);
+          doc.setLineWidth(0.35);
+          doc.line(marginMm, currentY + 1, pageWidth - marginMm, currentY + 1);
+          currentY += 6;
+          break;
+
+        case 'heading1':
+          ensureSpace(12);
+          currentY += 2;
+          writeWrapped(block.text, {
+            size: fontSize + 5,
+            style: 'bold',
+            color: selectedRgb,
+            lineHeightMultiplier: 1.08,
+            after: 3,
+          });
+          break;
+
+        case 'heading2':
+          ensureSpace(10);
+          currentY += 1.5;
+          writeWrapped(block.text, {
+            size: fontSize + 3,
+            style: 'bold',
+            color: [30, 41, 59],
+            lineHeightMultiplier: 1.1,
+            after: 2.5,
+          });
+          break;
+
+        case 'heading3':
+          ensureSpace(9);
+          currentY += 1;
+          writeWrapped(block.text, {
+            size: fontSize + 1.5,
+            style: 'bold',
+            color: [51, 65, 85],
+            lineHeightMultiplier: 1.1,
+            after: 2,
+          });
+          break;
+
+        case 'bullet':
+        case 'numbered': {
+          const marker = block.type === 'bullet' ? '•' : (block.marker || '1.');
+          const markerWidth = block.type === 'bullet' ? 5 : 9;
+          const textX = marginMm + markerWidth;
+          const textWidth = contentWidth - markerWidth;
+          const size = fontSize;
+          const lineHeight = size * 0.3528 * lineSpacing;
+          const lines = doc.splitTextToSize(block.text, textWidth) as string[];
+          ensureSpace(lineHeight + 1);
+          doc.setFont(fontFamily, 'normal');
+          doc.setFontSize(size);
+          doc.setTextColor(...selectedRgb);
+          doc.text(marker, marginMm + 1, currentY);
+          doc.setTextColor(15, 23, 42);
+          for (const line of lines) {
+            ensureSpace(lineHeight + 1);
+            doc.text(line, textX, currentY);
+            currentY += lineHeight;
+          }
+          currentY += 1.3;
+          break;
+        }
+
+        case 'quote': {
+          const quoteWidth = contentWidth - 8;
+          const size = Math.max(9.5, fontSize - 0.2);
+          const lineHeight = size * 0.3528 * lineSpacing;
+          const lines = doc.splitTextToSize(block.text, quoteWidth) as string[];
+          const estimatedHeight = Math.max(8, lines.length * lineHeight + 4);
+          ensureSpace(estimatedHeight);
+          const startY = currentY - 2;
+          doc.setDrawColor(...selectedRgb);
+          doc.setLineWidth(1.1);
+          doc.line(marginMm + 1, startY, marginMm + 1, startY + estimatedHeight - 1);
+          writeWrapped(block.text, {
+            x: marginMm + 6,
+            width: quoteWidth,
+            size,
+            style: 'italic',
+            color: [71, 85, 105],
+            after: 3,
+          });
+          break;
+        }
+
+        case 'code': {
+          const size = Math.max(8.5, fontSize - 1.5);
+          const x = marginMm + 3;
+          const width = contentWidth - 6;
+          const lineHeight = size * 0.3528 * 1.3;
+          const logicalLines = block.text.split('\n');
+          currentY += 1;
+          for (const logicalLine of logicalLines) {
+            const lines = doc.splitTextToSize(logicalLine || ' ', width - 4) as string[];
+            for (const line of lines) {
+              ensureSpace(lineHeight + 2.5);
+              doc.setFillColor(241, 245, 249);
+              doc.roundedRect(x - 2, currentY - lineHeight + 1, width + 4, lineHeight + 2, 1, 1, 'F');
+              doc.setFont('courier', 'normal');
+              doc.setFontSize(size);
+              doc.setTextColor(51, 65, 85);
+              doc.text(line, x, currentY);
+              currentY += lineHeight + 0.6;
+            }
+          }
+          currentY += 3;
+          break;
+        }
+
+        case 'paragraph':
+        default:
+          writeWrapped(block.text, { after: 2.2 });
+          break;
+      }
+    }
+
+    drawFooter();
     const blob = doc.output('blob');
     return { doc, blob };
   };
@@ -174,307 +442,203 @@ export const CustomPdfExportModal: React.FC<CustomPdfExportModalProps> = ({
   const handleDownloadPdf = () => {
     try {
       const { doc } = generatePdfBlob();
-      const filename = `${(title || 'documento').toLowerCase().replace(/\s+/g, '_')}_custom.pdf`;
-      doc.save(filename);
-      onNotification('PDF personalizado exportado com sucesso!');
+      doc.save(`${safeFilename(title)}.pdf`);
+      onNotification('PDF exportado preservando títulos, listas, citações e blocos de código.');
       onClose();
     } catch (err: any) {
-      onNotification(`Erro ao gerar PDF: ${err.message}`, 'error');
+      onNotification(`Erro ao gerar PDF: ${err?.message || 'falha desconhecida'}`, 'error');
     }
   };
 
   const handleSaveToDrive = async () => {
-    if (!googleUser || !googleUser.accessToken) {
-      onNotification('Faça login com o Google para salvar no seu Drive.', 'error');
+    if (!googleUser?.accessToken) {
+      onNotification('Conecte sua Conta Google antes de salvar no Drive.', 'error');
       return;
     }
 
     setIsSavingDrive(true);
     try {
       const { blob } = generatePdfBlob();
-      const filename = `${title || 'Documento_DocPlus'}.pdf`;
+      const filename = `${safeFilename(title)}.pdf`;
       const driveFile = await uploadToGoogleDrive(googleUser.accessToken, filename, 'application/pdf', blob);
-      onNotification(`Salvo com sucesso no seu Google Drive! (${driveFile.name})`);
+      onNotification(`PDF salvo no Google Drive: ${driveFile.name}`);
       onClose();
     } catch (err: any) {
-      onNotification(`Erro ao salvar no Drive: ${err.message}`, 'error');
+      onNotification(`Erro ao salvar no Drive: ${err?.message || 'falha desconhecida'}`, 'error');
     } finally {
       setIsSavingDrive(false);
     }
   };
 
+  const previewBlocks = parsedBlocks.filter((block) => block.type !== 'blank').slice(0, 10);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-md">
-              <FileOutput className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Exportar PDF Personalizado</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Configure fonte, margem, tema e marcas para publicação</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh]">
+        <header className="px-5 sm:px-6 py-4 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                <FileOutput className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">Exportar PDF</h2>
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Preserva hierarquia de títulos, listas, citações, código e paginação.</p>
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-700/50">
+          <button onClick={onClose} aria-label="Fechar exportação PDF" className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800">
             <X className="w-5 h-5" />
           </button>
-        </div>
+        </header>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-          {/* Controls Panel */}
-          <div className="lg:col-span-7 space-y-5">
-            {/* Metadata Controls */}
+        <div className="p-4 sm:p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 flex-1">
+          <section className="lg:col-span-7 space-y-5">
             <div className="space-y-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Metadados do Documento</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-400">Documento</label>
+                <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                  <Heading1 className="w-3.5 h-3.5" /> Títulos
+                  <List className="w-3.5 h-3.5 ml-1" /> Listas
+                  <Quote className="w-3.5 h-3.5 ml-1" /> Citações
+                  <Code2 className="w-3.5 h-3.5 ml-1" /> Código
+                </div>
+              </div>
               <div>
                 <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Título</span>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Título do PDF"
-                />
+                <input value={title} onChange={(event) => setTitle(event.target.value)} className="w-full mt-1 h-10 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none" placeholder="Título do PDF" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Subtítulo (Opcional)</span>
-                  <input
-                    type="text"
-                    value={subtitle}
-                    onChange={(e) => setSubtitle(e.target.value)}
-                    className="w-full mt-1 px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                    placeholder="Relatório / Nota"
-                  />
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Subtítulo</span>
+                  <input value={subtitle} onChange={(event) => setSubtitle(event.target.value)} className="w-full mt-1 h-10 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none" placeholder="Opcional" />
                 </div>
                 <div>
                   <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Autor</span>
-                  <input
-                    type="text"
-                    value={author}
-                    onChange={(e) => setAuthor(e.target.value)}
-                    className="w-full mt-1 px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                    placeholder="Nome do Autor"
-                  />
+                  <input value={author} onChange={(event) => setAuthor(event.target.value)} className="w-full mt-1 h-10 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none" placeholder="Nome do autor" />
                 </div>
               </div>
             </div>
 
-            {/* Typography Controls */}
-            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Tipografia & Estilo</label>
+            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-400">Tipografia</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'helvetica', label: 'Sans (Helvetica)' },
-                  { id: 'times', label: 'Serif (Times)' },
-                  { id: 'courier', label: 'Mono (Courier)' },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => setFontFamily(f.id as any)}
-                    className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
-                      fontFamily === f.id
-                        ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {f.label}
+                  { id: 'helvetica', label: 'Helvetica' },
+                  { id: 'times', label: 'Times' },
+                  { id: 'courier', label: 'Courier' },
+                ].map((item) => (
+                  <button key={item.id} onClick={() => setFontFamily(item.id as typeof fontFamily)} className={`h-9 px-2 rounded-xl text-xs font-bold border ${fontFamily === item.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}>
+                    {item.label}
                   </button>
                 ))}
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Tamanho da Fonte: {fontSize}pt</span>
-                  <input
-                    type="range"
-                    min="9"
-                    max="16"
-                    value={fontSize}
-                    onChange={(e) => setFontSize(Number(e.target.value))}
-                    className="w-full accent-indigo-500 mt-2"
-                  />
-                </div>
-                <div>
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Espaçamento: {lineSpacing}x</span>
-                  <input
-                    type="range"
-                    min="1.1"
-                    max="2.0"
-                    step="0.1"
-                    value={lineSpacing}
-                    onChange={(e) => setLineSpacing(Number(e.target.value))}
-                    className="w-full accent-indigo-500 mt-2"
-                  />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="text-xs text-slate-600 dark:text-slate-300">
+                  <span className="font-semibold">Fonte: {fontSize}pt</span>
+                  <input type="range" min="9" max="16" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} className="w-full accent-indigo-600 mt-2" />
+                </label>
+                <label className="text-xs text-slate-600 dark:text-slate-300">
+                  <span className="font-semibold">Espaçamento: {lineSpacing.toFixed(1)}x</span>
+                  <input type="range" min="1.1" max="2" step="0.1" value={lineSpacing} onChange={(event) => setLineSpacing(Number(event.target.value))} className="w-full accent-indigo-600 mt-2" />
+                </label>
               </div>
             </div>
 
-            {/* Color Accent & Margins */}
-            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Cor de Destaque & Layout</label>
-              <div className="flex items-center gap-3">
+            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-400">Layout</label>
+              <div className="flex flex-wrap gap-2">
                 {[
                   { id: 'indigo', hex: '#4F46E5', label: 'Índigo' },
                   { id: 'swiss-red', hex: '#D50000', label: 'Suíço' },
                   { id: 'emerald', hex: '#059669', label: 'Esmeralda' },
                   { id: 'slate', hex: '#334155', label: 'Carvão' },
                   { id: 'navy', hex: '#1E3A8A', label: 'Marinho' },
-                ].map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setThemeColor(c.id as any)}
-                    style={{ backgroundColor: c.hex }}
-                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
-                      themeColor === c.id ? 'border-white ring-2 ring-indigo-500 scale-110 shadow-md' : 'border-transparent opacity-80 hover:opacity-100'
-                    }`}
-                  >
-                    {themeColor === c.id && <Check className="w-4 h-4 text-white" />}
+                ].map((item) => (
+                  <button key={item.id} onClick={() => setThemeColor(item.id as typeof themeColor)} title={item.label} style={{ backgroundColor: item.hex }} className={`w-9 h-9 rounded-full border-2 flex items-center justify-center ${themeColor === item.id ? 'border-white ring-2 ring-indigo-500 scale-105' : 'border-transparent'}`}>
+                    {themeColor === item.id && <Check className="w-4 h-4 text-white" />}
                   </button>
                 ))}
               </div>
-
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'narrow', label: 'Margem Estreita (10mm)' },
-                  { id: 'normal', label: 'Margem Padrão (15mm)' },
-                  { id: 'wide', label: 'Margem Ampla (25mm)' },
-                ].map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setMargin(m.id as any)}
-                    className={`py-2 px-2 text-[11px] rounded-xl border transition-all ${
-                      margin === m.id
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800 font-semibold'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    {m.label}
+                  { id: 'narrow', label: 'Estreita' },
+                  { id: 'normal', label: 'Normal' },
+                  { id: 'wide', label: 'Ampla' },
+                ].map((item) => (
+                  <button key={item.id} onClick={() => setMargin(item.id as typeof margin)} className={`h-9 px-2 rounded-xl text-[11px] font-bold border ${margin === item.id ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'}`}>
+                    {item.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Extras Toggles */}
-            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Opções Adicionais</label>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={showPageNumbers}
-                    onChange={(e) => setShowPageNumbers(e.target.checked)}
-                    className="accent-indigo-500 rounded"
-                  />
-                  <span>Números de Página</span>
+            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-400">Publicação</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <input type="checkbox" checked={showPageNumbers} onChange={(event) => setShowPageNumbers(event.target.checked)} className="accent-indigo-600" />
+                  <span>Números de página</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={showDate}
-                    onChange={(e) => setShowDate(e.target.checked)}
-                    className="accent-indigo-500 rounded"
-                  />
-                  <span>Data & Timestamp</span>
+                <label className="flex items-center gap-2 cursor-pointer p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <input type="checkbox" checked={showDate} onChange={(event) => setShowDate(event.target.checked)} className="accent-indigo-600" />
+                  <span>Data do documento</span>
                 </label>
               </div>
-
               <div>
-                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Marca d'água (Opcional)</span>
-                <input
-                  type="text"
-                  value={watermark}
-                  onChange={(e) => setWatermark(e.target.value)}
-                  className="w-full mt-1 px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Ex: CONFIDENCIAL / RASCUNHO"
-                />
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Marca d'água</span>
+                <input value={watermark} onChange={(event) => setWatermark(event.target.value)} className="w-full mt-1 h-9 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none" placeholder="Ex.: CONFIDENCIAL" />
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* Live Page Preview Box */}
-          <div className="lg:col-span-5 flex flex-col">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
-              <span>Prévia Visual A4</span>
-              <span className="text-[10px] text-indigo-500 font-normal">Ao Vivo</span>
+          <section className="lg:col-span-5 flex flex-col min-h-[420px]">
+            <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-wider text-slate-400">
+              <span>Prévia A4</span>
+              <span className="text-[10px] normal-case tracking-normal text-emerald-600 dark:text-emerald-400">Estrutura preservada</span>
             </div>
-            <div className="flex-1 bg-slate-200 dark:bg-slate-950 p-4 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-300 dark:border-slate-800">
-              <div
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  fontFamily: fontFamily === 'helvetica' ? 'sans-serif' : fontFamily === 'times' ? 'serif' : 'monospace',
-                  fontSize: `${fontSize * 0.7}px`,
-                  color: '#0F172A',
-                }}
-                className="w-full aspect-[1/1.41] shadow-2xl rounded p-4 flex flex-col justify-between relative overflow-hidden select-none"
-              >
-                {/* Accent bar */}
-                <div style={{ backgroundColor: selectedHex }} className="w-full h-1.5 rounded-full mb-2" />
+            <div className="flex-1 bg-slate-200 dark:bg-slate-950 p-3 sm:p-5 rounded-2xl border border-slate-300 dark:border-slate-800 flex items-start justify-center overflow-auto">
+              <div className="w-full max-w-[360px] aspect-[1/1.414] bg-white shadow-xl rounded-sm p-5 relative overflow-hidden text-slate-900" style={{ fontFamily: fontFamily === 'times' ? 'serif' : fontFamily === 'courier' ? 'monospace' : 'sans-serif' }}>
+                <div style={{ backgroundColor: selectedHex }} className="w-full h-1.5 rounded-full mb-3" />
+                <h4 className="font-black text-[13px] leading-tight line-clamp-2">{title || 'Título do Documento'}</h4>
+                {(subtitle || author || showDate) && <p className="text-[7px] text-slate-400 italic mt-1 line-clamp-1">{[subtitle, author, showDate ? new Date().toLocaleDateString('pt-BR') : ''].filter(Boolean).join(' • ')}</p>}
+                <div className="h-px bg-slate-200 my-2.5" />
 
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm leading-tight truncate">{title || 'Título do Documento'}</h4>
-                  {(subtitle || author || showDate) && (
-                    <p className="text-[9px] text-slate-400 italic mt-0.5 truncate">
-                      {subtitle} {author && `• ${author}`} {showDate && `• ${new Date().toLocaleDateString('pt-BR')}`}
-                    </p>
-                  )}
-                  <div className="w-full h-[1px] bg-slate-200 my-2" />
-
-                  <div className="text-[9px] text-slate-700 space-y-1 overflow-hidden max-h-[220px]">
-                    <p>{cleanMarkdownForExport(initialText).slice(0, 320) || 'Conteúdo do documento aqui...'}</p>
-                  </div>
+                <div className="space-y-1.5 text-[7.5px] leading-relaxed max-h-[78%] overflow-hidden">
+                  {previewBlocks.map((block, index) => {
+                    if (block.type === 'divider') return <div key={index} className="h-px bg-slate-200 my-2" />;
+                    if (block.type === 'heading1') return <div key={index} className="font-black text-[10px] mt-2" style={{ color: selectedHex }}>{block.text}</div>;
+                    if (block.type === 'heading2') return <div key={index} className="font-black text-[9px] text-slate-800 mt-1.5">{block.text}</div>;
+                    if (block.type === 'heading3') return <div key={index} className="font-bold text-[8px] text-slate-700 mt-1">{block.text}</div>;
+                    if (block.type === 'bullet' || block.type === 'numbered') return <div key={index} className="flex gap-1.5"><span style={{ color: selectedHex }} className="font-bold shrink-0">{block.type === 'bullet' ? '•' : block.marker}</span><span>{block.text}</span></div>;
+                    if (block.type === 'quote') return <div key={index} className="italic text-slate-500 pl-2 border-l-2" style={{ borderColor: selectedHex }}>{block.text}</div>;
+                    if (block.type === 'code') return <pre key={index} className="font-mono text-[6.5px] bg-slate-100 rounded p-1.5 whitespace-pre-wrap line-clamp-4">{block.text}</pre>;
+                    return <p key={index}>{block.text}</p>;
+                  })}
                 </div>
 
-                {watermark && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 font-bold text-2xl rotate-[35deg] uppercase">
-                    {watermark}
-                  </div>
-                )}
-
-                {showPageNumbers && (
-                  <div className="text-[8px] text-slate-400 flex justify-between border-t border-slate-100 pt-1 mt-2">
-                    <span>DocPlus+ Studio</span>
-                    <span>Página 1</span>
-                  </div>
-                )}
+                {watermark && <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.08] font-black text-xl rotate-[35deg] uppercase">{watermark}</div>}
+                {showPageNumbers && <div className="absolute bottom-3 left-5 right-5 border-t border-slate-100 pt-1 flex justify-between text-[6px] text-slate-400"><span>DocPlus+ Studio</span><span>Página 1</span></div>}
               </div>
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* Modal Footer */}
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all"
-          >
-            Cancelar
-          </button>
-
-          <div className="flex items-center gap-2">
-            {googleUser && (
-              <button
-                onClick={handleSaveToDrive}
-                disabled={isSavingDrive}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm disabled:opacity-50 transition-all"
-              >
+        <footer className="px-4 sm:px-6 py-4 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+          <button onClick={onClose} className="h-10 px-4 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl">Cancelar</button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            {googleUser?.accessToken && (
+              <button onClick={handleSaveToDrive} disabled={isSavingDrive} className="h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50">
                 {isSavingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudUpload className="w-4 h-4" />}
-                Salvar no Google Drive
+                Salvar no Drive
               </button>
             )}
-
-            <button
-              onClick={handleDownloadPdf}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-md transition-all"
-            >
+            <button onClick={handleDownloadPdf} className="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm">
               <FileOutput className="w-4 h-4" />
-              Baixar PDF Customizado
+              Exportar PDF
             </button>
           </div>
-        </div>
+        </footer>
       </div>
     </div>
   );

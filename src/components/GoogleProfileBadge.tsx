@@ -1,299 +1,168 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  IconLogin, IconLogout, IconDatabase as IconHardDrive, IconFileText, IconLoader2, 
-  IconShieldCheck, IconUser, IconCloud, IconX, IconRefresh, IconCheck
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  IconBrandGoogle as Google,
+  IconBrandWindows as Microsoft,
+  IconChevronDown as ChevronDown,
+  IconCloud as Cloud,
+  IconLogout as LogOut,
+  IconShieldCheck as ShieldCheck,
+  IconUser as User,
+  IconX as X,
 } from '@tabler/icons-react';
-import { GoogleUserProfile, DriveFile } from '../types';
-import { loginWithGooglePopup, logoutGoogleUser, listGoogleDriveFiles } from '../services/googleAuthDrive';
-import { MicrosoftUserProfile, OneDriveFile, loginWithMicrosoftPopup, logoutMicrosoftUser, listOneDriveFiles, getStoredMicrosoftUser } from '../services/microsoftAuthOffice';
-import { signInWithGoogleFirebase, signOutFirebase } from '../lib/firebase';
+import {
+  getStoredGoogleUser,
+  loginWithGooglePopup,
+  logoutGoogleUser,
+} from '../services/googleAuthDrive';
+import {
+  getStoredMicrosoftUser,
+  isMicrosoftOAuthConfigured,
+  loginWithMicrosoftPopup,
+  logoutMicrosoftUser,
+} from '../services/microsoftAuthOffice';
+import { GoogleUserProfile, MicrosoftUserProfile } from '../types';
 
-interface AuthProfileBadgeProps {
-  user: GoogleUserProfile | null;
-  onUserChange: (user: GoogleUserProfile | null) => void;
+interface GoogleProfileBadgeProps {
+  user?: GoogleUserProfile | null;
+  onUserChange?: (user: GoogleUserProfile | null) => void;
+  googleUser?: GoogleUserProfile | null;
+  setGoogleUser?: React.Dispatch<React.SetStateAction<GoogleUserProfile | null>>;
   msUser?: MicrosoftUserProfile | null;
   setMsUser?: React.Dispatch<React.SetStateAction<MicrosoftUserProfile | null>>;
-  onMsUserChange?: (user: MicrosoftUserProfile | null) => void;
-  onNotification: (msg: string, type?: 'success' | 'error') => void;
+  onNotification?: (message: string, type?: 'success' | 'error') => void;
+  showNotification?: (message: string, type?: 'success' | 'error') => void;
 }
 
-export const GoogleProfileBadge: React.FC<AuthProfileBadgeProps> = ({
+export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
   user,
   onUserChange,
-  msUser: propMsUser,
-  setMsUser: setMsUserProp,
-  onMsUserChange,
+  googleUser,
+  setGoogleUser,
+  msUser,
+  setMsUser,
   onNotification,
+  showNotification,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoggingInGoogle, setIsLoggingInGoogle] = useState(false);
-  const [isLoggingInMs, setIsLoggingInMs] = useState(false);
-  const [msUser, setMsUser] = useState<MicrosoftUserProfile | null>(propMsUser || getStoredMicrosoftUser());
+  const notify = onNotification || showNotification || (() => {});
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<'google' | 'microsoft' | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const currentGoogle = user ?? googleUser ?? getStoredGoogleUser();
+  const currentMicrosoft = msUser ?? getStoredMicrosoftUser();
 
-  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
-  const [oneDriveFiles, setOneDriveFiles] = useState<OneDriveFile[]>([]);
-  const [isLoadingDrive, setIsLoadingDrive] = useState(false);
+  const updateGoogle = (value: GoogleUserProfile | null) => {
+    onUserChange?.(value);
+    setGoogleUser?.(value);
+  };
+  const updateMicrosoft = (value: MicrosoftUserProfile | null) => setMsUser?.(value);
 
   useEffect(() => {
-    if (propMsUser !== undefined) {
-      setMsUser(propMsUser);
-    }
-  }, [propMsUser]);
+    const close = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
 
-  useEffect(() => {
-    if (isOpen) {
-      if (user) loadDriveFiles();
-      if (msUser) loadOneDriveFiles();
-    }
-  }, [user, msUser, isOpen]);
-
-  const loadDriveFiles = async () => {
-    if (!user?.accessToken) return;
-    setIsLoadingDrive(true);
+  const connectGoogle = async () => {
+    setBusy('google');
     try {
-      const files = await listGoogleDriveFiles(user.accessToken);
-      setDriveFiles(files);
-    } catch (err: any) {
-      console.warn('Drive files error:', err.message);
+      const profile = await loginWithGooglePopup();
+      updateGoogle(profile);
+      notify(`Conta Google conectada: ${profile.email}`, 'success');
+    } catch (error: any) {
+      notify(error?.message || 'Falha ao conectar Google.', 'error');
     } finally {
-      setIsLoadingDrive(false);
+      setBusy(null);
     }
   };
 
-  const loadOneDriveFiles = async () => {
-    if (!msUser) return;
-    try {
-      const files = await listOneDriveFiles(msUser);
-      setOneDriveFiles(files);
-    } catch (err: any) {
-      console.warn('OneDrive error:', err.message);
-    }
-  };
-
-  const handleLoginGoogle = async () => {
-    setIsLoggingInGoogle(true);
-    try {
-      // Primary: Firebase Auth Google Popup
-      const { profile } = await signInWithGoogleFirebase();
-      onUserChange(profile);
-      onNotification(`Bem-vindo(a), ${profile.name}! Conta Google conectada e dados salvos no Firebase.`);
-    } catch (err: any) {
-      // Fallback to custom popup auth if Firebase popup is blocked
-      try {
-        const profile = await loginWithGooglePopup();
-        onUserChange(profile);
-        onNotification(`Bem-vindo(a), ${profile.name}! Conta Google ativada.`);
-      } catch (fallbackErr: any) {
-        onNotification(err.message || 'Falha no login do Google.', 'error');
-      }
-    } finally {
-      setIsLoggingInGoogle(false);
-    }
-  };
-
-  const handleLoginMicrosoft = async () => {
-    setIsLoggingInMs(true);
+  const connectMicrosoft = async () => {
+    setBusy('microsoft');
     try {
       const profile = await loginWithMicrosoftPopup();
-      setMsUser(profile);
-      if (onMsUserChange) onMsUserChange(profile);
-      onNotification(`Conectado à Conta Office 365 (${profile.email}) com sucesso!`);
-    } catch (err: any) {
-      onNotification(err.message || 'Falha na autenticação Microsoft / Office.', 'error');
+      updateMicrosoft(profile);
+      notify(`Conta Microsoft conectada: ${profile.email}`, 'success');
+    } catch (error: any) {
+      notify(error?.message || 'Falha ao conectar Microsoft.', 'error');
     } finally {
-      setIsLoggingInMs(false);
+      setBusy(null);
     }
   };
 
-  const handleLogoutGoogle = async () => {
-    await signOutFirebase().catch(() => {});
+  const disconnectGoogle = () => {
     logoutGoogleUser();
-    onUserChange(null);
-    setIsOpen(false);
-    onNotification('Sessão do Google encerrada.');
+    updateGoogle(null);
+    notify('Conta Google desconectada.', 'success');
   };
 
-  const handleLogoutMicrosoft = () => {
+  const disconnectMicrosoft = () => {
     logoutMicrosoftUser();
-    setMsUser(null);
-    if (onMsUserChange) onMsUserChange(null);
-    setIsOpen(false);
-    onNotification('Sessão da Conta Office 365 encerrada.');
+    updateMicrosoft(null);
+    notify('Conta Microsoft desconectada.', 'success');
   };
+
+  const avatar = currentGoogle?.picture || currentMicrosoft?.picture;
+  const primaryName = currentGoogle?.name || currentMicrosoft?.name;
+  const connectedCount = Number(Boolean(currentGoogle)) + Number(Boolean(currentMicrosoft));
 
   return (
-    <div className="relative flex items-center gap-2">
-      {/* Consolidated Unified Auth Header Badge */}
+    <div ref={rootRef} className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 transition-all shadow-xs active:scale-95"
-        title="Central de Contas Google & Microsoft"
+        onClick={() => setOpen((value) => !value)}
+        className="h-10 max-w-[190px] px-1.5 sm:px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+        aria-expanded={open}
+        aria-label="Central de contas"
       >
-        <div className="flex items-center -space-x-1">
-          {/* Google Icon Badge */}
-          <div className={`w-5 h-5 rounded-full flex items-center justify-center p-0.5 ${user ? 'bg-indigo-600 ring-2 ring-indigo-500/40 text-white' : 'bg-slate-200 dark:bg-slate-700'}`}>
-            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.29v3.15C3.26 21.3 7.33 24 12 24z"/>
-              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.29C.47 8.2 0 10.04 0 12s.47 3.8 1.29 5.42l3.99-3.15z"/>
-              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.7 1.29 6.58l3.99 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-            </svg>
-          </div>
-          {/* Microsoft Icon Badge */}
-          <div className={`w-5 h-5 rounded-full flex items-center justify-center p-0.5 ${msUser ? 'bg-amber-500 ring-2 ring-amber-500/40 text-white' : 'bg-slate-200 dark:bg-slate-700'}`}>
-            <svg className="w-3 h-3 shrink-0" viewBox="0 0 23 23">
-              <path fill="#f35325" d="M1 1h10v10H1z" />
-              <path fill="#81bc06" d="M12 1h10v10H1z" />
-              <path fill="#05a6f0" d="M1 12h10v10H1z" />
-              <path fill="#ffba08" d="M12 12h10v10H1z" />
-            </svg>
-          </div>
-        </div>
-
-        <span className="text-xs font-bold truncate max-w-[110px]">
-          {user ? user.name.split(' ')[0] : msUser ? msUser.name.split(' ')[0] : 'Entrar Google'}
-        </span>
-
-        {(user || msUser) && (
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        )}
+        {avatar ? <img src={avatar} alt="" className="w-7 h-7 rounded-lg object-cover" referrerPolicy="no-referrer" /> : <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center"><User className="w-4 h-4 text-slate-500" /></div>}
+        <div className="min-w-0 hidden sm:block text-left"><div className="text-[10px] font-black text-slate-800 dark:text-slate-100 truncate">{primaryName || 'Contas'}</div><div className="text-[9px] text-slate-400">{connectedCount ? `${connectedCount} conectada(s)` : 'Modo local'}</div></div>
+        <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
       </button>
 
-      {/* Unified Account Manager Popup */}
-      {isOpen && (
-        <div className="absolute right-0 top-11 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-5 z-50 space-y-4 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-              <IconShieldCheck className="w-4 h-4 text-emerald-500" />
-              Central de Identidade & Nuvem
-            </h3>
-            <button onClick={() => setIsOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg text-xs font-bold">
-              <IconX className="w-4 h-4" />
-            </button>
+      {open && (
+        <div className="absolute right-0 top-12 z-[80] w-[min(340px,calc(100vw-24px))] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-indigo-500" /><div className="flex-1"><div className="text-xs font-black">Central de contas</div><div className="text-[9px] text-slate-400">Autenticação e acesso à nuvem são opcionais.</div></div><button onClick={() => setOpen(false)} className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center"><X className="w-3.5 h-3.5" /></button></div>
+
+          <div className="p-3 space-y-2">
+            <AccountRow
+              icon={<Google className="w-4 h-4" />}
+              title="Google"
+              subtitle={currentGoogle ? currentGoogle.email : 'Google Drive e perfil'}
+              connected={Boolean(currentGoogle)}
+              busy={busy === 'google'}
+              onConnect={connectGoogle}
+              onDisconnect={disconnectGoogle}
+            />
+            <AccountRow
+              icon={<Microsoft className="w-4 h-4" />}
+              title="Microsoft"
+              subtitle={currentMicrosoft ? currentMicrosoft.email : isMicrosoftOAuthConfigured() ? 'OneDrive e Microsoft Graph' : 'Requer Client ID do Entra'}
+              connected={Boolean(currentMicrosoft)}
+              busy={busy === 'microsoft'}
+              onConnect={connectMicrosoft}
+              onDisconnect={disconnectMicrosoft}
+            />
           </div>
 
-          {/* Connected Accounts Status Card */}
-          {(user || msUser) && (
-            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-700 dark:text-emerald-300">
-              <IconShieldCheck className="w-5 h-5 shrink-0 text-emerald-500" />
-              <div>
-                <p className="font-bold">Conta Ativa & Sincronizada</p>
-                <p className="text-[10px] opacity-80">Documentos e chats salvos automaticamente no seu perfil do Google.</p>
-              </div>
-            </div>
-          )}
-
-          {/* Google Account Block */}
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.29v3.15C3.26 21.3 7.33 24 12 24z"/>
-                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.29C.47 8.2 0 10.04 0 12s.47 3.8 1.29 5.42l3.99-3.15z"/>
-                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.7 1.29 6.58l3.99 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-                </svg>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    Google Workspace
-                    {user && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded font-bold">Conectado</span>}
-                  </h4>
-                  <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{user ? user.email : 'Google Drive & Docs'}</p>
-                </div>
-              </div>
-
-              {user ? (
-                <button
-                  onClick={handleLogoutGoogle}
-                  className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100 rounded-xl text-[10px] font-bold transition-colors"
-                >
-                  Sair
-                </button>
-              ) : (
-                <button
-                  onClick={handleLoginGoogle}
-                  disabled={isLoggingInGoogle}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
-                >
-                  {isLoggingInGoogle ? <IconLoader2 className="w-3.5 h-3.5 animate-spin" /> : <IconLogin className="w-3.5 h-3.5" />}
-                  Entrar com Google
-                </button>
-              )}
-            </div>
-
-            {user && (
-              <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <IconHardDrive className="w-3.5 h-3.5 text-indigo-500" />
-                  Google Drive Cloud
-                </span>
-                <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-bold">
-                  {driveFiles.length} arquivos
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Microsoft Office 365 Account Block */}
-          <div className="p-3.5 bg-amber-500/5 dark:bg-amber-950/20 rounded-2xl border border-amber-500/30 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 23 23">
-                  <path fill="#f35325" d="M1 1h10v10H1z" />
-                  <path fill="#81bc06" d="M12 1h10v10H1z" />
-                  <path fill="#05a6f0" d="M1 12h10v10H1z" />
-                  <path fill="#ffba08" d="M12 12h10v10H1z" />
-                </svg>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    Microsoft Office 365
-                    {msUser && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">Vinculado</span>}
-                  </h4>
-                  <p className="text-[10px] text-amber-700 dark:text-amber-400 truncate max-w-[150px]">{msUser ? msUser.email : 'OneDrive & Office Apps'}</p>
-                </div>
-              </div>
-
-              {msUser ? (
-                <button
-                  onClick={handleLogoutMicrosoft}
-                  className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100 rounded-xl text-[10px] font-bold transition-colors"
-                >
-                  Sair
-                </button>
-              ) : (
-                <button
-                  onClick={handleLoginMicrosoft}
-                  disabled={isLoggingInMs}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
-                >
-                  {isLoggingInMs ? <IconLoader2 className="w-3.5 h-3.5 animate-spin" /> : <IconLogin className="w-3.5 h-3.5" />}
-                  Vincular Microsoft
-                </button>
-              )}
-            </div>
-
-            {msUser && (
-              <div className="pt-2 border-t border-amber-200/50 dark:border-amber-900/40 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <IconCloud className="w-3.5 h-3.5 text-amber-600" />
-                  OneDrive / Office 365
-                </span>
-                <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
-                  {oneDriveFiles.length} docs
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center space-y-1">
-            <p className="text-[10px] text-slate-400">
-              Faça login com sua Conta do Google para sincronizar e salvar todos os seus chats e documentos na nuvem!
-            </p>
-          </div>
+          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed flex items-start gap-2"><Cloud className="w-3.5 h-3.5 shrink-0 mt-0.5" /><span><strong>Conectado não significa sincronizado.</strong> O DocSwiss mantém a biblioteca local separada. A página Nuvem mostra somente os arquivos que Google Drive ou OneDrive retornarem pelas APIs.</span></div>
         </div>
       )}
     </div>
   );
 };
 
-export default GoogleProfileBadge;
+const AccountRow: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  connected: boolean;
+  busy: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}> = ({ icon, title, subtitle, connected, busy, onConnect, onDisconnect }) => (
+  <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-center gap-3">
+    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200">{icon}</div>
+    <div className="min-w-0 flex-1"><div className="text-xs font-black flex items-center gap-1.5">{title}{connected && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}</div><div className="text-[9px] text-slate-400 truncate mt-0.5">{subtitle}</div></div>
+    {connected ? <button onClick={onDisconnect} title={`Desconectar ${title}`} className="w-8 h-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-500 flex items-center justify-center"><LogOut className="w-4 h-4" /></button> : <button onClick={onConnect} disabled={busy} className="h-8 px-2.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-[9px] font-black disabled:opacity-50">{busy ? 'Abrindo…' : 'Conectar'}</button>}
+  </div>
+);

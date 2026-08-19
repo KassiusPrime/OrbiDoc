@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Download, Monitor, Smartphone, Globe, CheckCircle2, AlertTriangle, 
-  X, RefreshCw, Lock, ExternalLink, Shield, Sparkles, HelpCircle, Laptop
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  Globe,
+  Laptop,
+  RefreshCw,
+  Shield,
+  Smartphone,
+  X,
 } from 'lucide-react';
 import { DocPlusLogo } from './DocPlusLogo';
 
@@ -12,276 +20,223 @@ interface BrowserGuideModalProps {
   onTriggerInstall?: () => void;
 }
 
+type TabId = 'install' | 'android' | 'package' | 'ios' | 'troubleshoot';
+
+const CANONICAL_URL = 'https://doc-swiss.vercel.app/';
+
 export const BrowserGuideModal: React.FC<BrowserGuideModalProps> = ({
   isOpen,
   onClose,
   deferredPrompt,
   onTriggerInstall,
 }) => {
-  const [activeTab, setActiveTab] = useState<'pwa' | 'chrome' | 'safari' | 'android' | 'troubleshoot'>('pwa');
+  const [activeTab, setActiveTab] = useState<TabId>('install');
   const [isInstalled, setIsInstalled] = useState(false);
+  const [swReady, setSwReady] = useState(false);
 
   useEffect(() => {
-    // Check if running in standalone PWA mode
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
-      setIsInstalled(true);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    setIsInstalled(standalone);
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then((registration) => setSwReady(Boolean(registration)));
     }
-  }, []);
+  }, [isOpen]);
+
+  const secureOrigin = useMemo(() => window.location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(window.location.hostname), []);
 
   if (!isOpen) return null;
 
+  const refreshPwa = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.update()));
+      }
+    } finally {
+      window.location.reload();
+    }
+  };
+
+  const resetPwa = async () => {
+    if (!window.confirm('Isso removerá os caches do DocSwiss neste navegador e recarregará o app. Seus arquivos salvos em localStorage não serão apagados, mas conteúdos offline em cache precisarão ser baixados novamente. Continuar?')) return;
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+    window.location.reload();
+  };
+
+  const tabs: Array<{ id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+    { id: 'install', label: 'Instalar', icon: Laptop },
+    { id: 'android', label: 'Android / WebAPK', icon: Smartphone },
+    { id: 'package', label: 'APK / AAB', icon: Download },
+    { id: 'ios', label: 'iPhone / iPad', icon: Smartphone },
+    { id: 'troubleshoot', label: 'Diagnóstico', icon: AlertTriangle },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center gap-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md">
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
+        <header className="p-5 sm:p-6 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <div className="flex items-center gap-3 min-w-0">
             <DocPlusLogo size="md" showText={false} />
-            <div>
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                Guia do Navegador & Instalação PWA
-                <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30">
-                  DocPlus+ Pro
-                </span>
-              </h2>
-              <p className="text-xs text-slate-300">Como instalar no computador/celular e corrigir inicialização de atalhos</p>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-black text-slate-950 dark:text-white truncate">Instalação do DocSwiss</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">PWA, WebAPK do Chrome e pacote Android TWA são caminhos diferentes.</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500" aria-label="Fechar"><X className="w-5 h-5" /></button>
+        </header>
+
+        <div className="px-5 sm:px-6 py-3 bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold ${secureOrigin ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'}`}>
+            {secureOrigin ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />} HTTPS {secureOrigin ? 'OK' : 'necessário'}
+          </span>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold ${swReady ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'}`}>
+            <Shield className="w-3.5 h-3.5" /> Service Worker {swReady ? 'ativo' : 'aguardando'}
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300"><Globe className="w-3.5 h-3.5" /> Manifesto /manifest.webmanifest</span>
         </div>
 
-        {/* Quick Action Install Banner */}
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-100 dark:border-emerald-900/50 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
-              <Download className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900 dark:text-emerald-200">
-                {isInstalled ? 'App DocPlus+ Instalado e Ativo!' : 'Instalar aplicativo completo no seu dispositivo'}
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                {isInstalled 
-                  ? 'Você já está rodando a versão PWA instalada em modo janela.' 
-                  : 'Instale como aplicativo nativo para ter atalho na área de trabalho e suporte offline completo.'}
-              </p>
-            </div>
-          </div>
-
-          {!isInstalled && deferredPrompt && onTriggerInstall && (
-            <button
-              onClick={onTriggerInstall}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold text-sm shadow-md transition-all shrink-0 flex items-center gap-2 active:scale-95"
-            >
-              <Download className="w-4 h-4" />
-              Instalar Agora
-            </button>
-          )}
-        </div>
-
-        {/* Tabs Navigation */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 overflow-x-auto">
-          {[
-            { id: 'pwa', label: 'Modo Aplicativo PWA', icon: Laptop },
-            { id: 'chrome', label: 'Chrome / Edge', icon: Monitor },
-            { id: 'safari', label: 'iOS / Safari', icon: Smartphone },
-            { id: 'android', label: 'Android', icon: Smartphone },
-            { id: 'troubleshoot', label: 'Solução de Erros de Atalho', icon: AlertTriangle },
-          ].map((tab) => {
+        <nav className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-x-auto">
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-semibold whitespace-nowrap transition-colors border-b-2 ${
-                  activeTab === tab.id
-                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 ${activeTab === tab.id ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}>
+                <Icon className="w-4 h-4" /> {tab.label}
               </button>
             );
           })}
-        </div>
+        </nav>
 
-        {/* Tab Contents */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-4 text-slate-700 dark:text-slate-300 text-sm">
-          {activeTab === 'pwa' && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-emerald-500" />
-                Por que usar o DocPlus+ como Aplicativo PWA?
-              </h3>
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                O DocPlus+ é um Progressive Web App (PWA) de última geração. Isso significa que ele se comporta como um programa nativo instalado no Windows, Mac, Android ou iPhone sem precisar de loja de aplicativos.
-              </p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
-                  <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    Janela Independente
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Abre sem barras do navegador, em tela cheia com ícone exclusivo na barra de tarefas ou área de trabalho.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
-                  <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    Execução Offline Integrada
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    O Service Worker armazena em cache todos os editores de texto, planilhas, OCR e ferramentas.
-                  </p>
-                </div>
+        <main className="p-5 sm:p-6 overflow-y-auto flex-1 text-sm text-slate-700 dark:text-slate-300">
+          {activeTab === 'install' && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-lg font-black text-slate-950 dark:text-white">PWA instalada no computador ou celular</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Esta é a instalação normal pelo navegador. No desktop ela continua sendo uma PWA. No Android/Chrome, o navegador pode empacotá-la internamente como WebAPK.</p>
               </div>
-            </div>
-          )}
 
-          {activeTab === 'chrome' && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Instruções para Google Chrome & Microsoft Edge (PC / Mac)
-              </h3>
-              <ol className="list-decimal list-inside space-y-3 pl-1 text-slate-600 dark:text-slate-300">
-                <li>
-                  <strong>Ícone na barra de endereço:</strong> Olhe para o lado direito da barra de URLs do navegador e clique no ícone de monitor com uma seta para baixo <Download className="w-3.5 h-3.5 inline text-emerald-500" /> "Instalar DocPlus+".
-                </li>
-                <li>
-                  <strong>Pelo menu do navegador:</strong> Clique nos 3 pontos verticais <span className="font-bold">⋮</span> no canto superior direito &rarr; selecione <span className="font-semibold">"Salvar e Compartilhar"</span> ou <span className="font-semibold">"Instalar aplicativo"</span> &rarr; <span className="font-semibold">"Instalar DocPlus+"</span>.
-                </li>
-                <li>
-                  <strong>Permitir Login Google & Popups:</strong> Se a janela de login do Google não abrir, clique no ícone de cadeado <Lock className="w-3.5 h-3.5 inline text-amber-500" /> na barra de endereço &rarr; clique em <span className="font-semibold">"Configurações do site"</span> &rarr; mude <span className="font-semibold">"Pop-ups e redirecionamentos"</span> para <span className="text-emerald-600 dark:text-emerald-400 font-bold">"Permitir"</span>.
-                </li>
-              </ol>
-            </div>
-          )}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Info title="Sem barra do navegador" text="O modo standalone abre o DocSwiss em uma janela própria, usando o ícone e o nome do manifesto." />
+                <Info title="Atualizações automáticas" text="O service worker atualiza os arquivos da aplicação sem exigir download manual de uma nova versão." />
+                <Info title="Offline parcial" text="Editores e recursos armazenados no cache continuam disponíveis; serviços de IA e nuvem continuam dependentes de rede." />
+              </div>
 
-          {activeTab === 'safari' && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Instruções para iPhone & iPad (Safari iOS)
-              </h3>
-              <ol className="list-decimal list-inside space-y-3 pl-1 text-slate-600 dark:text-slate-300">
-                <li>
-                  Abra este site utilizando o navegador <strong>Safari</strong> no seu iPhone ou iPad.
-                </li>
-                <li>
-                  Toque no botão <strong>Compartilhar</strong> (o quadrado com uma seta apontando para cima localizado no menu inferior).
-                </li>
-                <li>
-                  Role as opções para baixo e selecione <strong>"Adicionar à Tela de Início"</strong>.
-                </li>
-                <li>
-                  Confirme tocando em <strong>"Adicionar"</strong> no canto superior direito. O ícone oficial do DocPlus+ será criado na sua tela inicial!
-                </li>
-              </ol>
+              {!isInstalled && deferredPrompt && onTriggerInstall ? (
+                <button onClick={onTriggerInstall} className="h-12 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black inline-flex items-center gap-2"><Download className="w-4 h-4" /> Instalar DocSwiss agora</button>
+              ) : isInstalled ? (
+                <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" /><div><strong className="text-emerald-800 dark:text-emerald-200">O DocSwiss já está em modo instalado.</strong><p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">Se o ícone/nome ainda estiver antigo, atualize ou reinstale após a nova versão entrar em produção.</p></div></div>
+              ) : (
+                <div className="rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 text-xs leading-relaxed">Se o botão de instalação não aparecer, abra o DocSwiss diretamente em uma aba HTTPS do Chrome/Edge. Em visualizações incorporadas ou navegadores sem evento de instalação, use o menu do navegador.</div>
+              )}
             </div>
           )}
 
           {activeTab === 'android' && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Instruções para Celular Android (Chrome)
-              </h3>
-              <ol className="list-decimal list-inside space-y-3 pl-1 text-slate-600 dark:text-slate-300">
-                <li>
-                  Abra o site no <strong>Google Chrome</strong> do seu celular.
-                </li>
-                <li>
-                  Toque nos 3 pontos <span className="font-bold">⋮</span> no canto superior direito do navegador.
-                </li>
-                <li>
-                  Selecione a opção <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong>.
-                </li>
-                <li>
-                  Siga a confirmação na tela para salvar o aplicativo nativo na sua gaveta de apps.
-                </li>
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-lg font-black text-slate-950 dark:text-white">Android: PWA → WebAPK pelo Chrome</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">WebAPK é o pacote criado e administrado pelo Chrome/Google Play quando uma PWA elegível é instalada. Você não baixa esse APK do DocSwiss nem precisa de Digital Asset Links para esse fluxo.</p>
+              </div>
+              <ol className="space-y-3 text-sm">
+                <Step n="1" text="Abra https://doc-swiss.vercel.app diretamente no Chrome do Android, fora de iframe ou navegador interno de outro app." />
+                <Step n="2" text="Use “Instalar app” no menu do Chrome ou o prompt de instalação que o próprio site exibir." />
+                <Step n="3" text="Confirme o nome DocSwiss e o ícone. O manifesto usa ícones separados para uso normal e maskable, evitando recorte/genericização." />
+                <Step n="4" text="Depois de atualizar o manifesto/ícone, uma instalação antiga pode manter metadados em cache. Nesse caso remova a instalação antiga e instale novamente." />
+              </ol>
+              <div className="rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 p-4 text-xs leading-relaxed text-indigo-800 dark:text-indigo-200"><strong>Importante:</strong> “Adicionar à tela inicial” pode criar apenas um atalho em alguns navegadores. A experiência WebAPK completa depende do Chrome considerar a PWA instalável.</div>
+            </div>
+          )}
+
+          {activeTab === 'package' && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-lg font-black text-slate-950 dark:text-white">Gerar APK/AAB para Android</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Para um arquivo APK/AAB próprio, PWABuilder/Bubblewrap normalmente empacota o site como Trusted Web Activity (TWA). Isso é diferente do WebAPK automático do Chrome.</p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 font-black text-slate-900 dark:text-white">Fluxo correto</div>
+                <div className="p-4 space-y-3">
+                  <Step n="1" text="Gere o pacote usando a URL canônica de produção, não uma URL temporária de preview protegida." />
+                  <Step n="2" text="Defina um package name estável (por exemplo app.docswiss.workspace) e gere/guarde a chave de assinatura Android." />
+                  <Step n="3" text="Copie o SHA-256 do certificado de assinatura para ANDROID_SHA256_CERT_FINGERPRINT e o package para ANDROID_PACKAGE_NAME no ambiente de produção." />
+                  <Step n="4" text="Faça novo deploy. O build do DocSwiss gera /.well-known/assetlinks.json automaticamente e o CI valida a estrutura." />
+                  <Step n="5" text="Só depois disso a TWA consegue verificar o domínio e remover corretamente a barra do navegador." />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => window.open(`https://www.pwabuilder.com/url?url=${encodeURIComponent(CANONICAL_URL)}`, '_blank', 'noopener,noreferrer')} className="h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black inline-flex items-center gap-2"><ExternalLink className="w-4 h-4" /> Abrir no PWABuilder</button>
+                <button onClick={() => navigator.clipboard.writeText(CANONICAL_URL)} className="h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-black text-slate-700 dark:text-slate-200">Copiar URL canônica</button>
+              </div>
+
+              <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-4 text-xs leading-relaxed text-amber-800 dark:text-amber-200"><strong>Não existe fingerprint universal:</strong> o SHA-256 depende da chave que assina seu APK/AAB. O DocSwiss agora gera assetlinks automaticamente quando esses dois valores reais são configurados.</div>
+            </div>
+          )}
+
+          {activeTab === 'ios' && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-lg font-black text-slate-950 dark:text-white">iPhone e iPad</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">iOS não usa WebAPK. A instalação é feita pelo Safari como Web App na Tela de Início.</p>
+              </div>
+              <ol className="space-y-3">
+                <Step n="1" text="Abra o DocSwiss no Safari." />
+                <Step n="2" text="Toque em Compartilhar." />
+                <Step n="3" text="Escolha “Adicionar à Tela de Início” e confirme DocSwiss." />
+                <Step n="4" text="O apple-touch-icon e os metadados do site são usados para a identidade visual da instalação." />
               </ol>
             </div>
           )}
 
           {activeTab === 'troubleshoot' && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                O atalho não carrega o aplicativo ou fica em branco?
-              </h3>
-
-              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-2">
-                <p className="font-semibold text-amber-900 dark:text-amber-200">
-                  Causa: Atalho antigo apontando para cache expirado do PWA ou bloqueio de scripts.
-                </p>
-                <p className="text-xs text-amber-800 dark:text-amber-300">
-                  Siga os passos abaixo para reativar o aplicativo e recarregar os arquivos e ícones:
-                </p>
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-lg font-black text-slate-950 dark:text-white">Diagnóstico de instalação</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Use atualização antes de apagar caches. Reset completo fica como último recurso.</p>
               </div>
 
-              <div className="space-y-3">
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <span className="font-bold text-slate-900 dark:text-white">1. Recarregar Service Worker:</span>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Pressione <kbd className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-[11px]">Ctrl + F5</kbd> (Windows) ou <kbd className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-[11px]">Cmd + Shift + R</kbd> (Mac) para forçar o navegador a buscar o app do servidor.
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Info title="Ícone antigo/genérico" text="Confirme que a instalação aponta para a URL de produção; remova instalações antigas e reinstale após o deploy do manifesto novo." />
+                <Info title="Abre com barra do navegador" text="WebAPK: verifique se foi instalado pelo Chrome. TWA/APK: verifique Digital Asset Links e certificado de assinatura." />
+                <Info title="Tela branca após update" text="Primeiro atualize o service worker. Se persistir, faça reset de caches e recarregue." />
+                <Info title="PWABuilder não analisa" text="Use a URL canônica pública de produção; previews protegidos por autenticação não servem como origem final do pacote." />
+              </div>
 
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <span className="font-bold text-slate-900 dark:text-white">2. Remover e Reinstalar Atalho:</span>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Exclua o atalho antigo da área de trabalho, abra o link principal da aplicação e crie um novo atalho usando a opção "Instalar DocPlus+".
-                  </p>
-                </div>
-
-                <div className="pt-2 flex justify-end">
-                  <button
-                    onClick={() => {
-                      if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.getRegistrations().then((registrations) => {
-                          for (const registration of registrations) {
-                            registration.unregister();
-                          }
-                          window.location.reload();
-                        });
-                      } else {
-                        window.location.reload();
-                      }
-                    }}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition-all"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Limpar Cache & Recarregar Aplicativo
-                  </button>
-                </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={refreshPwa} className="h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black inline-flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Atualizar PWA e recarregar</button>
+                <button onClick={resetPwa} className="h-11 px-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-black">Reset completo de cache</button>
               </div>
             </div>
           )}
-        </div>
+        </main>
 
-        {/* Footer */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-emerald-500" />
-            <span>DocPlus+ PWA Engine v2.5 · Suporte a qualquer e-mail Google</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-semibold transition-all"
-          >
-            Entendido
-          </button>
-        </div>
-
+        <footer className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs text-slate-500">
+          <span>DocSwiss · PWA offline-first · Android WebAPK / TWA preparados separadamente</span>
+          <button onClick={onClose} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold">Fechar</button>
+        </footer>
       </div>
     </div>
   );
 };
+
+const Info: React.FC<{ title: string; text: string }> = ({ title, text }) => (
+  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+    <div className="font-black text-slate-900 dark:text-white text-sm">{title}</div>
+    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{text}</p>
+  </div>
+);
+
+const Step: React.FC<{ n: string; text: string }> = ({ n, text }) => (
+  <li className="flex items-start gap-3 list-none">
+    <span className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-black text-xs flex items-center justify-center shrink-0">{n}</span>
+    <span className="pt-1 text-slate-600 dark:text-slate-300 leading-relaxed">{text}</span>
+  </li>
+);

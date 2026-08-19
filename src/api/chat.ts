@@ -1,4 +1,4 @@
-const CLIENT_AI_TIMEOUT_MS = 30000;
+const CLIENT_AI_TIMEOUT_MS = 45000;
 const CHAT_API_ENDPOINT = '/api/chat';
 const CHAT_STREAM_ENDPOINT = '/api/chat/stream';
 
@@ -7,12 +7,42 @@ export interface AiMessage {
   content: string;
 }
 
+export interface AiRuntimeMeta {
+  requestId?: string;
+  requestedProvider?: string;
+  requestedModel?: string;
+  provider?: string;
+  model?: string;
+  routedModel?: string;
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
+}
+
+const RUNTIME_EVENT = 'docswiss:ai-runtime';
+
 function parseApiResponse(text: string) {
   try {
     return text ? JSON.parse(text) : {};
   } catch {
     return {};
   }
+}
+
+function publishRuntime(meta?: AiRuntimeMeta) {
+  if (!meta || typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<AiRuntimeMeta>(RUNTIME_EVENT, { detail: meta }));
+}
+
+function publishFailure(error: unknown, provider: string, model: string) {
+  const message = error instanceof Error ? error.message : String(error || 'Falha na IA');
+  publishRuntime({
+    requestedProvider: provider,
+    requestedModel: model,
+    provider,
+    model,
+    fallbackUsed: false,
+    fallbackReason: message,
+  });
 }
 
 export async function sendToVercel(
@@ -35,17 +65,30 @@ export async function sendToVercel(
 
     const text = await response.text();
     const data = parseApiResponse(text);
-
     if (!response.ok) {
-      throw new Error(data.error || `Erro no servidor: ${response.status}`);
+      const error = new Error(data.error || `Erro no servidor: ${response.status}`);
+      publishFailure(error, provider, model);
+      throw error;
     }
+
+    publishRuntime({
+      requestId: data.requestId,
+      requestedProvider: data.requestedProvider || provider,
+      requestedModel: data.requestedModel || model,
+      provider: data.provider || data.engine || provider,
+      model: data.model || model,
+      routedModel: data.routedModel,
+      fallbackUsed: Boolean(data.fallbackUsed),
+      fallbackReason: data.fallbackReason,
+    });
 
     return data.answer || data.text || '';
   } catch (error: any) {
     if (error?.name === 'AbortError') {
-      throw new Error('Tempo limite ao aguardar a IA. Tente uma mensagem menor ou outro modelo.');
+      const timeoutError = new Error('Tempo limite ao aguardar a IA. Tente uma mensagem menor ou outro modelo.');
+      publishFailure(timeoutError, provider, model);
+      throw timeoutError;
     }
-
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
@@ -63,59 +106,87 @@ export async function sendToVercelStream(
     signal?: AbortSignal;
   }
 ) {
-  const response = await fetch(CHAT_STREAM_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      provider,
-      model,
-      messages,
-      systemPrompt: options?.systemPrompt,
-      files: options?.files,
-    }),
-    signal: options?.signal,
-  });
+  const timeoutController = new AbortController();
+  const timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_AI_TIMEOUT_MS);
+  const abortFromCaller = () => timeoutController.abort();
+  options?.signal?.addEventListener('abort', abortFromCaller, { once: true });
 
-  if (!response.ok) {
-    const text = await response.text();
-    const data = parseApiResponse(text);
-    throw new Error(data.error || `Erro no servidor (${response.status})`);
-  }
+  try {
+    const response = await fetch(CHAT_STREAM_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        model,
+        messages,
+        systemPrompt: options?.systemPrompt,
+        files: options?.files,
+      }),
+      signal: timeoutController.signal,
+    });
 
-  if (!response.body) {
-    throw new Error('Resposta sem corpo de dados.');
-  }
+    if (!response.ok) {
+      const text = await response.text();
+      const data = parseApiResponse(text);
+      const error = new Error(data.error || `Erro no servidor (${response.status})`);
+      publishFailure(error, provider, model);
+      throw error;
+    }
+    if (!response.body) throw new Error('Resposta sem corpo de dados.');
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
+    const processLine = (line: string) => {
       const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith('data: ')) continue;
-      const jsonStr = trimmed.slice(6).trim();
-      if (jsonStr === '[DONE]') continue;
+      if (!trimmed.startsWith('data: ')) return false;
+      const payload = trimmed.slice(6).trim();
+      if (!payload) return false;
+      if (payload === '[DONE]') return true;
 
+      let parsed: any;
       try {
-        const parsed = JSON.parse(jsonStr);
-        if (parsed.chunk) {
-          onChunk(parsed.chunk);
-        } else if (parsed.error) {
-          throw new Error(parsed.error);
-        }
-      } catch (e: any) {
-        if (e.message !== 'Unexpected end of JSON input') {
-          // ignore chunk parse artifacts
-        }
+        parsed = JSON.parse(payload);
+      } catch {
+        return false;
+      }
+
+      if (parsed.error) {
+        const error = new Error(String(parsed.error));
+        publishFailure(error, provider, model);
+        throw error;
+      }
+      if (parsed.meta) publishRuntime(parsed.meta as AiRuntimeMeta);
+      if (typeof parsed.chunk === 'string' && parsed.chunk) onChunk(parsed.chunk);
+      return false;
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (processLine(line)) return;
       }
     }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) processLine(buffer);
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      if (options?.signal?.aborted) throw error;
+      const timeoutError = new Error('Tempo limite durante a resposta em streaming da IA.');
+      publishFailure(timeoutError, provider, model);
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+    options?.signal?.removeEventListener('abort', abortFromCaller);
   }
 }
+
+export const AI_RUNTIME_EVENT = RUNTIME_EVENT;

@@ -1,32 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Folder,
-  FileText,
-  Search,
-  X,
-  Loader2,
-  Download,
-  Link2,
-  HardDrive,
-  CheckCircle2,
-  AlertCircle,
-  FileCode,
-  Image as ImageIcon,
-  FileSpreadsheet,
-  ExternalLink,
-  ShieldCheck,
-  RefreshCw
-} from 'lucide-react';
-
-interface GoogleDriveFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  iconLink?: string;
-  thumbnailLink?: string;
-  size?: string;
-  modifiedTime?: string;
-}
+  IconFolder as Folder,
+  IconFileText as FileText,
+  IconSearch as Search,
+  IconX as X,
+  IconLoader2 as Loader2,
+  IconCloud as Cloud,
+  IconCircleCheck as CheckCircle2,
+  IconAlertCircle as AlertCircle,
+  IconFileSpreadsheet as FileSpreadsheet,
+  IconPresentation as Presentation,
+  IconRefresh as RefreshCw,
+  IconLogin as Login,
+  IconLogout as Logout,
+  IconLink as Link,
+} from '@tabler/icons-react';
+import { DriveFile, GoogleUserProfile } from '../types';
+import {
+  getStoredGoogleUser,
+  loginWithGooglePopup,
+  logoutGoogleUser,
+  listGoogleDriveFiles,
+} from '../services/googleAuthDrive';
 
 interface GoogleDriveModalProps {
   isOpen: boolean;
@@ -35,442 +30,283 @@ interface GoogleDriveModalProps {
   onNotification?: (msg: string, type?: 'error' | 'success') => void;
 }
 
+const GOOGLE_DOC = 'application/vnd.google-apps.document';
+const GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
+const GOOGLE_SLIDES = 'application/vnd.google-apps.presentation';
+
+const getFileMeta = (mimeType: string) => {
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.includes('csv')) {
+    return { label: 'Planilha', icon: FileSpreadsheet, className: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300' };
+  }
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) {
+    return { label: 'Apresentação', icon: Presentation, className: 'bg-orange-50 text-orange-600 dark:bg-orange-950/50 dark:text-orange-300' };
+  }
+  if (mimeType.includes('folder')) {
+    return { label: 'Pasta', icon: Folder, className: 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300' };
+  }
+  return { label: mimeType.includes('pdf') ? 'PDF' : 'Documento', icon: FileText, className: 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300' };
+};
+
+const formatSize = (size?: string) => {
+  const bytes = Number(size || 0);
+  if (!bytes) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const extractDriveId = (value: string) => {
+  const trimmed = value.trim();
+  const match = trimmed.match(/\/(?:file\/d|document\/d|spreadsheets\/d|presentation\/d)\/([a-zA-Z0-9_-]+)/);
+  return match?.[1] || (/^[a-zA-Z0-9_-]{10,}$/.test(trimmed) ? trimmed : '');
+};
+
 export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
   isOpen,
   onClose,
   onSelectFile,
+  onNotification = () => {},
 }) => {
-  const [accessToken, setAccessToken] = useState<string>(() => {
-    return localStorage.getItem('gdrive_access_token') || '';
-  });
-  const [loading, setLoading] = useState<boolean>(false);
-  const [files, setFiles] = useState<GoogleDriveFile[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [fileTypeFilter, setFileTypeFilter] = useState<string>('all');
-  const [pastedUrl, setPastedUrl] = useState<string>('');
+  const [user, setUser] = useState<GoogleUserProfile | null>(() => getStoredGoogleUser());
+  const [files, setFiles] = useState<DriveFile[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'document' | 'sheet' | 'presentation'>('all');
+  const [pastedLink, setPastedLink] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  // Load Google Drive API script dynamically if needed
-  useEffect(() => {
-    if (accessToken && isOpen) {
-      fetchDriveFiles(accessToken);
-    }
-  }, [isOpen, accessToken]);
-
-  const handleConnectDrive = () => {
-    setErrorMessage(null);
-    setStatusNotice('Conectando ao Google Drive...');
-
-    // Try Google Identity Services GIS token client if available
-    if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
-      try {
-        const client = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: '', // Empty or default AI Studio client ID
-          scope: 'https://www.googleapis.com/auth/drive.readonly',
-          callback: (response: any) => {
-            if (response.access_token) {
-              setAccessToken(response.access_token);
-              localStorage.setItem('gdrive_access_token', response.access_token);
-              setStatusNotice('Conectado com sucesso!');
-              fetchDriveFiles(response.access_token);
-            } else {
-              setErrorMessage('Não foi possível obter o token de acesso do Google.');
-              setStatusNotice(null);
-            }
-          },
-        });
-        client.requestAccessToken();
-        return;
-      } catch (err: any) {
-        console.warn('GIS Token client error:', err);
-      }
-    }
-
-    // Fallback prompt for OAuth Token if popped in separate flow
-    const token = window.prompt(
-      'Cole seu Token de Acesso do Google Drive (ou use o login de demonstração):'
-    );
-    if (token) {
-      setAccessToken(token.trim());
-      localStorage.setItem('gdrive_access_token', token.trim());
-      fetchDriveFiles(token.trim());
-    } else {
-      setStatusNotice(null);
-    }
-  };
-
-  const fetchDriveFiles = async (token: string) => {
+  const loadFiles = async (profile: GoogleUserProfile) => {
     setLoading(true);
-    setErrorMessage(null);
-
+    setError(null);
     try {
-      const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files?pageSize=50&fields=files(id,name,mimeType,iconLink,thumbnailLink,size,modifiedTime)&q=trashed%3Dfalse`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (res.status === 401) {
-        setErrorMessage('Sessão expirada. Conecte sua conta do Google Drive novamente.');
-        setAccessToken('');
-        localStorage.removeItem('gdrive_access_token');
-        setLoading(false);
-        return;
-      }
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `Erro ${res.status}`);
-      }
-
-      const data = await res.json();
-      setFiles(data.files || []);
-      setStatusNotice('Arquivos do Google Drive carregados.');
+      const result = await listGoogleDriveFiles(profile.accessToken);
+      setFiles(result.filter((file) => !file.mimeType.includes('folder')));
     } catch (err: any) {
-      console.error('Erro ao buscar arquivos do Google Drive:', err);
-      setErrorMessage(`Falha na API do Drive: ${err.message}`);
+      const message = err?.message || 'Não foi possível carregar o Google Drive.';
+      setError(message);
+      if (/401|token|credencial|autoriz/i.test(message)) {
+        logoutGoogleUser();
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownloadAndSelect = async (driveFile: GoogleDriveFile) => {
-    setDownloadingId(driveFile.id);
-    setErrorMessage(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const stored = getStoredGoogleUser();
+    setUser(stored);
+    if (stored) void loadFiles(stored);
+  }, [isOpen]);
 
+  const filteredFiles = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return files.filter((file) => {
+      const matchesSearch = !query || file.name.toLowerCase().includes(query);
+      if (!matchesSearch) return false;
+      if (typeFilter === 'document') return file.mimeType.includes('document') || file.mimeType.includes('pdf') || file.mimeType.includes('word');
+      if (typeFilter === 'sheet') return file.mimeType.includes('spreadsheet') || file.mimeType.includes('excel') || file.mimeType.includes('csv');
+      if (typeFilter === 'presentation') return file.mimeType.includes('presentation') || file.mimeType.includes('powerpoint');
+      return true;
+    });
+  }, [files, searchQuery, typeFilter]);
+
+  const connect = async () => {
+    setConnecting(true);
+    setError(null);
     try {
-      let fetchUrl = `https://www.googleapis.com/drive/v3/files/${driveFile.id}?alt=media`;
-      let mimeType = driveFile.mimeType;
+      const profile = await loginWithGooglePopup();
+      setUser(profile);
+      await loadFiles(profile);
+      onNotification(`Google Drive conectado como ${profile.email}.`, 'success');
+    } catch (err: any) {
+      setError(err?.message || 'Falha ao conectar ao Google Drive.');
+    } finally {
+      setConnecting(false);
+    }
+  };
 
-      // Se for um arquivo nativo do Google Docs / Sheets
-      if (driveFile.mimeType === 'application/vnd.google-apps.document') {
-        fetchUrl = `https://www.googleapis.com/drive/v3/files/${driveFile.id}/export?mimeType=application/pdf`;
-        mimeType = 'application/pdf';
-        driveFile.name = driveFile.name.endsWith('.pdf') ? driveFile.name : `${driveFile.name}.pdf`;
-      } else if (driveFile.mimeType === 'application/vnd.google-apps.spreadsheet') {
-        fetchUrl = `https://www.googleapis.com/drive/v3/files/${driveFile.id}/export?mimeType=text/csv`;
-        mimeType = 'text/csv';
-        driveFile.name = driveFile.name.endsWith('.csv') ? driveFile.name : `${driveFile.name}.csv`;
-      }
+  const disconnect = () => {
+    logoutGoogleUser();
+    setUser(null);
+    setFiles([]);
+    setError(null);
+    onNotification('Sessão Google removida deste navegador.', 'success');
+  };
 
-      const response = await fetch(fetchUrl, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+  const fetchDriveBlob = async (driveFile: Pick<DriveFile, 'id' | 'name' | 'mimeType'>) => {
+    if (!user) throw new Error('Conecte sua Conta Google primeiro.');
 
-      if (!response.ok) {
-        throw new Error(`Erro ao baixar arquivo (${response.status})`);
-      }
+    let url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFile.id)}?alt=media`;
+    let mimeType = driveFile.mimeType;
+    let fileName = driveFile.name;
 
-      const blob = await response.blob();
-      const file = new File([blob], driveFile.name, { type: mimeType });
+    if (driveFile.mimeType === GOOGLE_DOC) {
+      mimeType = 'application/pdf';
+      url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFile.id)}/export?mimeType=${encodeURIComponent(mimeType)}`;
+      if (!fileName.toLowerCase().endsWith('.pdf')) fileName += '.pdf';
+    } else if (driveFile.mimeType === GOOGLE_SHEET) {
+      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFile.id)}/export?mimeType=${encodeURIComponent(mimeType)}`;
+      if (!fileName.toLowerCase().endsWith('.xlsx')) fileName += '.xlsx';
+    } else if (driveFile.mimeType === GOOGLE_SLIDES) {
+      mimeType = 'application/pdf';
+      url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFile.id)}/export?mimeType=${encodeURIComponent(mimeType)}`;
+      if (!fileName.toLowerCase().endsWith('.pdf')) fileName += '.pdf';
+    }
 
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${user.accessToken}` },
+    });
+
+    if (response.status === 401) {
+      logoutGoogleUser();
+      setUser(null);
+      throw new Error('Sua sessão Google expirou. Conecte novamente.');
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error?.message || `Falha ao baixar o arquivo (${response.status}).`);
+    }
+
+    const blob = await response.blob();
+    return new File([blob], fileName, { type: blob.type || mimeType });
+  };
+
+  const openFile = async (driveFile: DriveFile) => {
+    setDownloadingId(driveFile.id);
+    setError(null);
+    try {
+      const file = await fetchDriveBlob(driveFile);
       onSelectFile(file);
+      onNotification(`${driveFile.name} importado do Google Drive.`, 'success');
       onClose();
     } catch (err: any) {
-      setErrorMessage(`Erro no download do Google Drive: ${err.message}`);
+      setError(err?.message || 'Falha ao importar o arquivo.');
     } finally {
       setDownloadingId(null);
     }
   };
 
-  const handlePastedUrlImport = async () => {
-    if (!pastedUrl.trim()) return;
-
-    // Extrair ID de URL do Google Drive
-    // Formatos: https://drive.google.com/file/d/1ABC123xyz/view
-    // ou https://docs.google.com/document/d/1ABC123xyz/edit
-    const match = pastedUrl.match(/\/(?:file\/d|document\/d|spreadsheets\/d)\/([a-zA-Z0-9_-]+)/);
-    const fileId = match ? match[1] : pastedUrl.trim();
-
-    if (!fileId) {
-      setErrorMessage('URL ou ID do Google Drive inválido.');
+  const importFromLink = async () => {
+    const id = extractDriveId(pastedLink);
+    if (!id) {
+      setError('Cole um link válido do Google Drive ou um ID de arquivo.');
+      return;
+    }
+    if (!user) {
+      setError('Conecte sua Conta Google para importar um link do Drive com segurança.');
       return;
     }
 
     setLoading(true);
-    setErrorMessage(null);
-
+    setError(null);
     try {
-      if (accessToken) {
-        // Tentar obter dados via API do Drive
-        const metaRes = await fetch(
-          `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType`,
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }
-        );
-
-        if (metaRes.ok) {
-          const meta = await metaRes.json();
-          await handleDownloadAndSelect(meta);
-          return;
-        }
-      }
-
-      // Se não houver token ou for link público, tentar download export
-      const exportUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-      const response = await fetch(exportUrl);
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const file = new File([blob], `google_drive_file_${fileId.substring(0, 6)}.pdf`, {
-          type: blob.type || 'application/pdf',
-        });
-        onSelectFile(file);
-        onClose();
-      } else {
-        throw new Error('Não foi possível acessar o arquivo sem autenticação. Conecte sua conta do Google Drive.');
-      }
+      const metadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=id,name,mimeType,size,modifiedTime`, {
+        headers: { Authorization: `Bearer ${user.accessToken}` },
+      });
+      if (!metadataResponse.ok) throw new Error('Não foi possível acessar esse arquivo com a conta conectada.');
+      const metadata = await metadataResponse.json();
+      const file = await fetchDriveBlob(metadata);
+      onSelectFile(file);
+      onNotification(`${metadata.name} importado do Google Drive.`, 'success');
+      onClose();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao importar arquivo do link do Drive.');
+      setError(err?.message || 'Falha ao importar o link do Google Drive.');
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredFiles = files.filter((f) => {
-    const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
-
-    if (fileTypeFilter === 'pdf') return f.mimeType.includes('pdf') || f.name.endsWith('.pdf');
-    if (fileTypeFilter === 'image') return f.mimeType.includes('image');
-    if (fileTypeFilter === 'doc')
-      return (
-        f.mimeType.includes('document') ||
-        f.mimeType.includes('word') ||
-        f.name.endsWith('.docx') ||
-        f.name.endsWith('.txt')
-      );
-    if (fileTypeFilter === 'sheet')
-      return (
-        f.mimeType.includes('sheet') ||
-        f.mimeType.includes('excel') ||
-        f.name.endsWith('.xlsx') ||
-        f.name.endsWith('.csv')
-      );
-
-    return true;
-  });
-
-  const getFileIcon = (mimeType: string) => {
-    if (mimeType.includes('image')) return <ImageIcon className="w-5 h-5 text-emerald-500" />;
-    if (mimeType.includes('pdf')) return <FileText className="w-5 h-5 text-rose-500" />;
-    if (mimeType.includes('sheet') || mimeType.includes('excel'))
-      return <FileSpreadsheet className="w-5 h-5 text-emerald-600" />;
-    if (mimeType.includes('document') || mimeType.includes('word'))
-      return <FileCode className="w-5 h-5 text-indigo-500" />;
-    return <Folder className="w-5 h-5 text-amber-500" />;
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[85vh]">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-emerald-500 to-blue-500 p-0.5 shadow-md flex items-center justify-center">
-              <div className="w-full h-full bg-white dark:bg-slate-900 rounded-[10px] flex items-center justify-center">
-                <HardDrive className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
+    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+      <div className="w-full max-w-4xl max-h-[88vh] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+        <header className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Cloud className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h2 className="text-base font-black text-slate-900 dark:text-white">Google Drive</h2>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                Google Drive Studio
-                <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                  Integrado
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Selecione documentos, PDFs ou imagens do seu Google Drive para OCR e Chat
-              </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Importe arquivos usando a mesma sessão Google do DocSwiss.</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-5 h-5" /></button>
+        </header>
+
+        {!user ? (
+          <div className="flex-1 min-h-[420px] p-6 flex items-center justify-center">
+            <div className="max-w-sm text-center">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-300 flex items-center justify-center"><Cloud className="w-7 h-7" /></div>
+              <h3 className="mt-4 text-lg font-black text-slate-900 dark:text-white">Conectar ao Drive</h3>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">O DocSwiss usa OAuth real. Nenhum token manual ou conta de demonstração é aceito.</p>
+              <button onClick={connect} disabled={connecting} className="mt-5 h-11 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold inline-flex items-center gap-2 disabled:opacity-60">
+                {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Login className="w-4 h-4" />}
+                Entrar com Google
+              </button>
+              {error && <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs"><AlertCircle className="w-4 h-4 inline mr-1" />{error}</div>}
             </div>
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-6 space-y-5 overflow-y-auto flex-1">
-          {/* Status and Error Banners */}
-          {errorMessage && (
-            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {statusNotice && !errorMessage && (
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl text-xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
-              <span>{statusNotice}</span>
-            </div>
-          )}
-
-          {/* Import via Link */}
-          <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Link2 className="w-3.5 h-3.5 text-indigo-500" />
-              Importar por Link Direto do Google Drive
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={pastedUrl}
-                onChange={(e) => setPastedUrl(e.target.value)}
-                placeholder="Cole a URL do arquivo (ex: https://drive.google.com/file/d/...)"
-                className="flex-1 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-600"
-              />
-              <button
-                onClick={handlePastedUrlImport}
-                disabled={loading || !pastedUrl.trim()}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                Importar
-              </button>
-            </div>
-          </div>
-
-          {/* Connect Button or Search Bar */}
-          {!accessToken ? (
-            <div className="text-center py-8 bg-slate-50/70 dark:bg-slate-800/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-6 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
-                <ShieldCheck className="w-6 h-6" />
+        ) : (
+          <>
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30 flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 font-semibold"><CheckCircle2 className="w-4 h-4" /> {user.email}</span>
+              <div className="ml-auto flex items-center gap-1.5">
+                <button onClick={() => void loadFiles(user)} disabled={loading} className="p-2 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800" title="Atualizar"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></button>
+                <button onClick={disconnect} className="p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30" title="Desconectar"><Logout className="w-4 h-4" /></button>
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Conectar Conta Google Drive
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
-                  Acesse seus documentos salvos diretamente no seu Google Drive sem sair do app.
-                </p>
-              </div>
-              <button
-                onClick={handleConnectDrive}
-                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 mx-auto transition-all"
-              >
-                <HardDrive className="w-4 h-4" />
-                Autorizar Acesso ao Google Drive
-              </button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Controls bar */}
-              <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between">
-                <div className="relative w-full sm:w-auto flex-1">
-                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Pesquisar arquivos no seu Google Drive..."
-                    className="w-full pl-9 pr-3.5 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-600"
-                  />
+
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="flex flex-col lg:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Pesquisar no Drive..." className="w-full h-10 pl-9 pr-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
                 </div>
-
-                <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-                  {['all', 'pdf', 'doc', 'image', 'sheet'].map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setFileTypeFilter(type)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-                        fileTypeFilter === type
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {type === 'all' ? 'Todos' : type.toUpperCase()}
-                    </button>
+                <div className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1 overflow-x-auto">
+                  {[['all','Todos'],['document','Docs/PDF'],['sheet','Planilhas'],['presentation','Slides']].map(([value,label]) => (
+                    <button key={value} onClick={() => setTypeFilter(value as typeof typeFilter)} className={`h-8 px-3 rounded-lg text-[11px] font-bold whitespace-nowrap ${typeFilter === value ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>{label}</button>
                   ))}
-
-                  <button
-                    onClick={() => fetchDriveFiles(accessToken)}
-                    title="Atualizar arquivos"
-                    className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
                 </div>
               </div>
 
-              {/* Files Grid / List */}
-              {loading ? (
-                <div className="py-12 text-center space-y-2">
-                  <Loader2 className="w-7 h-7 text-indigo-600 animate-spin mx-auto" />
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Carregando seus arquivos do Google Drive...
-                  </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input value={pastedLink} onChange={(e) => setPastedLink(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void importFromLink()} placeholder="Cole um link do Google Drive..." className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs outline-none focus:border-blue-500" />
                 </div>
+                <button onClick={() => void importFromLink()} disabled={!pastedLink.trim() || loading} className="h-9 px-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold disabled:opacity-40">Importar link</button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-[320px]">
+              {error && <div className="m-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
+
+              {loading && files.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400"><Loader2 className="w-5 h-5 animate-spin mr-2 text-blue-600" />Carregando seus arquivos...</div>
               ) : filteredFiles.length === 0 ? (
-                <div className="py-10 text-center text-xs text-slate-400 bg-slate-50/50 dark:bg-slate-800/20 rounded-xl border border-slate-200/60 dark:border-slate-800/60">
-                  Nenhum arquivo do Drive encontrado para o filtro digitado.
-                </div>
+                <div className="h-64 flex flex-col items-center justify-center text-center px-6"><Folder className="w-10 h-10 text-slate-300 dark:text-slate-700" /><div className="mt-3 text-sm font-bold text-slate-800 dark:text-slate-200">Nenhum arquivo encontrado</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">O escopo Drive File mostra arquivos disponíveis para este app.</div></div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
-                  {filteredFiles.map((f) => (
-                    <div
-                      key={f.id}
-                      onClick={() => handleDownloadAndSelect(f)}
-                      className="p-3 bg-white dark:bg-slate-800/90 hover:bg-indigo-50/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-xl cursor-pointer flex items-center justify-between group transition-all"
-                    >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="p-2 bg-slate-100 dark:bg-slate-900 rounded-lg shrink-0">
-                          {getFileIcon(f.mimeType)}
-                        </div>
-                        <div className="overflow-hidden">
-                          <h5 className="text-xs font-semibold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                            {f.name}
-                          </h5>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                            {f.mimeType.split('.').pop()?.split('/').pop()?.toUpperCase() || 'Arquivo'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <button
-                        disabled={downloadingId === f.id}
-                        className="p-2 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-900 rounded-lg transition-colors"
-                      >
-                        {downloadingId === f.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredFiles.map((driveFile) => {
+                    const meta = getFileMeta(driveFile.mimeType);
+                    const Icon = meta.icon;
+                    return (
+                      <button key={driveFile.id} onClick={() => void openFile(driveFile)} disabled={downloadingId === driveFile.id} className="w-full px-5 py-3.5 flex items-center gap-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 disabled:opacity-60 group">
+                        <div className={`w-10 h-10 rounded-xl ${meta.className} flex items-center justify-center shrink-0`}><Icon className="w-5 h-5" /></div>
+                        <div className="min-w-0 flex-1"><div className="text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-300">{driveFile.name}</div><div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{meta.label} • {formatSize(driveFile.size)}{driveFile.modifiedTime ? ` • ${new Date(driveFile.modifiedTime).toLocaleDateString('pt-BR')}` : ''}</div></div>
+                        {downloadingId === driveFile.id ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <span className="text-[11px] font-bold text-blue-600 dark:text-blue-300 opacity-0 group-hover:opacity-100">Importar</span>}
                       </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
-          )}
-        </div>
-
-        {/* Modal Footer */}
-        <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex justify-between items-center">
-          <span className="text-[11px] text-slate-400">
-            Acesso seguro em conformidade com Google OAuth 2.0 API v3
-          </span>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition-colors"
-          >
-            Fechar
-          </button>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
