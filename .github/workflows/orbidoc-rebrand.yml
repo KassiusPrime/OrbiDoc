@@ -58,3 +58,5 @@ jobs:
           fi
           git commit -m "Rebrand DocSwiss to OrbiDoc"
           git push origin HEAD:main
+
+# Triggered intentionally after the serverless hotfix was validated in production.
