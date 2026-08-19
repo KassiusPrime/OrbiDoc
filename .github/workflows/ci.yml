@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: OrbiDoc brand audit
+        run: node scripts/check-orbidoc-brand.mjs
+
       - name: Lint source syntax
         run: bun run lint
 
