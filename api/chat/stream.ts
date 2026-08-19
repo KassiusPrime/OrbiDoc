@@ -1,5 +1,5 @@
-import { compactError } from '../_lib/ai';
-import { streamChatSafely } from '../_lib/aiSafeStream';
+import { compactError } from '../_lib/ai.js';
+import { streamChatSafely } from '../_lib/aiSafeStream.js';
 
 function parseBody(body: any) {
   if (typeof body !== 'string') return body || {};
