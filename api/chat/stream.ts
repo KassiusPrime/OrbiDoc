@@ -1,4 +1,5 @@
-import { compactError, streamChat } from '../_lib/ai';
+import { compactError } from '../_lib/ai';
+import { streamChatSafely } from '../_lib/aiSafeStream';
 
 function parseBody(body: any) {
   if (typeof body !== 'string') return body || {};
@@ -19,7 +20,7 @@ export default async function handler(req: any, res: any) {
 
   const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
   try {
-    const requestId = await streamChat(parseBody(req.body), write);
+    const requestId = await streamChatSafely(parseBody(req.body), write);
     res.setHeader?.('X-DocSwiss-Request-Id', requestId);
   } catch (error) {
     write({ error: compactError(error) });
