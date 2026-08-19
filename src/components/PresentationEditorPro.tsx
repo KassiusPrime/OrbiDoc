@@ -26,8 +26,8 @@ interface PresentationEditorProProps {
 
 type ThemeId = 'light' | 'dark' | 'indigo' | 'emerald';
 type DeckState = { title: string; slides: SlideData[]; theme: ThemeId };
-
 type Theme = { bg: string; text: string; accent: string; className: string };
+
 const THEMES: Record<ThemeId, Theme> = {
   light: { bg: '#FFFFFF', text: '#0F172A', accent: '#2563EB', className: 'bg-white text-slate-950' },
   dark: { bg: '#0F172A', text: '#F8FAFC', accent: '#38BDF8', className: 'bg-slate-900 text-white' },
@@ -179,7 +179,7 @@ export const PresentationEditorPro: React.FC<PresentationEditorProProps> = ({
       slide.addText(source.title, { x: 0.8, y: 2.15, w: 11.7, h: 0.9, fontFace: 'Aptos Display', fontSize: 30, bold: true, color: textColor, align: 'center', margin: 0 });
       if (source.subtitle) slide.addText(source.subtitle, { x: 1.2, y: 3.2, w: 10.9, h: 0.55, fontFace: 'Aptos', fontSize: 16, color: accent, align: 'center', margin: 0 });
     } else if (source.layout === 'quote') {
-      slide.addText(`“${source.title}”`, { x: 1.0, y: 1.75, w: 11.3, h: 2.4, fontFace: 'Aptos Display', fontSize: 28, italic: true, bold: true, color: textColor, align: 'center', valign: 'mid', margin: 0.05 });
+      slide.addText(`“${source.title}”`, { x: 1.0, y: 1.75, w: 11.3, h: 2.4, fontFace: 'Aptos Display', fontSize: 28, italic: true, bold: true, color: textColor, align: 'center', valign: 'mid' as any, margin: 0.05 });
       if (source.subtitle) slide.addText(source.subtitle, { x: 2.0, y: 4.55, w: 9.3, h: 0.5, fontFace: 'Aptos', fontSize: 14, color: accent, align: 'right', margin: 0 });
     } else {
       slide.addText(source.title, { x: 0.7, y: 0.45, w: 12, h: 0.65, fontFace: 'Aptos Display', fontSize: 24, bold: true, color: textColor, margin: 0 });
@@ -221,9 +221,8 @@ export const PresentationEditorPro: React.FC<PresentationEditorProProps> = ({
     const dims = await imageDimensions(data);
     const fitted = fitRect(dims.width, dims.height, box.x, box.y, box.w, box.h);
     try {
-      pdf.addImage(data, undefined, fitted.x, fitted.y, fitted.w, fitted.h, undefined, 'FAST');
+      pdf.addImage(data, undefined as any, fitted.x, fitted.y, fitted.w, fitted.h, undefined, 'FAST');
     } catch {
-      // An image that the browser can display may still use a codec jsPDF cannot embed.
       const image = new Image();
       image.src = data;
       await image.decode().catch(() => {});
@@ -371,7 +370,6 @@ export const PresentationEditorPro: React.FC<PresentationEditorProProps> = ({
 };
 
 const SlideCanvas: React.FC<{ slide: SlideData; theme: Theme; miniature?: boolean; present?: boolean }> = ({ slide, theme, miniature = false, present = false }) => {
-  const scale = miniature ? 0.28 : present ? 1.1 : 1;
   const titleClass = miniature ? 'text-[5px]' : present ? 'text-4xl lg:text-6xl' : 'text-xl sm:text-3xl lg:text-4xl';
   const bodyClass = miniature ? 'text-[3px]' : present ? 'text-xl lg:text-2xl' : 'text-xs sm:text-base lg:text-lg';
   if (slide.layout === 'title') return <div className="w-full h-full p-[7%] flex flex-col items-center justify-center text-center"><h1 className={`${titleClass} font-black leading-tight`}>{slide.title}</h1>{slide.subtitle && <p className={`${bodyClass} mt-[4%] font-semibold`} style={{ color: theme.accent }}>{slide.subtitle}</p>}</div>;
