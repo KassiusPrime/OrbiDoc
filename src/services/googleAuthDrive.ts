@@ -11,12 +11,14 @@ const SCOPES = [
 const STORAGE_KEY_USER = 'docswiss_google_user';
 const TOKEN_SAFETY_WINDOW_MS = 60_000;
 
+export function isGoogleOAuthConfigured(): boolean {
+  return Boolean(CLIENT_ID);
+}
+
 function sanitizeStoredProfile(user: GoogleUserProfile): GoogleUserProfile | null {
   if (!user?.id || !user?.email) return null;
   if (user.expiresAt && Date.now() + TOKEN_SAFETY_WINDOW_MS >= user.expiresAt) return null;
-  if (!user.accessToken || user.accessToken.startsWith('google_token_') || user.accessToken.startsWith('firebase_token_')) {
-    return null;
-  }
+  if (!user.accessToken || user.accessToken.startsWith('google_token_') || user.accessToken.startsWith('firebase_token_')) return null;
   return user;
 }
 
@@ -30,8 +32,6 @@ export function getStoredGoogleUser(): GoogleUserProfile | null {
       localStorage.removeItem(STORAGE_KEY_USER);
       return null;
     }
-
-    // Migrate existing sessions away from persistent localStorage.
     sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
     localStorage.removeItem(STORAGE_KEY_USER);
     return user;
@@ -61,14 +61,12 @@ export function loginWithGooglePopup(): Promise<GoogleUserProfile> {
       reject(new Error('Autenticação Google indisponível fora do navegador.'));
       return;
     }
-
     if (!(window as any).google?.accounts?.oauth2) {
-      reject(new Error('Google Identity Services não foi carregado. Tente novamente após recarregar a página.'));
+      reject(new Error('Google Identity Services não foi carregado. Recarregue a página e tente novamente.'));
       return;
     }
-
     if (!CLIENT_ID) {
-      reject(new Error('Google OAuth não está configurado. Defina VITE_GOOGLE_CLIENT_ID.'));
+      reject(new Error('Google OAuth não está configurado. Defina VITE_GOOGLE_CLIENT_ID no ambiente de implantação.'));
       return;
     }
 
@@ -81,7 +79,6 @@ export function loginWithGooglePopup(): Promise<GoogleUserProfile> {
             reject(new Error(response?.error_description || 'Autenticação Google cancelada ou recusada.'));
             return;
           }
-
           try {
             const expiresInSeconds = Number(response.expires_in || 3600);
             const profile = await fetchGoogleUserProfile(response.access_token);
@@ -92,9 +89,7 @@ export function loginWithGooglePopup(): Promise<GoogleUserProfile> {
             reject(new Error(error?.message || 'Não foi possível validar a Conta Google.'));
           }
         },
-        error_callback: (error: any) => {
-          reject(new Error(error?.message || 'Falha ao abrir a autenticação Google.'));
-        },
+        error_callback: (error: any) => reject(new Error(error?.message || 'Falha ao abrir a autenticação Google.')),
       });
       client.requestAccessToken({ prompt: 'consent' });
     } catch (error: any) {
@@ -104,24 +99,11 @@ export function loginWithGooglePopup(): Promise<GoogleUserProfile> {
 }
 
 export async function fetchGoogleUserProfile(accessToken: string): Promise<GoogleUserProfile> {
-  const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!response.ok) {
-    throw new Error('Falha ao validar o perfil da Conta Google.');
-  }
-
+  const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error('Falha ao validar o perfil da Conta Google.');
   const data = await response.json();
   if (!data?.sub || !data?.email) throw new Error('A Conta Google não retornou um perfil válido.');
-
-  return {
-    id: data.sub,
-    name: data.name || data.email,
-    email: data.email,
-    picture: data.picture,
-    accessToken,
-  };
+  return { id: data.sub, name: data.name || data.email, email: data.email, picture: data.picture, accessToken };
 }
 
 export async function uploadToGoogleDrive(
@@ -130,12 +112,7 @@ export async function uploadToGoogleDrive(
   mimeType: string,
   content: string | Blob
 ): Promise<DriveFile> {
-  const metadata = {
-    name: fileName,
-    mimeType,
-    description: 'Documento criado via DocPlus+',
-  };
-
+  const metadata = { name: fileName, mimeType, description: 'Documento criado via DocSwiss' };
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   form.append('file', typeof content === 'string' ? new Blob([content], { type: mimeType }) : content);
@@ -144,44 +121,31 @@ export async function uploadToGoogleDrive(
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,modifiedTime,webViewLink,size',
     { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body: form }
   );
-
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.error?.message || `Erro ao enviar arquivo para o Google Drive (${response.status})`);
   }
-
   const data = await response.json();
-  return {
-    id: data.id,
-    name: data.name,
-    mimeType: data.mimeType,
-    modifiedTime: data.modifiedTime,
-    webViewLink: data.webViewLink,
-    size: data.size,
-  };
+  return { id: data.id, name: data.name, mimeType: data.mimeType, modifiedTime: data.modifiedTime, webViewLink: data.webViewLink, size: data.size };
 }
 
+/** Lists files that the drive.file OAuth scope makes available to this DocSwiss client. */
 export async function listGoogleDriveFiles(accessToken: string): Promise<DriveFile[]> {
   const query = encodeURIComponent('trashed = false');
   const response = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,mimeType,modifiedTime,webViewLink,size)&pageSize=30&orderBy=modifiedTime%20desc`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Falha ao listar arquivos do Google Drive.');
+    throw new Error(err.error?.message || 'Falha ao listar os arquivos do Google Drive disponíveis ao DocSwiss.');
   }
-
   const data = await response.json();
   return data.files || [];
 }
 
 export async function downloadGoogleDriveFile(accessToken: string, fileId: string): Promise<string> {
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error('Erro ao baixar arquivo do Google Drive.');
   return response.text();
 }
