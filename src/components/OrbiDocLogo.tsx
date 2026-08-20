@@ -19,21 +19,26 @@ export const OrbiDocLogo: React.FC<OrbiDocLogoProps> = ({
   }[size];
 
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      <div className={`relative shrink-0 ${dimensions.icon}`}>
+    <div className={`flex items-center gap-2.5 ${className}`} aria-label="OrbiDoc">
+      <div className={`relative shrink-0 ${dimensions.icon}`} aria-hidden="true">
         <img
-          src="/logo.png"
+          src="/brand/orbidoc-symbol-light.svg"
           alt=""
-          aria-hidden="true"
           draggable={false}
-          className="w-full h-full object-contain rounded-[22%] shadow-sm"
+          className="block w-full h-full object-contain dark:hidden"
+        />
+        <img
+          src="/brand/orbidoc-symbol-dark.svg"
+          alt=""
+          draggable={false}
+          className="hidden w-full h-full object-contain dark:block"
         />
       </div>
 
       {showText && (
-        <div className={`${dimensions.text} font-black tracking-[-0.035em] leading-none whitespace-nowrap`}>
-          <span className="text-slate-950 dark:text-white">Doc</span>
-          <span className="text-indigo-600 dark:text-indigo-400">Swiss</span>
+        <div className={`${dimensions.text} font-bold tracking-[-0.035em] leading-none whitespace-nowrap font-inter`}>
+          <span className="text-[#0B1220] dark:text-[#F8FAFF]">Orbi</span>
+          <span className="text-[#3157F6] dark:text-[#7AA2FF]">Doc</span>
         </div>
       )}
     </div>
