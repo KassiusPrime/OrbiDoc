@@ -1,5 +1,3 @@
-import magickWasmUrl from '@imagemagick/magick-wasm/magick.wasm?url';
-
 export type BrowserImageTarget = 'png' | 'jpg' | 'webp' | 'avif';
 
 export interface BrowserImageConversionOptions {
@@ -20,8 +18,14 @@ let magickPromise: Promise<any> | null = null;
 async function getMagick() {
   if (!magickPromise) {
     magickPromise = (async () => {
-      const module = await import('@imagemagick/magick-wasm');
-      await module.initializeImageMagick(new URL(magickWasmUrl, import.meta.url));
+      // Both the JS wrapper and the large WASM payload stay out of the normal
+      // OrbiDoc path. Vite resolves ?url only when this dynamic branch runs.
+      const [module, wasmAsset] = await Promise.all([
+        import('@imagemagick/magick-wasm'),
+        import('@imagemagick/magick-wasm/magick.wasm?url'),
+      ]);
+      const magickWasmUrl = (wasmAsset as any).default || wasmAsset;
+      await module.initializeImageMagick(new URL(String(magickWasmUrl), import.meta.url));
       return module;
     })().catch((error) => {
       magickPromise = null;
@@ -82,9 +86,6 @@ export async function convertImageWithMagick(
       return await new Promise<Blob>((resolve, reject) => {
         try {
           image.write(format, (data: Uint8Array) => {
-            // Copy bytes into an ArrayBuffer owned by this realm. ImageMagick's
-            // typings permit ArrayBufferLike (including SharedArrayBuffer), while
-            // the DOM Blob constructor requires an ArrayBuffer-backed BlobPart.
             const copy = new Uint8Array(data.byteLength);
             copy.set(data);
             resolve(new Blob([copy.buffer], { type: MIME_BY_TARGET[target] }));
