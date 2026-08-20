@@ -3,23 +3,20 @@ import {
   editImage as editImageLegacy,
   generateImage as generateImageLegacy,
 } from './ai.js';
+import { resolveGatewayCredential, type GatewayCredential } from './gatewayAuth.js';
 
 const AI_GATEWAY_URL = 'https://ai-gateway.vercel.sh/v1';
 const GATEWAY_IMAGE_MODEL = 'google/gemini-3.1-flash-image-preview';
 const IMAGE_TIMEOUT_MS = 55_000;
-
-function gatewayToken() {
-  return process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || '';
-}
 
 function normalizeImageUrl(value: unknown) {
   if (typeof value !== 'string') return '';
   return value.startsWith('data:image/') ? value : '';
 }
 
-async function gatewayImageRequest(messages: any[]) {
-  const token = gatewayToken();
-  if (!token) throw new Error('Vercel AI Gateway não está autenticado.');
+async function gatewayImageRequest(messages: any[], credential?: GatewayCredential) {
+  const auth = credential || await resolveGatewayCredential();
+  if (!auth.token) throw new Error('Vercel AI Gateway não está autenticado.');
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
@@ -27,7 +24,7 @@ async function gatewayImageRequest(messages: any[]) {
     const response = await fetch(`${AI_GATEWAY_URL}/chat/completions`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${auth.token}`,
         'Content-Type': 'application/json',
         'X-Vercel-AI-Gateway-App': 'OrbiDoc',
       },
@@ -56,6 +53,7 @@ async function gatewayImageRequest(messages: any[]) {
           provider: 'gateway',
           model: typeof data?.model === 'string' ? data.model : GATEWAY_IMAGE_MODEL,
           requestId: typeof data?.id === 'string' ? data.id : undefined,
+          gatewayAuth: auth.mode,
           fallbackUsed: false,
         };
       }
@@ -71,11 +69,12 @@ export async function generateImageResilient(body: any) {
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
   if (!prompt || prompt.length > 8_000) throw new Error('Descrição de imagem inválida ou grande demais.');
 
-  if (gatewayToken()) {
+  const credential = await resolveGatewayCredential();
+  if (credential.token) {
     try {
       return await gatewayImageRequest([
         { role: 'user', content: prompt },
-      ]);
+      ], credential);
     } catch (error) {
       const legacy = await generateImageLegacy(body);
       return {
@@ -96,7 +95,8 @@ export async function editImageResilient(body: any) {
   if (image.length > 11_000_000) throw new Error('A imagem é grande demais para edição neste endpoint.');
   if (prompt.length > 8_000) throw new Error('A instrução de edição é grande demais.');
 
-  if (gatewayToken()) {
+  const credential = await resolveGatewayCredential();
+  if (credential.token) {
     try {
       return await gatewayImageRequest([
         {
@@ -112,7 +112,7 @@ export async function editImageResilient(body: any) {
             },
           ],
         },
-      ]);
+      ], credential);
     } catch (gatewayError) {
       try {
         const legacy = await editImageLegacy(body);
