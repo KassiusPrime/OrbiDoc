@@ -36,6 +36,7 @@ export default defineConfig({
           ) return "vendor-react";
           if (moduleId.includes("/motion/") || moduleId.includes("/framer-motion/")) return "vendor-motion";
 
+          if (moduleId.includes("/@imagemagick/magick-wasm/")) return "vendor-image-convert";
           if (moduleId.includes("/docx/") || moduleId.includes("/mammoth/")) return "vendor-doc-processing";
           if (moduleId.includes("/jszip/")) return "vendor-zip";
           if (moduleId.includes("/jspdf/") || moduleId.includes("/html2canvas/")) return "vendor-pdf";
@@ -79,8 +80,19 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//],
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,mjs,wasm}"],
+        // The ImageMagick WASM binary is intentionally excluded from precache:
+        // it is ~16 MB and is only needed when an advanced image format is used.
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,mjs}"],
         runtimeCaching: [
+          {
+            urlPattern: /\.wasm$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "orbidoc-wasm-runtime",
+              expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: "StaleWhileRevalidate",

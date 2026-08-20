@@ -6,6 +6,7 @@
       "name": "react-vite-tailwind",
       "dependencies": {
         "@google/genai": "^2.13.0",
+        "@imagemagick/magick-wasm": "0.0.42",
         "@tabler/icons-react": "^3.46.0",
         "@types/file-saver": "^2.0.7",
         "@vercel/oidc": "3.8.4",
@@ -380,6 +381,8 @@
     "@grpc/grpc-js": ["@grpc/grpc-js@1.9.16", "", { "dependencies": { "@grpc/proto-loader": "^0.7.8", "@types/node": ">=12.12.47" } }, "sha512-wE4Ut/olIzfKqp631XrG+wbF0v1vWFN4YL9FyXC2LJiG33DsV7PLzURjrCvY/6je2ntdRkeLpPDluzSRGaVltQ=="],
 
     "@grpc/proto-loader": ["@grpc/proto-loader@0.7.15", "", { "dependencies": { "lodash.camelcase": "^4.3.0", "long": "^5.0.0", "protobufjs": "^7.2.5", "yargs": "^17.7.2" }, "bin": { "proto-loader-gen-types": "build/bin/proto-loader-gen-types.js" } }, "sha512-tMXdRCfYVixjuFK+Hk0Q1s38gV9zDiDJfWL3h1rv4Qc39oILCu1TRTDt7+fGUI8K4G1Fj125Hx/ru3azECWTyQ=="],
+
+    "@imagemagick/magick-wasm": ["@imagemagick/magick-wasm@0.0.42", "", {}, "sha512-SUX54Pf3uMBS4ThdmHvbcKqP83W2FRc8kVnqxtwm1csgeaDPn8h47zQh6Yt7U1kmZL7ziV22j4W3GmAef5uLWg=="],
 
     "@isaacs/cliui": ["@isaacs/cliui@9.0.0", "", {}, "sha512-AokJm4tuBHillT+FpMtxQ60n8ObyXBatq7jD2/JA9dxbDDokKQm8KMht5ibGzLVU9IJDIKK4TPKgMHEYMn3lMg=="],
 
