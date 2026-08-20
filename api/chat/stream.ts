@@ -1,5 +1,6 @@
 import { compactError } from '../_lib/ai.js';
 import { streamChatSafely } from '../_lib/aiSafeStream.js';
+import { hydrateGatewayRuntimeAuth } from '../_lib/gatewayAuth.js';
 
 function parseBody(body: any) {
   if (typeof body !== 'string') return body || {};
@@ -13,6 +14,7 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  await hydrateGatewayRuntimeAuth();
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');

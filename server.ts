@@ -9,6 +9,7 @@ import {
   runChat,
 } from './api/_lib/ai.js';
 import { streamChatSafely } from './api/_lib/aiSafeStream.js';
+import { hydrateGatewayRuntimeAuth } from './api/_lib/gatewayAuth.js';
 import { editImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
@@ -52,6 +53,14 @@ async function startServer() {
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '12mb' }));
+  app.use('/api', async (_req, _res, next) => {
+    try {
+      await hydrateGatewayRuntimeAuth();
+      next();
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.get('/api/ai/models', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');

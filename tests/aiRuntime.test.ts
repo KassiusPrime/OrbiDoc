@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import { gatewayAuthMode, getHealth, getModelCatalog, normalizeProvider } from '../api/_lib/ai';
+import { resolveGatewayCredential } from '../api/_lib/gatewayAuth';
 
 const KEYS = [
   'AI_GATEWAY_API_KEY',
@@ -10,6 +11,7 @@ const KEYS = [
   'OPENROUTER_API_KEY',
 ] as const;
 
+const TEST_OIDC_TOKEN = 'eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDQ2MDQ4MDB9.test';
 const previous = new Map<string, string | undefined>();
 
 beforeEach(() => {
@@ -30,7 +32,7 @@ afterEach(() => {
 
 describe('OrbiDoc AI runtime availability', () => {
   test('uses Vercel OIDC as an automatic Gateway credential', () => {
-    process.env.VERCEL_OIDC_TOKEN = 'test-oidc-token';
+    process.env.VERCEL_OIDC_TOKEN = TEST_OIDC_TOKEN;
 
     assert.equal(gatewayAuthMode(), 'oidc');
     assert.equal(normalizeProvider(undefined), 'gateway');
@@ -41,10 +43,21 @@ describe('OrbiDoc AI runtime availability', () => {
     assert.equal(enabled.some((model) => model.provider === 'gateway' && model.id === 'openai/gpt-5.6-luna'), true);
   });
 
-  test('prefers an explicit AI Gateway API key over OIDC when both exist', () => {
-    process.env.VERCEL_OIDC_TOKEN = 'test-oidc-token';
+  test('runtime credential resolver prefers OIDC over a static Gateway key', async () => {
+    process.env.VERCEL_OIDC_TOKEN = TEST_OIDC_TOKEN;
     process.env.AI_GATEWAY_API_KEY = 'test-gateway-key';
-    assert.equal(gatewayAuthMode(), 'api-key');
+
+    const credential = await resolveGatewayCredential();
+    assert.equal(credential.mode, 'oidc');
+    assert.equal(credential.token, TEST_OIDC_TOKEN);
+  });
+
+  test('falls back to an explicit Gateway API key when OIDC is unavailable', async () => {
+    process.env.AI_GATEWAY_API_KEY = 'test-gateway-key';
+
+    const credential = await resolveGatewayCredential();
+    assert.equal(credential.mode, 'api-key');
+    assert.equal(credential.token, 'test-gateway-key');
   });
 
   test('does not pretend direct providers are enabled without their secrets', () => {

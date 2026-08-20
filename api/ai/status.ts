@@ -1,4 +1,5 @@
 import { compactError, getProviderStatus } from '../_lib/ai.js';
+import { hydrateGatewayRuntimeAuth } from '../_lib/gatewayAuth.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -7,6 +8,7 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  await hydrateGatewayRuntimeAuth();
   res.setHeader('Cache-Control', 'no-store');
   try {
     res.status(200).json(await getProviderStatus());
