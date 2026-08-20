@@ -82,7 +82,12 @@ export async function convertImageWithMagick(
       return await new Promise<Blob>((resolve, reject) => {
         try {
           image.write(format, (data: Uint8Array) => {
-            resolve(new Blob([data], { type: MIME_BY_TARGET[target] }));
+            // Copy bytes into an ArrayBuffer owned by this realm. ImageMagick's
+            // typings permit ArrayBufferLike (including SharedArrayBuffer), while
+            // the DOM Blob constructor requires an ArrayBuffer-backed BlobPart.
+            const copy = new Uint8Array(data.byteLength);
+            copy.set(data);
+            resolve(new Blob([copy.buffer], { type: MIME_BY_TARGET[target] }));
           });
         } catch (error) {
           reject(error);
