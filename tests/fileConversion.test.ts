@@ -5,13 +5,17 @@ import {
   getFileExtension,
   getSupportedOutputs,
   isSupportedInput,
+  isUniversalImageInput,
 } from '../src/lib/fileConversion';
 
 const makeFile = (name: string, type = 'application/octet-stream') =>
   new File(['fixture'], name, { type }) as unknown as globalThis.File;
 
-test('normalizes jpeg extension to jpg', () => {
+test('normalizes common image extension aliases', () => {
   assert.equal(getFileExtension(makeFile('photo.JPEG', 'image/jpeg')), 'jpg');
+  assert.equal(getFileExtension(makeFile('photo.JFIF', 'image/jpeg')), 'jpg');
+  assert.equal(getFileExtension(makeFile('scan.TIF', 'image/tiff')), 'tiff');
+  assert.equal(getFileExtension(makeFile('photo.HEIF', 'image/heif')), 'heic');
 });
 
 test('offers image conversion plus OCR document targets without repeating the source format', () => {
@@ -19,6 +23,36 @@ test('offers image conversion plus OCR document targets without repeating the so
     getSupportedOutputs(makeFile('photo.jpeg', 'image/jpeg')),
     ['png', 'webp', 'avif', 'pdf', 'txt', 'html', 'docx'],
   );
+});
+
+test('recognizes advanced image formats handled by the WASM fallback', () => {
+  const fixtures = [
+    ['camera.heic', 'image/heic'],
+    ['scan.tiff', 'image/tiff'],
+    ['design.psd', 'image/vnd.adobe.photoshop'],
+    ['photo.jxl', 'image/jxl'],
+    ['icon.ico', 'image/x-icon'],
+    ['frame.exr', 'image/x-exr'],
+    ['camera.nef', 'application/octet-stream'],
+  ] as const;
+
+  for (const [name, type] of fixtures) {
+    const file = makeFile(name, type);
+    assert.equal(isUniversalImageInput(file), true, name);
+    assert.equal(isSupportedInput(file), true, name);
+    assert.deepEqual(
+      getSupportedOutputs(file),
+      ['png', 'jpg', 'webp', 'avif', 'pdf', 'txt', 'html', 'docx'],
+      name,
+    );
+  }
+});
+
+test('accepts image MIME types even when the extension is uncommon', () => {
+  const file = makeFile('asset.custom-image', 'image/x-custom');
+  assert.equal(isUniversalImageInput(file), true);
+  assert.equal(isSupportedInput(file), true);
+  assert.ok(getSupportedOutputs(file).includes('png'));
 });
 
 test('offers document extraction and all supported raster targets for PDF input', () => {
