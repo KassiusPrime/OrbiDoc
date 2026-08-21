@@ -13,7 +13,6 @@ service cloud.firestore {
     function ownsLegacyByEmail(data) {
       return signedIn()
         && request.auth.token.email != null
-        && data.userId == null
         && data.userEmail == request.auth.token.email;
     }
 
@@ -21,30 +20,37 @@ service cloud.firestore {
       return ownsByUid(data) || ownsLegacyByEmail(data);
     }
 
+    function keepsModernOwnership(data) {
+      return signedIn()
+        && data.userId == request.auth.uid
+        && data.userEmail == request.auth.token.email;
+    }
+
     match /users/{userId} {
       allow read, create, update, delete: if signedIn() && request.auth.uid == userId;
     }
 
     match /documents/{documentId} {
-      allow create: if signedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.userEmail == request.auth.token.email;
-      allow read, update, delete: if owns(resource.data);
+      allow create: if keepsModernOwnership(request.resource.data);
+      allow read, delete: if owns(resource.data);
+      allow update: if owns(resource.data) && keepsModernOwnership(request.resource.data);
     }
 
     match /user_settings/{settingId} {
       allow create: if signedIn()
         && settingId == request.auth.uid
         && request.resource.data.userEmail == request.auth.token.email;
-      allow read, update, delete: if signedIn()
+      allow read, delete: if signedIn()
         && (settingId == request.auth.uid || resource.data.userEmail == request.auth.token.email);
+      allow update: if signedIn()
+        && (settingId == request.auth.uid || resource.data.userEmail == request.auth.token.email)
+        && request.resource.data.userEmail == request.auth.token.email;
     }
 
     match /chat_sessions/{sessionId} {
-      allow create: if signedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.userEmail == request.auth.token.email;
-      allow read, update, delete: if owns(resource.data);
+      allow create: if keepsModernOwnership(request.resource.data);
+      allow read, delete: if owns(resource.data);
+      allow update: if owns(resource.data) && keepsModernOwnership(request.resource.data);
     }
 
     match /{document=**} {
