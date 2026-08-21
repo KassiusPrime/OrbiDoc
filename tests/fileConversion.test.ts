@@ -6,6 +6,7 @@ import {
   getSupportedOutputs,
   isSupportedInput,
   isUniversalImageInput,
+  UNIVERSAL_IMAGE_OUTPUTS,
 } from '../src/lib/fileConversion';
 
 const makeFile = (name: string, type = 'application/octet-stream') =>
@@ -18,11 +19,22 @@ test('normalizes common image extension aliases', () => {
   assert.equal(getFileExtension(makeFile('photo.HEIF', 'image/heif')), 'heic');
 });
 
-test('offers image conversion plus OCR document targets without repeating the source format', () => {
-  assert.deepEqual(
-    getSupportedOutputs(makeFile('photo.jpeg', 'image/jpeg')),
-    ['png', 'webp', 'avif', 'pdf', 'txt', 'html', 'docx'],
-  );
+test('keeps JPG available as an explicit normalization target for JPEG aliases', () => {
+  for (const name of ['photo.jpeg', 'photo.jpe', 'photo.jfif']) {
+    const outputs = getSupportedOutputs(makeFile(name, 'image/jpeg'));
+    assert.equal(outputs[0], 'png', name);
+    assert.ok(outputs.includes('jpg'), `${name} should be normalizable to .jpg`);
+  }
+});
+
+test('offers a broad writable image target set plus OCR document targets', () => {
+  const outputs = getSupportedOutputs(makeFile('photo.png', 'image/png'));
+  assert.equal(outputs.includes('png'), false);
+  for (const format of ['jpg', 'webp', 'avif', 'gif', 'bmp', 'tiff', 'heic', 'jxl', 'jp2', 'ico', 'psd', 'exr', 'qoi']) {
+    assert.ok(outputs.includes(format as any), format);
+  }
+  for (const format of ['pdf', 'txt', 'html', 'docx']) assert.ok(outputs.includes(format as any), format);
+  assert.ok(UNIVERSAL_IMAGE_OUTPUTS.length >= 20);
 });
 
 test('recognizes advanced image formats handled by the WASM fallback', () => {
@@ -40,11 +52,12 @@ test('recognizes advanced image formats handled by the WASM fallback', () => {
     const file = makeFile(name, type);
     assert.equal(isUniversalImageInput(file), true, name);
     assert.equal(isSupportedInput(file), true, name);
-    assert.deepEqual(
-      getSupportedOutputs(file),
-      ['png', 'jpg', 'webp', 'avif', 'pdf', 'txt', 'html', 'docx'],
-      name,
-    );
+    const outputs = getSupportedOutputs(file);
+    assert.ok(outputs.includes('png'), name);
+    assert.ok(outputs.includes('jpg'), name);
+    assert.ok(outputs.includes('webp'), name);
+    assert.ok(outputs.includes('tiff'), name);
+    assert.ok(outputs.includes('pdf'), name);
   }
 });
 
@@ -55,7 +68,15 @@ test('accepts image MIME types even when the extension is uncommon', () => {
   assert.ok(getSupportedOutputs(file).includes('png'));
 });
 
-test('offers document extraction and all supported raster targets for PDF input', () => {
+test('keeps camera RAW formats input-only while offering rendered outputs', () => {
+  const outputs = getSupportedOutputs(makeFile('camera.cr3'));
+  assert.ok(outputs.includes('jpg'));
+  assert.ok(outputs.includes('tiff'));
+  assert.equal(outputs.includes('cr3' as any), false);
+  assert.equal(outputs.includes('dng' as any), false);
+});
+
+test('offers document extraction and browser raster targets for PDF input', () => {
   assert.deepEqual(
     getSupportedOutputs(makeFile('contract.pdf', 'application/pdf')),
     ['txt', 'html', 'docx', 'png', 'jpg', 'webp', 'avif'],
