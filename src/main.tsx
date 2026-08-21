@@ -5,11 +5,14 @@ import App from './AppV5';
 import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
+import { MediaToolsLauncher } from './components/MediaToolsLauncher';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
+import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
+import { mountPwaInstallStateAgent } from './lib/pwaInstall';
 import './index.css';
 import './orbidoc-ui.css';
 import './platform.css';
@@ -17,6 +20,7 @@ import './scan-reader.css';
 
 migrateLegacyBrandStorage();
 applyOrbiDocPlatformProfile();
+mountPwaInstallStateAgent();
 
 registerSW({
   immediate: true,
@@ -35,6 +39,8 @@ ReactDOM.createRoot(root).render(
         <App />
       </OrbiDocExperienceShell>
       <AccountSyncAgent />
+      <SystemFileOpenAgent />
+      <MediaToolsLauncher />
       <VersionHistoryLauncher />
       <QuickScanReaderLauncher />
       <AiRuntimeStatus />
