@@ -1,0 +1,284 @@
+/*
+ * OrbiDoc application interface layer.
+ *
+ * This file deliberately sits after the Tailwind entrypoint. It unifies the
+ * product shell and recurring workspace surfaces without changing editor data
+ * models or individual feature behavior.
+ */
+
+.orbidoc-app-root {
+  --orbi-cloud: #f7f9fc;
+  --orbi-surface: #ffffff;
+  --orbi-surface-muted: #f1f5f9;
+  --orbi-line: #e2e8f0;
+  --orbi-ink: #0b1220;
+  --orbi-muted: #64748b;
+  --orbi-blue: #3157f6;
+  --orbi-blue-deep: #2446d8;
+  --orbi-blue-soft: #eff4ff;
+  --orbi-cyan: #22d3ee;
+  --orbi-violet: #6d5ef7;
+  --orbi-panel-radius: 20px;
+  --orbi-control-radius: 12px;
+  --orbi-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 10px 28px rgb(15 23 42 / 0.045);
+  --orbi-shadow-hover: 0 2px 5px rgb(15 23 42 / 0.055), 0 18px 38px rgb(15 23 42 / 0.075);
+  min-height: 100dvh;
+  background: var(--orbi-cloud);
+}
+
+.dark .orbidoc-app-root {
+  --orbi-cloud: #080d18;
+  --orbi-surface: #101827;
+  --orbi-surface-muted: #0d1422;
+  --orbi-line: #243047;
+  --orbi-ink: #f8faff;
+  --orbi-muted: #94a3b8;
+  --orbi-shadow: 0 1px 2px rgb(0 0 0 / 0.16), 0 12px 30px rgb(0 0 0 / 0.16);
+  --orbi-shadow-hover: 0 2px 6px rgb(0 0 0 / 0.2), 0 20px 44px rgb(0 0 0 / 0.22);
+}
+
+.orbidoc-app-root button,
+.orbidoc-app-root a,
+.orbidoc-app-root label {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.orbidoc-app-root button {
+  touch-action: manipulation;
+}
+
+/* Main shell */
+.orbidoc-app-root > div {
+  background: var(--orbi-cloud) !important;
+}
+
+.orbidoc-app-root > div > aside {
+  width: 264px;
+  background: color-mix(in srgb, var(--orbi-surface) 97%, transparent) !important;
+  border-color: color-mix(in srgb, var(--orbi-line) 82%, transparent) !important;
+}
+
+.orbidoc-app-root > div > aside > div:first-child {
+  height: 68px;
+  padding-inline: 18px;
+}
+
+.orbidoc-app-root > div > aside nav > button {
+  min-height: 42px;
+  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.orbidoc-app-root > div > aside nav > button:nth-child(5) {
+  margin-top: 14px;
+  position: relative;
+}
+
+.orbidoc-app-root > div > aside nav > button:nth-child(5)::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: -8px;
+  height: 1px;
+  background: var(--orbi-line);
+  opacity: 0.75;
+}
+
+.orbidoc-app-root > div > div > header {
+  min-height: 64px;
+  background: color-mix(in srgb, var(--orbi-surface) 91%, transparent) !important;
+  border-color: color-mix(in srgb, var(--orbi-line) 82%, transparent) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.orbidoc-app-root > div > div > header input {
+  border: 1px solid transparent !important;
+  background: color-mix(in srgb, var(--orbi-surface-muted) 88%, transparent) !important;
+}
+
+.orbidoc-app-root > div > div > header input:focus {
+  border-color: color-mix(in srgb, var(--orbi-blue) 40%, var(--orbi-line)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orbi-blue) 10%, transparent);
+  background: var(--orbi-surface) !important;
+}
+
+/* Workspace canvas */
+.orbidoc-app-root main {
+  background:
+    radial-gradient(circle at 10% 0%, rgb(49 87 246 / 0.035), transparent 26rem),
+    radial-gradient(circle at 96% 4%, rgb(34 211 238 / 0.025), transparent 24rem),
+    var(--orbi-cloud);
+  scroll-behavior: smooth;
+}
+
+.dark .orbidoc-app-root main {
+  background:
+    radial-gradient(circle at 8% 0%, rgb(122 162 255 / 0.055), transparent 28rem),
+    radial-gradient(circle at 96% 6%, rgb(34 211 238 / 0.025), transparent 24rem),
+    var(--orbi-cloud);
+}
+
+.orbidoc-app-root main > div {
+  width: 100%;
+}
+
+/* Unify the many historically independent workspace panels. */
+.orbidoc-app-root main section.rounded-3xl,
+.orbidoc-app-root main article.rounded-3xl,
+.orbidoc-app-root main div.rounded-3xl.border {
+  border-radius: var(--orbi-panel-radius) !important;
+  border-color: color-mix(in srgb, var(--orbi-line) 90%, transparent) !important;
+  box-shadow: var(--orbi-shadow);
+}
+
+.orbidoc-app-root main section.rounded-2xl.border,
+.orbidoc-app-root main article.rounded-2xl.border,
+.orbidoc-app-root main button.rounded-2xl.border {
+  border-color: color-mix(in srgb, var(--orbi-line) 90%, transparent) !important;
+}
+
+.orbidoc-app-root main article.rounded-2xl,
+.orbidoc-app-root main button.rounded-2xl {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .orbidoc-app-root main article.rounded-2xl:hover,
+  .orbidoc-app-root main button.rounded-2xl:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--orbi-shadow-hover);
+  }
+}
+
+/* Form controls share one visual language throughout converters, cloud and editors. */
+.orbidoc-app-root main input:not([type='range']):not([type='checkbox']):not([type='radio']),
+.orbidoc-app-root main textarea,
+.orbidoc-app-root main select {
+  border-radius: var(--orbi-control-radius) !important;
+  border-color: color-mix(in srgb, var(--orbi-line) 96%, transparent) !important;
+}
+
+.orbidoc-app-root main input:not([type='range']):not([type='checkbox']):not([type='radio']):focus,
+.orbidoc-app-root main textarea:focus,
+.orbidoc-app-root main select:focus {
+  border-color: color-mix(in srgb, var(--orbi-blue) 54%, var(--orbi-line)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orbi-blue) 11%, transparent);
+}
+
+.orbidoc-app-root main textarea {
+  resize: vertical;
+}
+
+.orbidoc-app-root main button:disabled {
+  cursor: not-allowed;
+}
+
+/* Tables and long result lists become easier to scan. */
+.orbidoc-app-root main .divide-y > * {
+  scroll-margin-top: 84px;
+}
+
+.orbidoc-app-root main .divide-y > *:where(:hover, :focus-within) {
+  background-color: color-mix(in srgb, var(--orbi-blue-soft) 36%, transparent);
+}
+
+.dark .orbidoc-app-root main .divide-y > *:where(:hover, :focus-within) {
+  background-color: rgb(122 162 255 / 0.045);
+}
+
+/* Make editor canvases feel like focused work areas rather than generic cards. */
+.orbidoc-app-root .orbidoc-page {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 18px 52px rgb(15 23 42 / 0.08);
+}
+
+.dark .orbidoc-app-root .orbidoc-page {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.22), 0 20px 54px rgb(0 0 0 / 0.26);
+}
+
+/* Mobile: turn the existing five-item bar into a clearer app-style dock.
+   The central item is Apps & converter, which acts as the creation hub. */
+@media (max-width: 1023.98px) {
+  .orbidoc-app-root > div > div > header {
+    padding-inline: 10px;
+  }
+
+  .orbidoc-app-root main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-bottom: max(94px, calc(82px + env(safe-area-inset-bottom))) !important;
+  }
+
+  .orbidoc-app-root > div > div > nav.fixed.bottom-0 {
+    height: calc(74px + env(safe-area-inset-bottom));
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--orbi-surface) 94%, transparent) !important;
+    border-color: color-mix(in srgb, var(--orbi-line) 88%, transparent) !important;
+    box-shadow: 0 -10px 32px rgb(15 23 42 / 0.08);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    backdrop-filter: blur(20px) saturate(1.2);
+  }
+
+  .dark .orbidoc-app-root > div > div > nav.fixed.bottom-0 {
+    box-shadow: 0 -10px 32px rgb(0 0 0 / 0.24);
+  }
+
+  .orbidoc-app-root > div > div > nav.fixed.bottom-0 > button {
+    min-width: 56px;
+    min-height: 50px;
+    border-radius: 14px;
+  }
+
+  .orbidoc-app-root > div > div > nav.fixed.bottom-0 > button:nth-child(3) {
+    width: 58px;
+    height: 58px;
+    min-height: 58px;
+    margin-top: -18px;
+    border-radius: 18px;
+    background: var(--orbi-blue) !important;
+    color: #fff !important;
+    border: 4px solid var(--orbi-surface);
+    box-shadow: 0 10px 24px rgb(49 87 246 / 0.28);
+  }
+
+  .orbidoc-app-root > div > div > nav.fixed.bottom-0 > button:nth-child(3) svg {
+    color: #fff !important;
+  }
+
+  .orbidoc-app-root main section.rounded-3xl,
+  .orbidoc-app-root main article.rounded-3xl,
+  .orbidoc-app-root main div.rounded-3xl.border {
+    border-radius: 18px !important;
+  }
+
+  .orbidoc-app-root main h1 {
+    letter-spacing: -0.025em;
+  }
+}
+
+@media (max-width: 639.98px) {
+  .orbidoc-app-root main {
+    padding-top: 12px !important;
+  }
+
+  .orbidoc-app-root main section.rounded-3xl > .p-5,
+  .orbidoc-app-root main section.rounded-3xl > .p-6,
+  .orbidoc-app-root main section.rounded-3xl > .sm\:p-6 {
+    padding: 16px;
+  }
+
+  .orbidoc-app-root main h1.text-2xl,
+  .orbidoc-app-root main h1.text-3xl {
+    font-size: 1.35rem !important;
+    line-height: 1.2 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbidoc-app-root main article.rounded-2xl,
+  .orbidoc-app-root main button.rounded-2xl {
+    transition: none !important;
+  }
+}
