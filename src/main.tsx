@@ -7,11 +7,14 @@ import { AiRuntimeStatus } from './components/AiRuntimeStatus';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
+import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import './index.css';
 import './orbidoc-ui.css';
+import './platform.css';
 import './scan-reader.css';
 
 migrateLegacyBrandStorage();
+applyOrbiDocPlatformProfile();
 
 registerSW({
   immediate: true,
