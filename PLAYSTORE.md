@@ -37,6 +37,15 @@ Como o OrbiDoc permite criar conta por e-mail/senha dentro do app, a publicaçã
 
 Na Play Console, informe a URL pública de `delete-account.html` no campo de exclusão de conta/dados. Não use uma URL de preview temporária.
 
+### Firebase antes da publicação
+
+O repositório contém as regras atualizadas em `firestore.rules`, mas publicar a aplicação na Vercel **não publica automaticamente as regras do Firestore**. Antes do teste de exclusão e do lançamento:
+
+1. habilite Email/Password em Firebase Authentication;
+2. adicione o domínio estável do OrbiDoc aos domínios autorizados do Authentication quando necessário;
+3. publique `firestore.rules` no projeto Firebase usado em produção;
+4. teste cadastro, login, recuperação de senha e exclusão completa com uma conta descartável.
+
 ## 3. Gerar o wrapper Android
 
 Use PWABuilder ou Bubblewrap apontando para a URL **de produção**, nunca para um preview temporário da Vercel.
@@ -105,6 +114,7 @@ Estes itens não devem ser inventados ou commitados automaticamente pelo código
 - [ ] configurar `ANDROID_PACKAGE_NAME`, `ANDROID_SHA256_CERT_FINGERPRINT`, `ANDROID_TARGET_SDK=36` e `VITE_PUBLIC_APP_URL` na Vercel;
 - [ ] habilitar Email/Password no Firebase Authentication se ainda não estiver ativo;
 - [ ] adicionar o domínio de produção aos domínios autorizados do Firebase Authentication quando necessário;
+- [ ] publicar as regras atuais de `firestore.rules` no Firebase de produção;
 - [ ] preencher Data Safety;
 - [ ] informar a URL pública de exclusão de conta;
 - [ ] preparar nome, descrição, screenshots, ícone e arte da ficha da loja;
