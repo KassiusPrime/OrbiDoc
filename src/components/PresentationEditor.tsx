@@ -1,1 +1,1 @@
-export { PresentationEditorPro as PresentationEditor } from './PresentationEditorPro';
+export { PresentationEditorStudio as PresentationEditor } from './PresentationEditorStudio';
