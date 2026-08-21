@@ -134,4 +134,8 @@ O OrbiDoc detecta `display-mode: standalone`, o evento `appinstalled` e o retorn
 - Windows/macOS/Linux: a distribuição desktop atual é PWA instalável. Um wrapper Tauri pode ser adicionado futuramente sem substituir o core web.
 - iPhone/iPad: instalação pelo Safari → Compartilhar → Adicionar à Tela de Início.
 
+## Estado validado desta rodada
+
+O código funcional desta rodada foi validado no commit `fc3b4ba0fe7d7ce765efc8396f5be0bfaa0704df`: brand audit, lint, TypeScript, testes, build de produção, PWA/WebAPK/TWA e Google Play/API 36 passaram; a prévia Vercel correspondente ficou READY e `delete-account.html` foi verificado com a configuração Firebase injetada no build. O commit posterior de documentação `f627e74f95a376bde4769c0f96c09d1cf0c10a16` também passou integralmente no mesmo pipeline e ficou READY na Vercel.
+
 Nunca mantenha três cópias independentes dos editores. O core de Documentos, Planilhas, Apresentações, Design, Scanner, Leitor e IA deve continuar compartilhado entre todos os shells.
