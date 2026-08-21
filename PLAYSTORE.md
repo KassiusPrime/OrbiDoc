@@ -5,9 +5,11 @@ O OrbiDoc usa uma única base React/Vite para web, PWA mobile e PWA desktop. A d
 ## Identidade Android recomendada
 
 - Nome: `OrbiDoc`
-- Package: `app.orbidoc.workspace`
+- Package recomendado: `app.orbidoc.workspace`
 - URL pública: configure `VITE_PUBLIC_APP_URL` com o domínio HTTPS estável de produção.
-- Target SDK mínimo do pipeline OrbiDoc: **API 36 / Android 16**.
+- Target SDK do pipeline OrbiDoc: **API 36 / Android 16**.
+
+A partir de **31 de agosto de 2026**, novos apps e atualizações móveis enviados ao Google Play precisam direcionar Android 16 / API 36 ou superior. O pipeline OrbiDoc já usa 36 para evitar publicar um pacote prestes a ficar desatualizado.
 
 O CI executa `bun run verify:playstore` depois do build. Se um projeto Android for adicionado ao repositório com `targetSdk` inferior a 36, a verificação falha.
 
@@ -21,9 +23,21 @@ bun run verify:pwa
 bun run verify:playstore
 ```
 
-A auditoria confirma manifesto, service worker, ícones 192/512, ícone maskable, file handlers, launch handler e `/.well-known/assetlinks.json`.
+A auditoria confirma manifesto, service worker, ícones 192/512, ícone maskable, file handlers, launch handler, política de privacidade, recurso público de exclusão de conta e `/.well-known/assetlinks.json`.
 
-## 2. Gerar o wrapper Android
+## 2. Preparar conta e exclusão de dados
+
+Como o OrbiDoc permite criar conta por e-mail/senha dentro do app, a publicação precisa manter:
+
+- exclusão de conta dentro da área de Conta OrbiDoc;
+- página pública `https://<dominio>/delete-account.html`;
+- remoção da identidade Firebase e dos dados associados atualmente mantidos pelo OrbiDoc na nuvem;
+- política de privacidade pública em `https://<dominio>/privacy.html`;
+- respostas da seção **Data Safety** coerentes com o comportamento real do app.
+
+Na Play Console, informe a URL pública de `delete-account.html` no campo de exclusão de conta/dados. Não use uma URL de preview temporária.
+
+## 3. Gerar o wrapper Android
 
 Use PWABuilder ou Bubblewrap apontando para a URL **de produção**, nunca para um preview temporário da Vercel.
 
@@ -37,7 +51,7 @@ Configuração mínima:
 
 Depois de gerar o projeto, confirme no Gradle que `targetSdk`/`targetSdkVersion` é 36 ou superior. A ferramenta de empacotamento pode ter templates próprios; a auditoria do OrbiDoc não assume que o valor gerado está correto.
 
-## 3. Assinatura e Digital Asset Links
+## 4. Assinatura e Digital Asset Links
 
 A TWA só remove completamente a UI do navegador depois de verificar que o app Android e o domínio pertencem à mesma entidade.
 
@@ -47,13 +61,14 @@ Configure no ambiente de produção:
 ANDROID_PACKAGE_NAME=app.orbidoc.workspace
 ANDROID_SHA256_CERT_FINGERPRINT=AA:BB:...:FF
 ANDROID_TARGET_SDK=36
+VITE_PUBLIC_APP_URL=https://SEU-DOMINIO-ESTAVEL/
 ```
 
 O build gera `dist/.well-known/assetlinks.json` com esses dados.
 
-Para uma distribuição pela Play Store com **Play App Signing**, use no site o SHA-256 do certificado que efetivamente assina o app distribuído pela Play. Não confunda esse certificado com uma chave temporária de desenvolvimento.
+Para uma distribuição pela Play Store com **Play App Signing**, use no site o SHA-256 do certificado que efetivamente assina o app distribuído pela Play. Não confunda esse certificado com uma chave temporária de desenvolvimento ou apenas com a upload key.
 
-## 4. Primeiro envio à Play Console
+## 5. Primeiro envio à Play Console
 
 Antes do upload final:
 
@@ -62,11 +77,41 @@ Antes do upload final:
 3. Obtenha o SHA-256 do certificado de distribuição.
 4. Configure o fingerprint na Vercel e faça novo deploy do OrbiDoc.
 5. Confirme que `https://<dominio>/.well-known/assetlinks.json` contém package + fingerprint corretos.
-6. Gere novamente o AAB com `targetSdk 36+`.
-7. Envie o bundle para uma faixa de teste interno antes de produção.
-8. Teste câmera/scanner, upload de arquivos, compartilhamento, file handlers, downloads, offline, autenticação e retorno de deep links no Android real.
+6. Confirme `https://<dominio>/privacy.html` e `https://<dominio>/delete-account.html` em janela anônima.
+7. Gere novamente o AAB com `targetSdk 36+`.
+8. Envie o bundle primeiro para **Teste interno**.
+9. Teste câmera/scanner, perspectiva de quatro cantos, OCR, upload/abertura de arquivos, compartilhamento, file handlers, downloads, offline, autenticação, exclusão de conta e retorno de deep links no Android real.
+10. Preencha a ficha da loja e Data Safety com base no comportamento efetivamente publicado.
 
-## 5. Instalação sem Play Store
+## 6. Requisito de teste para contas pessoais novas
+
+Se a conta pessoal de desenvolvedor Google Play foi criada **depois de 13 de novembro de 2023**, o Google exige um teste fechado antes de liberar acesso à produção. O requisito atual é:
+
+- pelo menos **12 testadores**;
+- participantes continuamente por **14 dias** no teste fechado;
+- depois disso, solicitar acesso à produção e responder às perguntas de prontidão no Play Console.
+
+Contas que não se enquadram nessa regra ainda devem usar teste interno/fechado por segurança, mas o bloqueio específico de 12 testadores por 14 dias depende do tipo e da data da conta.
+
+## 7. Checklist de propriedade — precisa ser feito pelo responsável da publicação
+
+Estes itens não devem ser inventados ou commitados automaticamente pelo código:
+
+- [ ] escolher e confirmar o package definitivo (`app.orbidoc.workspace` é a recomendação atual);
+- [ ] possuir uma conta Google Play Developer apta a publicar;
+- [ ] definir um domínio HTTPS estável de produção;
+- [ ] criar/guardar com segurança a chave de upload/assinatura conforme o fluxo da Play;
+- [ ] obter o SHA-256 real do certificado de assinatura distribuído;
+- [ ] configurar `ANDROID_PACKAGE_NAME`, `ANDROID_SHA256_CERT_FINGERPRINT`, `ANDROID_TARGET_SDK=36` e `VITE_PUBLIC_APP_URL` na Vercel;
+- [ ] habilitar Email/Password no Firebase Authentication se ainda não estiver ativo;
+- [ ] adicionar o domínio de produção aos domínios autorizados do Firebase Authentication quando necessário;
+- [ ] preencher Data Safety;
+- [ ] informar a URL pública de exclusão de conta;
+- [ ] preparar nome, descrição, screenshots, ícone e arte da ficha da loja;
+- [ ] executar teste interno e, quando aplicável, teste fechado 12/14 dias;
+- [ ] só então promover o AAB para produção.
+
+## 8. Instalação sem Play Store
 
 A Google Play não é necessária para usar o OrbiDoc como aplicativo. No Chrome Android, a PWA pode ser instalada diretamente e o navegador pode fornecer integração WebAPK. Essa instalação usa o mesmo manifesto, ícones e service worker, mas não depende de um AAB assinado pelo projeto.
 
