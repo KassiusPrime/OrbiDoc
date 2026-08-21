@@ -38,6 +38,24 @@ if (manifest) {
   if (!has192) failures.push('Manifesto precisa de ícone PNG 192x192 purpose=any.');
   if (!has512) failures.push('Manifesto precisa de ícone PNG 512x512 purpose=any.');
   if (!hasMaskable) failures.push('Manifesto precisa de ao menos um ícone maskable.');
+
+  const handlers = Array.isArray(manifest.file_handlers) ? manifest.file_handlers : [];
+  if (!handlers.length) failures.push('Manifesto precisa registrar file_handlers para “Abrir com OrbiDoc”.');
+  const accepted = handlers[0]?.accept || {};
+  const requiredMimeTypes = [
+    'application/pdf',
+    'application/epub+zip',
+    'application/zip',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'image/png',
+    'image/jpeg',
+    'text/plain',
+  ];
+  requiredMimeTypes.forEach((mime) => {
+    if (!accepted[mime]) failures.push(`file_handlers precisa aceitar ${mime}.`);
+  });
+  if (!manifest.launch_handler) failures.push('Manifesto precisa de launch_handler para reusar uma janela instalada existente.');
 }
 
 if (fs.existsSync(assetlinksPath)) {
@@ -58,7 +76,7 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('PWA/WebAPK: manifesto, service worker, ícones e assetlinks passaram na validação estrutural.');
+console.log('PWA/WebAPK: manifesto, service worker, ícones, file handlers e assetlinks passaram na validação estrutural.');
 if (!process.env.ANDROID_PACKAGE_NAME || !process.env.ANDROID_SHA256_CERT_FINGERPRINT) {
   console.log('TWA: assinatura ainda não configurada; isso não bloqueia a instalação PWA/WebAPK pelo Chrome.');
 }
