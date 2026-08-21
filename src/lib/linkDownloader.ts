@@ -74,6 +74,12 @@ export function filenameFromHeaders(urlLike: string, disposition?: string | null
   }
 }
 
+function copyChunkForBlob(chunk: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(chunk.byteLength);
+  copy.set(chunk);
+  return copy;
+}
+
 export async function downloadDirectUrl(
   input: string,
   onProgress?: (progress: number | null, loadedBytes: number, totalBytes?: number) => void,
@@ -96,7 +102,7 @@ export async function downloadDirectUrl(
   const total = Number(response.headers.get('content-length') || 0) || undefined;
   if (total && total > maxBytes) throw new Error(`O arquivo tem ${(total / 1024 / 1024).toFixed(1)} MB e excede o limite local de ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`);
 
-  const chunks: Uint8Array[] = [];
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
   let loaded = 0;
   if (response.body?.getReader) {
     const reader = response.body.getReader();
@@ -109,17 +115,17 @@ export async function downloadDirectUrl(
         await reader.cancel();
         throw new Error(`O download ultrapassou o limite local de ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`);
       }
-      chunks.push(value);
+      chunks.push(copyChunkForBlob(value));
       onProgress?.(total ? Math.min(100, Math.round((loaded / total) * 100)) : null, loaded, total);
     }
   } else {
     const buffer = new Uint8Array(await response.arrayBuffer());
     loaded = buffer.byteLength;
     if (loaded > maxBytes) throw new Error(`O arquivo ultrapassa o limite local de ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`);
-    chunks.push(buffer);
+    chunks.push(copyChunkForBlob(buffer));
   }
 
-  const blob = new Blob(chunks.map((chunk) => chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)), { type: mimeType });
+  const blob = new Blob(chunks, { type: mimeType });
   const filename = filenameFromHeaders(response.url || url.toString(), response.headers.get('content-disposition'));
   onProgress?.(100, loaded, total || loaded);
   return {
