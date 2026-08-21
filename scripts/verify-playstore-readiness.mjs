@@ -49,6 +49,7 @@ if (fs.existsSync(deletionPath)) {
   if (!/Excluir (sua )?conta OrbiDoc/i.test(deletion)) failures.push('delete-account.html não identifica claramente o fluxo de exclusão da conta OrbiDoc.');
   if (!/EXCLUIR/.test(deletion)) failures.push('delete-account.html não contém uma confirmação explícita para exclusão permanente.');
   if (!/deleteUser/.test(deletion)) failures.push('delete-account.html não contém o fluxo de remoção da identidade Firebase.');
+  if (/__ORBIDOC_FIREBASE_CONFIG__|__ORBIDOC_FIRESTORE_DATABASE_ID__/.test(deletion)) failures.push('delete-account.html ainda contém placeholders de Firebase; a configuração pública não foi injetada no build.');
 }
 
 const packageName = String(process.env.ANDROID_PACKAGE_NAME || '').trim();
