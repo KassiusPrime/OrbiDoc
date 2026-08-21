@@ -47,3 +47,8 @@ jobs:
 
       - name: Verify PWA WebAPK and TWA prerequisites
         run: bun run verify:pwa
+
+      - name: Verify Google Play and Android API 36 readiness
+        run: bun run verify:playstore
+        env:
+          ANDROID_TARGET_SDK: "36"
