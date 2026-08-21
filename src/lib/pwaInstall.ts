@@ -1,5 +1,7 @@
 export type OrbiDocInstallDevice = 'android' | 'ios' | 'windows' | 'mac' | 'linux' | 'web';
 
+const INSTALLED_HINT_KEY = 'orbidoc_installed_hint_v1';
+
 export function isStandaloneInstalled() {
   if (typeof window === 'undefined') return false;
   return Boolean(
@@ -21,28 +23,57 @@ export function detectInstallDevice(): OrbiDocInstallDevice {
   return 'web';
 }
 
-export function applyInstalledStateToDocument(installed = isStandaloneInstalled()) {
+export function isMobileInstallDevice() {
+  const device = detectInstallDevice();
+  return device === 'android' || device === 'ios';
+}
+
+export function hasInstalledHint() {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem(INSTALLED_HINT_KEY) === 'true';
+}
+
+export function currentInstalledState() {
+  return isStandaloneInstalled() || (isMobileInstallDevice() && hasInstalledHint());
+}
+
+export function applyInstalledStateToDocument(installed = currentInstalledState()) {
   if (typeof document === 'undefined') return installed;
   document.documentElement.dataset.orbidocInstalled = installed ? 'true' : 'false';
+  document.documentElement.dataset.orbidocMobile = isMobileInstallDevice() ? 'true' : 'false';
   return installed;
+}
+
+function looksLikeInstallTrigger(element: HTMLElement) {
+  const text = (element.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const aria = (element.getAttribute('aria-label') || '').toLowerCase();
+  const title = (element.getAttribute('title') || '').toLowerCase();
+  const values = [text, aria, title];
+  return values.some((value) =>
+    value === 'baixar app'
+    || value === 'instalar app'
+    || value === 'instalar orbidoc'
+    || value.includes('instalar / android')
+    || value.includes('baixar orbidoc'),
+  );
 }
 
 function markLegacyInstallButtons(installed: boolean) {
   if (typeof document === 'undefined') return;
-  const labels = ['Instalar OrbiDoc', 'Instalar / Android'];
-  document.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
-    const text = (button.textContent || '').replace(/\s+/g, ' ').trim();
-    const match = labels.some((label) => text.includes(label));
-    if (!match) return;
-    button.dataset.orbidocInstallCta = 'true';
-    button.hidden = installed;
+  document.querySelectorAll<HTMLElement>('button, a').forEach((element) => {
+    if (!looksLikeInstallTrigger(element)) return;
+    element.dataset.orbidocInstallCta = 'true';
+    const shouldHide = installed && isMobileInstallDevice();
+    element.hidden = shouldHide;
+    element.style.display = shouldHide ? 'none' : '';
   });
 }
 
 /**
- * Compatibility bridge while AppV5 still owns its legacy install CTAs.
- * New install UI reads the same document state, and installed PWA sessions
- * never keep showing the old download/install buttons.
+ * Compatibility bridge while AppV5 owns legacy install CTAs.
+ * The installed hint is persisted on mobile so the web shell does not keep
+ * offering an app that was just installed. A new beforeinstallprompt event
+ * clears stale hints after uninstall/reinstallation eligibility returns.
  */
 export function mountPwaInstallStateAgent() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
@@ -56,20 +87,31 @@ export function mountPwaInstallStateAgent() {
   };
 
   const onInstalled = () => {
-    document.documentElement.dataset.orbidocInstalled = 'true';
+    try { localStorage.setItem(INSTALLED_HINT_KEY, 'true'); } catch { /* storage is optional */ }
     installed = true;
+    applyInstalledStateToDocument(true);
     markLegacyInstallButtons(true);
     window.dispatchEvent(new CustomEvent('orbidoc:install-state', { detail: { installed: true } }));
   };
 
+  const onInstallPrompt = () => {
+    // Chrome exposes a fresh install prompt after uninstall; clear a stale hint.
+    if (!isStandaloneInstalled()) {
+      try { localStorage.removeItem(INSTALLED_HINT_KEY); } catch { /* storage is optional */ }
+    }
+    refresh();
+  };
+
   window.addEventListener('appinstalled', onInstalled);
+  window.addEventListener('beforeinstallprompt', onInstallPrompt as EventListener);
   const media = window.matchMedia?.('(display-mode: standalone)');
   media?.addEventListener?.('change', refresh);
-  const observer = new MutationObserver(() => markLegacyInstallButtons(installed || isStandaloneInstalled()));
+  const observer = new MutationObserver(() => markLegacyInstallButtons(installed || currentInstalledState()));
   observer.observe(document.body, { childList: true, subtree: true });
 
   return () => {
     window.removeEventListener('appinstalled', onInstalled);
+    window.removeEventListener('beforeinstallprompt', onInstallPrompt as EventListener);
     media?.removeEventListener?.('change', refresh);
     observer.disconnect();
   };
