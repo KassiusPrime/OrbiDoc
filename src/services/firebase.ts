@@ -1,5 +1,18 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
+import {
+  browserLocalPersistence,
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  setPersistence,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  type User,
+} from 'firebase/auth';
 import {
   getFirestore,
   doc,
@@ -10,16 +23,40 @@ import {
   deleteDoc,
   query,
   where,
-  onSnapshot
+  onSnapshot,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
+const clientConfig: FirebaseOptions = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+};
 
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId;
+const app = !getApps().length ? initializeApp(clientConfig) : getApp();
+export const auth = getAuth(app);
+auth.languageCode = 'pt-BR';
+
+let persistencePromise: Promise<void> | null = null;
+const ensurePersistence = () => {
+  if (!persistencePromise) persistencePromise = setPersistence(auth, browserLocalPersistence).catch(() => undefined);
+  return persistencePromise;
+};
+
+export const db = firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
+
+export interface OrbiDocAuthUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  emailVerified: boolean;
+  isAnonymous: boolean;
+}
 
 export interface FirestoreDocument {
   id: string;
@@ -44,6 +81,107 @@ export interface FirestoreUserSettings {
   autoSaveEnabled: boolean;
   autoSaveDelayMs: number;
   updatedAt: string;
+}
+
+const mapAuthUser = (user: User | null): OrbiDocAuthUser | null => user ? {
+  uid: user.uid,
+  email: user.email,
+  displayName: user.displayName,
+  photoURL: user.photoURL,
+  emailVerified: user.emailVerified,
+  isAnonymous: user.isAnonymous,
+} : null;
+
+export const isOrbiDocAuthConfigured = () => Boolean(clientConfig.apiKey && clientConfig.authDomain && clientConfig.projectId && clientConfig.appId);
+
+export const getCurrentOrbiDocUser = () => mapAuthUser(auth.currentUser);
+
+export const subscribeToOrbiDocAuth = (callback: (user: OrbiDocAuthUser | null) => void) => {
+  if (!isOrbiDocAuthConfigured()) {
+    callback(null);
+    return () => {};
+  }
+  void ensurePersistence();
+  return onAuthStateChanged(auth, (user) => callback(mapAuthUser(user)));
+};
+
+export function getFriendlyAuthError(error: unknown): string {
+  const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code || '') : '';
+  const messages: Record<string, string> = {
+    'auth/email-already-in-use': 'Este e-mail já possui uma conta OrbiDoc.',
+    'auth/invalid-email': 'Digite um endereço de e-mail válido.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/user-disabled': 'Esta conta foi desativada.',
+    'auth/user-not-found': 'Conta não encontrada.',
+    'auth/wrong-password': 'E-mail ou senha incorretos.',
+    'auth/weak-password': 'Use uma senha mais forte.',
+    'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+    'auth/network-request-failed': 'Não foi possível acessar o serviço de autenticação. Verifique sua conexão.',
+    'auth/operation-not-allowed': 'O login por e-mail ainda não foi habilitado no Firebase deste projeto.',
+    'auth/admin-restricted-operation': 'Este método de login não está habilitado no Firebase deste projeto.',
+  };
+  return messages[code] || (error instanceof Error ? error.message : 'Não foi possível concluir a autenticação.');
+}
+
+export async function createOrbiDocAccount(name: string, email: string, password: string): Promise<OrbiDocAuthUser> {
+  const cleanName = name.trim();
+  const cleanEmail = email.trim().toLowerCase();
+  if (cleanName.length < 2) throw new Error('Informe seu nome com pelo menos 2 caracteres.');
+  if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) throw new Error('Digite um endereço de e-mail válido.');
+  if (password.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.');
+  await ensurePersistence();
+  try {
+    const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+    await updateProfile(credential.user, { displayName: cleanName });
+    await sendEmailVerification(credential.user).catch(() => undefined);
+    return mapAuthUser(auth.currentUser)!;
+  } catch (error) {
+    throw new Error(getFriendlyAuthError(error));
+  }
+}
+
+export async function signInOrbiDocAccount(email: string, password: string): Promise<OrbiDocAuthUser> {
+  await ensurePersistence();
+  try {
+    const credential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+    return mapAuthUser(credential.user)!;
+  } catch (error) {
+    throw new Error(getFriendlyAuthError(error));
+  }
+}
+
+export async function signInOrbiDocGuest(): Promise<OrbiDocAuthUser> {
+  await ensurePersistence();
+  try {
+    const credential = await signInAnonymously(auth);
+    return mapAuthUser(credential.user)!;
+  } catch (error) {
+    throw new Error(getFriendlyAuthError(error));
+  }
+}
+
+export async function signOutOrbiDocAccount() {
+  await signOut(auth);
+}
+
+export async function resetOrbiDocPassword(email: string) {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail) throw new Error('Digite seu e-mail para receber a recuperação de senha.');
+  try {
+    await sendPasswordResetEmail(auth, cleanEmail);
+  } catch (error) {
+    throw new Error(getFriendlyAuthError(error));
+  }
+}
+
+export async function resendOrbiDocVerification() {
+  if (!auth.currentUser || auth.currentUser.isAnonymous || !auth.currentUser.email) throw new Error('Entre em uma conta com e-mail para verificar o endereço.');
+  if (auth.currentUser.emailVerified) return;
+  try {
+    await sendEmailVerification(auth.currentUser);
+  } catch (error) {
+    throw new Error(getFriendlyAuthError(error));
+  }
 }
 
 function currentIdentity() {
@@ -101,8 +239,7 @@ export async function deleteDocumentFromFirestore(docId: string): Promise<boolea
     if (!snapshot.exists()) return true;
 
     const data = snapshot.data();
-    const ownsDocument = data.userId === identity.uid
-      || (!data.userId && data.userEmail === identity.email);
+    const ownsDocument = data.userId === identity.uid || (!data.userId && data.userEmail === identity.email);
     if (!ownsDocument) return false;
 
     await deleteDoc(docRef);
@@ -140,7 +277,6 @@ export async function loadUserSettingsFromFirestore(_userEmail?: string): Promis
     const currentSnap = await getDoc(currentRef);
     if (currentSnap.exists()) return currentSnap.data() as FirestoreUserSettings;
 
-    // Read-only compatibility with the previous email-derived settings ID.
     const legacyKey = identity.email.replace(/[^a-zA-Z0-9]/g, '_');
     const legacySnap = await getDoc(doc(db, 'user_settings', legacyKey));
     return legacySnap.exists() ? legacySnap.data() as FirestoreUserSettings : null;
@@ -152,7 +288,7 @@ export async function loadUserSettingsFromFirestore(_userEmail?: string): Promis
 
 export function subscribeToDocuments(
   _userEmail: string | undefined,
-  callback: (docs: FirestoreDocument[]) => void
+  callback: (docs: FirestoreDocument[]) => void,
 ) {
   const identity = currentIdentity();
   if (!identity) {
