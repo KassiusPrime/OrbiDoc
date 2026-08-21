@@ -2,8 +2,11 @@ import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/a
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
+  deleteUser,
+  EmailAuthProvider,
   getAuth,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
@@ -24,6 +27,8 @@ import {
   query,
   where,
   onSnapshot,
+  writeBatch,
+  type DocumentReference,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -119,6 +124,7 @@ export function getFriendlyAuthError(error: unknown): string {
     'auth/network-request-failed': 'Não foi possível acessar o serviço de autenticação. Verifique sua conexão.',
     'auth/operation-not-allowed': 'O login por e-mail ainda não foi habilitado no Firebase deste projeto.',
     'auth/admin-restricted-operation': 'Este método de login não está habilitado no Firebase deste projeto.',
+    'auth/requires-recent-login': 'Por segurança, entre novamente na conta antes de excluí-la.',
   };
   return messages[code] || (error instanceof Error ? error.message : 'Não foi possível concluir a autenticação.');
 }
@@ -188,6 +194,68 @@ function currentIdentity() {
   const user = auth.currentUser;
   if (!user?.uid || !user.email) return null;
   return { uid: user.uid, email: user.email };
+}
+
+async function ownedReferences(collectionName: string, uid: string, email: string): Promise<DocumentReference[]> {
+  const references = new Map<string, DocumentReference>();
+  const current = await getDocs(query(collection(db, collectionName), where('userId', '==', uid)));
+  current.docs.forEach((snapshot) => references.set(snapshot.ref.path, snapshot.ref));
+
+  const legacy = await getDocs(query(collection(db, collectionName), where('userEmail', '==', email)));
+  legacy.docs.forEach((snapshot) => {
+    const data = snapshot.data();
+    if (!data.userId || data.userId === uid) references.set(snapshot.ref.path, snapshot.ref);
+  });
+  return [...references.values()];
+}
+
+async function deleteReferences(references: DocumentReference[]) {
+  for (let offset = 0; offset < references.length; offset += 400) {
+    const batch = writeBatch(db);
+    references.slice(offset, offset + 400).forEach((reference) => batch.delete(reference));
+    await batch.commit();
+  }
+}
+
+/**
+ * Permanently removes the signed-in account and the cloud records currently created by OrbiDoc.
+ * Local workspace files are intentionally left on the device so deleting an account never destroys
+ * an unsynced document without an explicit local-data action from the user.
+ */
+export async function deleteOrbiDocAccountAndCloudData(password: string) {
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous || !user.email) throw new Error('Entre em uma conta OrbiDoc com e-mail para solicitar a exclusão.');
+  if (!password) throw new Error('Digite sua senha para confirmar a exclusão permanente.');
+
+  try {
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+
+    const [documents, chatSessions] = await Promise.all([
+      ownedReferences('documents', user.uid, user.email),
+      ownedReferences('chat_sessions', user.uid, user.email),
+    ]);
+    await deleteReferences([...documents, ...chatSessions]);
+
+    const profileRef = doc(db, 'users', user.uid);
+    const settingsRef = doc(db, 'user_settings', user.uid);
+    const legacySettingsRef = doc(db, 'user_settings', user.email.replace(/[^a-zA-Z0-9]/g, '_'));
+    const [profile, settings, legacySettings] = await Promise.all([
+      getDoc(profileRef),
+      getDoc(settingsRef),
+      getDoc(legacySettingsRef),
+    ]);
+
+    const directDeletes: Promise<void>[] = [];
+    if (profile.exists()) directDeletes.push(deleteDoc(profileRef));
+    if (settings.exists()) directDeletes.push(deleteDoc(settingsRef));
+    if (legacySettings.exists() && legacySettings.data().userEmail === user.email) directDeletes.push(deleteDoc(legacySettingsRef));
+    await Promise.all(directDeletes);
+
+    await deleteUser(user);
+    return { deletedDocuments: documents.length, deletedChatSessions: chatSessions.length };
+  } catch (error) {
+    throw new Error(getFriendlyAuthError(error));
+  }
 }
 
 /** Save to cloud only for a real authenticated Firebase user. Local-first callers can treat false as "not synced". */
