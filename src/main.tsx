@@ -7,6 +7,7 @@ import { AiRuntimeStatus } from './components/AiRuntimeStatus';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
 import './index.css';
+import './orbidoc-ui.css';
 
 migrateLegacyBrandStorage();
 
