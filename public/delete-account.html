@@ -53,11 +53,12 @@
       const refs = new Map();
       const current = await getDocs(query(collection(db, collectionName), where('userId', '==', uid)));
       current.docs.forEach((snapshot) => refs.set(snapshot.ref.path, snapshot.ref));
-      const legacy = await getDocs(query(collection(db, collectionName), where('userEmail', '==', email)));
-      legacy.docs.forEach((snapshot) => {
-        const data = snapshot.data();
-        if (!data.userId || data.userId === uid) refs.set(snapshot.ref.path, snapshot.ref);
-      });
+      const legacy = await getDocs(query(
+        collection(db, collectionName),
+        where('userEmail', '==', email),
+        where('userId', '==', null)
+      ));
+      legacy.docs.forEach((snapshot) => refs.set(snapshot.ref.path, snapshot.ref));
       return [...refs.values()];
     }
 
