@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { IconChevronLeft as Back, IconFile as FileIcon, IconX as X } from '@tabler/icons-react';
 import { OrbiDocLogo } from './OrbiDocLogo';
 import { readArchiveEntry, readDocumentFile, releaseReaderDocument, type ReaderDocument } from '../lib/documentReader';
@@ -10,10 +10,19 @@ type LaunchQueueLike = { setConsumer: (consumer: (params: LaunchParamsLike) => v
 const launchQueue = () => (window as unknown as { launchQueue?: LaunchQueueLike }).launchQueue;
 
 export const SystemFileOpenAgent: React.FC = () => {
+  const documentRef = useRef<ReaderDocument | null>(null);
   const [document, setDocument] = useState<ReaderDocument | null>(null);
   const [archivePath, setArchivePath] = useState('');
   const [archiveContent, setArchiveContent] = useState<{ kind: 'text' | 'image' | 'binary'; text?: string; html?: string; dataUrl?: string } | null>(null);
   const [error, setError] = useState('');
+
+  const replaceDocument = (next: ReaderDocument | null) => {
+    releaseReaderDocument(documentRef.current);
+    documentRef.current = next;
+    setDocument(next);
+    setArchivePath('');
+    setArchiveContent(null);
+  };
 
   useEffect(() => {
     const queue = launchQueue();
@@ -24,14 +33,7 @@ export const SystemFileOpenAgent: React.FC = () => {
       try {
         setError('');
         const file = await handle.getFile();
-        setDocument((previous) => {
-          releaseReaderDocument(previous);
-          return previous;
-        });
-        const next = await readDocumentFile(file);
-        setArchivePath('');
-        setArchiveContent(null);
-        setDocument(next);
+        replaceDocument(await readDocumentFile(file));
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : 'Não foi possível abrir o arquivo recebido pelo sistema.');
       }
@@ -39,13 +41,13 @@ export const SystemFileOpenAgent: React.FC = () => {
     return () => {};
   }, []);
 
-  useEffect(() => () => releaseReaderDocument(document), [document]);
+  useEffect(() => () => {
+    releaseReaderDocument(documentRef.current);
+    documentRef.current = null;
+  }, []);
 
   const close = () => {
-    releaseReaderDocument(document);
-    setDocument(null);
-    setArchivePath('');
-    setArchiveContent(null);
+    replaceDocument(null);
     setError('');
   };
 
@@ -53,6 +55,7 @@ export const SystemFileOpenAgent: React.FC = () => {
     if (!document) return;
     setArchivePath(path);
     try {
+      setError('');
       setArchiveContent(await readArchiveEntry(document, path));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível abrir este item do arquivo compactado.');
