@@ -7,21 +7,10 @@ export interface DirectDownloadResult {
   size: number;
   kind: DirectDownloadKind;
   sourceUrl: string;
-  transport?: 'direct' | 'proxy';
+  transport: 'direct';
 }
 
 const MAX_DEFAULT_BYTES = 300 * 1024 * 1024;
-
-type RemoteProbe = {
-  sourceUrl: string;
-  finalUrl: string;
-  fileName: string;
-  contentType: string;
-  contentLength?: number;
-  kind: 'image' | 'audio' | 'video' | 'pdf' | 'archive' | 'file';
-  downloadable: boolean;
-  maxProxyBytes: number;
-};
 
 const EXTENSION_KIND: Record<string, DirectDownloadKind> = {
   png: 'image', jpg: 'image', jpeg: 'image', jfif: 'image', webp: 'image', avif: 'image', gif: 'image', bmp: 'image', svg: 'image', tif: 'image', tiff: 'image',
@@ -46,7 +35,8 @@ export function normalizeDirectDownloadUrl(input: string) {
   try { url = new URL(value); }
   catch { throw new Error('O link informado não é uma URL válida.'); }
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Somente links HTTP ou HTTPS são aceitos.');
-  if (/\.(m3u8|mpd)(?:$|[?#])/i.test(url.pathname)) {
+  if (url.username || url.password) throw new Error('Links com credenciais embutidas não são aceitos.');
+  if (/\.(m3u8|mpd)$/i.test(url.pathname)) {
     throw new Error('Playlists de streaming (HLS/DASH) não são baixadas pelo OrbiDoc. Use um link direto para o arquivo que você tem permissão para salvar.');
   }
   return url;
@@ -92,51 +82,6 @@ function copyChunkForBlob(chunk: Uint8Array): Uint8Array<ArrayBuffer> {
   return copy;
 }
 
-async function downloadViaSafeProxy(url: URL, maxBytes: number): Promise<DirectDownloadResult> {
-  const probeResponse = await fetch('/api/media/probe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: url.toString() }),
-  });
-  const probeData = await probeResponse.json().catch(() => ({}));
-  if (!probeResponse.ok) throw new Error(probeData.error || 'A origem bloqueou o download e o OrbiDoc não conseguiu validar esse link pelo servidor.');
-  const probe = probeData as RemoteProbe;
-
-  if (probe.contentLength && probe.contentLength > maxBytes) {
-    throw new Error(`O arquivo tem ${(probe.contentLength / 1024 / 1024).toFixed(1)} MB e excede o limite local de ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`);
-  }
-  if (!probe.downloadable) {
-    const proxyLimit = Math.round((probe.maxProxyBytes || 0) / 1024 / 1024);
-    throw new Error(`A origem bloqueou CORS e o arquivo excede o proxy seguro do OrbiDoc (${proxyLimit || 4} MB). Use “Abrir link” para baixar diretamente do servidor de origem.`);
-  }
-
-  const response = await fetch('/api/media/download', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: probe.finalUrl || probe.sourceUrl }),
-  });
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || 'O proxy seguro do OrbiDoc não conseguiu concluir o download.');
-  }
-  const blob = await response.blob();
-  if (blob.size > maxBytes) throw new Error(`O arquivo ultrapassa o limite local de ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`);
-  const encodedName = response.headers.get('x-orbidoc-filename');
-  let filename = probe.fileName || 'download';
-  if (encodedName) {
-    try { filename = decodeURIComponent(encodedName); } catch { /* keep detected name */ }
-  }
-  return {
-    blob,
-    filename: sanitizeDownloadFilename(filename),
-    mimeType: blob.type || probe.contentType || 'application/octet-stream',
-    size: blob.size,
-    kind: inferDirectDownloadKind(probe.finalUrl || url.toString(), blob.type || probe.contentType),
-    sourceUrl: probe.finalUrl || url.toString(),
-    transport: 'proxy',
-  };
-}
-
 export async function downloadDirectUrl(
   input: string,
   onProgress?: (progress: number | null, loadedBytes: number, totalBytes?: number) => void,
@@ -145,16 +90,14 @@ export async function downloadDirectUrl(
   const url = normalizeDirectDownloadUrl(input);
   let response: Response;
   try {
-    response = await fetch(url.toString(), { method: 'GET', credentials: 'omit', redirect: 'follow' });
+    response = await fetch(url.toString(), { method: 'GET', mode: 'cors', credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
   } catch {
-    const proxied = await downloadViaSafeProxy(url, maxBytes);
-    onProgress?.(100, proxied.size, proxied.size);
-    return proxied;
+    throw new Error('O servidor do link bloqueou o download direto pelo navegador (CORS/rede). O OrbiDoc não contorna essa proteção; abra o link original ou use uma fonte que permita download direto.');
   }
   if (!response.ok) throw new Error(`O servidor respondeu ${response.status}. Verifique se o link ainda é válido e público.`);
 
   const mimeType = (response.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim();
-  if (/^text\/html$/i.test(mimeType) && !/\.(html?|xhtml)(?:$|[?#])/i.test(url.pathname)) {
+  if (/^text\/html$/i.test(mimeType) && !/\.(html?|xhtml)$/i.test(url.pathname)) {
     throw new Error('Este endereço retornou uma página web, não um arquivo direto. O OrbiDoc não extrai mídia de páginas ou serviços de streaming.');
   }
 
