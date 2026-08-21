@@ -1,0 +1,71 @@
+html {
+  --orbidoc-safe-top: env(safe-area-inset-top, 0px);
+  --orbidoc-safe-right: env(safe-area-inset-right, 0px);
+  --orbidoc-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --orbidoc-safe-left: env(safe-area-inset-left, 0px);
+}
+
+html.orbidoc-platform-mobile body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.orbidoc-platform-mobile button,
+html.orbidoc-platform-mobile [role="button"],
+html.orbidoc-platform-mobile input,
+html.orbidoc-platform-mobile select {
+  touch-action: manipulation;
+}
+
+html.orbidoc-platform-mobile button:not(.orbidoc-compact-control) {
+  min-height: 36px;
+}
+
+html.orbidoc-platform-mobile .orbidoc-bottom-nav,
+html.orbidoc-platform-mobile nav[aria-label="Navegação principal"] {
+  padding-bottom: max(4px, var(--orbidoc-safe-bottom));
+}
+
+html.orbidoc-platform-mobile .orbidoc-editor-canvas {
+  scroll-padding: 1rem;
+}
+
+html.orbidoc-platform-desktop body {
+  min-width: 760px;
+}
+
+@media (display-mode: window-controls-overlay) {
+  html.orbidoc-platform-desktop body {
+    padding-top: env(titlebar-area-height, 0px);
+  }
+}
+
+html.orbidoc-platform-desktop .orbidoc-workspace-shell {
+  --orbidoc-workspace-density: .94;
+}
+
+html.orbidoc-platform-web .orbidoc-workspace-shell {
+  --orbidoc-workspace-density: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button,
+  [role="button"] {
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 120ms ease, box-shadow 140ms ease;
+  }
+  button:active:not(:disabled),
+  [role="button"]:active {
+    transform: translateY(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
