@@ -15,13 +15,29 @@ interface BottomNavBarProps {
   onOpenFab: () => void;
 }
 
-const TABS = [
-  { id: 'home' as TabType, label: 'Início', icon: IconHome },
-  { id: 'projects' as TabType, label: 'Arquivos', icon: IconFolder },
-  { id: 'fab', label: 'Criar', icon: IconPlus, isFab: true },
-  { id: 'chat' as TabType, label: 'Assistente', icon: IconRobot },
-  { id: 'office' as TabType, label: 'Apps', icon: IconApps },
-] as const;
+type NavigationTab = {
+  kind: 'navigation';
+  id: TabType;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type FabTab = {
+  kind: 'fab';
+  id: 'fab';
+  label: 'Criar';
+  icon: typeof IconPlus;
+};
+
+type BottomTab = NavigationTab | FabTab;
+
+const TABS: BottomTab[] = [
+  { kind: 'navigation', id: 'home', label: 'Início', icon: IconHome },
+  { kind: 'navigation', id: 'projects', label: 'Arquivos', icon: IconFolder },
+  { kind: 'fab', id: 'fab', label: 'Criar', icon: IconPlus },
+  { kind: 'navigation', id: 'chat', label: 'Assistente', icon: IconRobot },
+  { kind: 'navigation', id: 'office', label: 'Apps', icon: IconApps },
+];
 
 export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   activeTab,
@@ -34,7 +50,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   >
     <div className="max-w-lg mx-auto grid grid-cols-5 items-end justify-items-center">
       {TABS.map((tab) => {
-        if (tab.isFab) {
+        if (tab.kind === 'fab') {
           return (
             <div key="fab" className="relative -top-3 flex justify-center col-span-1">
               <motion.button
