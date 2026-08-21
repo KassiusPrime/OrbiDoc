@@ -9,6 +9,7 @@ import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
 import './index.css';
 import './orbidoc-ui.css';
+import './scan-reader.css';
 
 migrateLegacyBrandStorage();
 
