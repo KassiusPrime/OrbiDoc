@@ -14,9 +14,11 @@ function readJson(file) {
 const manifestPath = path.join(dist, 'manifest.webmanifest');
 const assetlinksPath = path.join(dist, '.well-known', 'assetlinks.json');
 const privacyPath = path.join(dist, 'privacy.html');
+const deletionPath = path.join(dist, 'delete-account.html');
 if (!fs.existsSync(manifestPath)) failures.push('dist/manifest.webmanifest ausente. Execute o build antes da auditoria Play Store.');
 if (!fs.existsSync(assetlinksPath)) failures.push('dist/.well-known/assetlinks.json ausente.');
 if (!fs.existsSync(privacyPath)) failures.push('dist/privacy.html ausente. A distribuição precisa publicar uma política de privacidade acessível.');
+if (!fs.existsSync(deletionPath)) failures.push('dist/delete-account.html ausente. Apps que criam contas precisam publicar um recurso web de exclusão de conta.');
 
 const manifest = fs.existsSync(manifestPath) ? readJson(manifestPath) : null;
 if (manifest) {
@@ -39,6 +41,14 @@ if (fs.existsSync(privacyPath)) {
   if (!/Política de Privacidade/i.test(privacy)) failures.push('privacy.html não contém uma política de privacidade reconhecível.');
   if (!/Firebase/i.test(privacy)) warnings.push('Revise privacy.html caso Firebase Authentication continue habilitado.');
   if (!/inteligência artificial|\bIA\b/i.test(privacy)) warnings.push('Revise privacy.html caso os recursos de IA continuem habilitados.');
+  if (!/delete-account\.html/i.test(privacy)) failures.push('privacy.html precisa apontar para o recurso público de exclusão de conta.');
+}
+
+if (fs.existsSync(deletionPath)) {
+  const deletion = fs.readFileSync(deletionPath, 'utf8');
+  if (!/Excluir (sua )?conta OrbiDoc/i.test(deletion)) failures.push('delete-account.html não identifica claramente o fluxo de exclusão da conta OrbiDoc.');
+  if (!/EXCLUIR/.test(deletion)) failures.push('delete-account.html não contém uma confirmação explícita para exclusão permanente.');
+  if (!/deleteUser/.test(deletion)) failures.push('delete-account.html não contém o fluxo de remoção da identidade Firebase.');
 }
 
 const packageName = String(process.env.ANDROID_PACKAGE_NAME || '').trim();
