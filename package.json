@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "node scripts/generate-brand-assets.mjs && node scripts/generate-assetlinks.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "node scripts/generate-brand-assets.mjs && node scripts/generate-assetlinks.mjs && vite build && node scripts/augment-pwa-manifest.mjs && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "verify:pwa": "node scripts/verify-pwa-build.mjs",
     "lint": "node scripts/lint-source.mjs",
     "typecheck": "tsc --noEmit",
