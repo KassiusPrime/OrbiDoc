@@ -24,12 +24,16 @@ if (fs.existsSync(manifestPath)) {
 }
 
 if (manifest) {
+  if (manifest.id !== '/') failures.push(`manifest.id deve ser / (atual: ${manifest.id}).`);
   if (manifest.name !== 'OrbiDoc') failures.push(`manifest.name deve ser OrbiDoc (atual: ${manifest.name}).`);
   if (manifest.short_name !== 'OrbiDoc') failures.push(`manifest.short_name deve ser OrbiDoc (atual: ${manifest.short_name}).`);
   if (manifest.lang !== 'pt-BR') failures.push(`manifest.lang deve ser pt-BR (atual: ${manifest.lang}).`);
   if (manifest.start_url !== '/') failures.push(`manifest.start_url deve ser / (atual: ${manifest.start_url}).`);
   if (manifest.scope !== '/') failures.push(`manifest.scope deve ser / (atual: ${manifest.scope}).`);
   if (!['standalone', 'fullscreen', 'minimal-ui'].includes(manifest.display)) failures.push(`display inválido para instalação: ${manifest.display}.`);
+  if (!manifest.theme_color) failures.push('Manifesto precisa de theme_color.');
+  if (!manifest.background_color) failures.push('Manifesto precisa de background_color.');
+  if (!Array.isArray(manifest.categories) || !manifest.categories.includes('productivity')) failures.push('Manifesto precisa incluir a categoria productivity.');
 
   const icons = Array.isArray(manifest.icons) ? manifest.icons : [];
   const has192 = icons.some((icon) => icon.sizes === '192x192' && String(icon.purpose || '').includes('any'));
@@ -70,6 +74,12 @@ if (fs.existsSync(assetlinksPath)) {
   }
 }
 
+const androidConfigured = Boolean(process.env.ANDROID_PACKAGE_NAME || process.env.ANDROID_SHA256_CERT_FINGERPRINT);
+const targetSdk = Number(process.env.ANDROID_TARGET_SDK || 36);
+if (androidConfigured && (!Number.isFinite(targetSdk) || targetSdk < 36)) {
+  failures.push(`ANDROID_TARGET_SDK precisa ser 36 ou superior para o pacote Play Store atual (atual: ${process.env.ANDROID_TARGET_SDK || 'inválido'}).`);
+}
+
 if (failures.length) {
   console.error('\nFalhas de validação PWA/WebAPK/TWA:');
   failures.forEach((failure) => console.error(`- ${failure}`));
@@ -79,4 +89,6 @@ if (failures.length) {
 console.log('PWA/WebAPK: manifesto, service worker, ícones, file handlers e assetlinks passaram na validação estrutural.');
 if (!process.env.ANDROID_PACKAGE_NAME || !process.env.ANDROID_SHA256_CERT_FINGERPRINT) {
   console.log('TWA: assinatura ainda não configurada; isso não bloqueia a instalação PWA/WebAPK pelo Chrome.');
+} else {
+  console.log(`TWA/Play Store: identidade Android configurada; targetSdk validado em ${targetSdk}.`);
 }
