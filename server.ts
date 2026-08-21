@@ -10,7 +10,7 @@ import {
 } from './api/_lib/ai.js';
 import { streamChatSafely } from './api/_lib/aiSafeStream.js';
 import { hydrateGatewayRuntimeAuth } from './api/_lib/gatewayAuth.js';
-import { editImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
+import { editImageResilient, enhanceImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_REQUESTS = 120;
@@ -125,6 +125,15 @@ async function startServer() {
     try {
       res.setHeader('Cache-Control', 'no-store');
       res.json(await editImageResilient(req.body || {}));
+    } catch (error) {
+      res.status(502).json({ error: compactError(error) });
+    }
+  });
+
+  app.post('/api/enhance-image', rateLimit(IMAGE_RATE_MAX_REQUESTS), async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(await enhanceImageResilient(req.body || {}));
     } catch (error) {
       res.status(502).json({ error: compactError(error) });
     }
