@@ -5,6 +5,10 @@ html {
   --orbidoc-safe-left: env(safe-area-inset-left, 0px);
 }
 
+html[data-orbidoc-installed="true"][data-orbidoc-mobile="true"] [data-orbidoc-install-cta="true"] {
+  display: none !important;
+}
+
 html.orbidoc-platform-mobile body {
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
