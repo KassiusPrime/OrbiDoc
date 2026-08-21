@@ -11,10 +11,12 @@ import {
 import { streamChatSafely } from './api/_lib/aiSafeStream.js';
 import { hydrateGatewayRuntimeAuth } from './api/_lib/gatewayAuth.js';
 import { editImageResilient, enhanceImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
+import { downloadRemoteMedia, probeRemoteMedia } from './api/_lib/remoteMedia.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_REQUESTS = 120;
 const IMAGE_RATE_MAX_REQUESTS = 30;
+const MEDIA_RATE_MAX_REQUESTS = 40;
 
 type RateEntry = { count: number; resetAt: number };
 const rateBuckets = new Map<string, RateEntry>();
@@ -53,6 +55,36 @@ async function startServer() {
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '12mb' }));
+
+  // Direct-file media utilities intentionally run before AI auth hydration.
+  // They do not use AI credentials and validate DNS/redirects to reduce SSRF risk.
+  app.post('/api/media/probe', rateLimit(MEDIA_RATE_MAX_REQUESTS), async (req, res) => {
+    try {
+      const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+      if (!url || url.length > 4_000) throw new Error('Informe um link direto válido.');
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(await probeRemoteMedia(url));
+    } catch (error) {
+      res.status(400).json({ error: compactError(error) });
+    }
+  });
+
+  app.post('/api/media/download', rateLimit(20), async (req, res) => {
+    try {
+      const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+      if (!url || url.length > 4_000) throw new Error('Informe um link direto válido.');
+      const file = await downloadRemoteMedia(url);
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Type', file.contentType || 'application/octet-stream');
+      res.setHeader('Content-Length', String(file.bytes.byteLength));
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`);
+      res.setHeader('X-OrbiDoc-Filename', encodeURIComponent(file.fileName));
+      res.send(Buffer.from(file.bytes));
+    } catch (error) {
+      res.status(400).json({ error: compactError(error) });
+    }
+  });
+
   app.use('/api', async (_req, _res, next) => {
     try {
       await hydrateGatewayRuntimeAuth();
