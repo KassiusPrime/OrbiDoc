@@ -37,7 +37,7 @@
       <p>O scanner, o leitor universal e o OCR procuram processar arquivos localmente sempre que tecnicamente possível. Permissão de câmera é solicitada apenas quando você escolhe digitalizar usando a câmera. O OrbiDoc não ativa a câmera em segundo plano.</p>
 
       <h2>7. Download por link</h2>
-      <p>A ferramenta de download aceita links diretos para arquivos públicos que você tem autorização para salvar. O navegador pode acessar diretamente o endereço informado. Para links diretos pequenos que bloqueiam CORS, uma implantação do OrbiDoc pode usar um proxy limitado e protegido para recuperar o arquivo. O OrbiDoc não foi projetado para contornar DRM, autenticação, paywalls ou proteções de plataformas de streaming.</p>
+      <p>A ferramenta de download aceita URLs HTTP/HTTPS que apontam diretamente para arquivos que você tem autorização para salvar. O arquivo é solicitado diretamente pelo navegador à origem informada e não é retransmitido por um proxy do OrbiDoc. Por isso, o download depende das permissões CORS e demais regras publicadas pelo servidor de origem. O OrbiDoc não extrai mídia de páginas, não contorna DRM, autenticação, paywalls ou proteções de plataformas de streaming e rejeita playlists HLS/DASH.</p>
 
       <h2>8. Dados técnicos</h2>
       <p>Hospedagem, autenticação e provedores conectados podem registrar dados técnicos necessários à segurança e operação, como endereço IP, horário, código de resposta, identificação aproximada do cliente e registros de erro, conforme as políticas desses serviços.</p>
@@ -52,7 +52,7 @@
       <p>O OrbiDoc pode ser usado para atividades educacionais, mas não busca coletar intencionalmente informações de crianças além do necessário para as funções habilitadas. Instituições, responsáveis e usuários devem observar as regras aplicáveis ao uso de contas e serviços conectados.</p>
 
       <h2>12. Segurança</h2>
-      <p>O projeto utiliza separação por identificador de usuário em recursos autenticados, limites de requisição em endpoints sensíveis e validações para reduzir acesso indevido a redes privadas em downloads remotos. Nenhum sistema é completamente livre de risco, portanto mantenha cópias de arquivos importantes.</p>
+      <p>O projeto utiliza separação por identificador de usuário em recursos autenticados, limites de requisição em endpoints sensíveis e processamento local para reduzir exposição desnecessária de conteúdo. Nenhum sistema é completamente livre de risco, portanto mantenha cópias de arquivos importantes e revise as permissões antes de conectar serviços externos.</p>
 
       <h2>13. Alterações desta política</h2>
       <p>Esta política pode ser atualizada quando novos recursos, provedores ou formas de distribuição forem adicionados. A data no topo desta página indica a revisão mais recente.</p>
