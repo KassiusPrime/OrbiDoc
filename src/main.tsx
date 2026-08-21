@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './AppV5';
+import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
@@ -33,6 +34,7 @@ ReactDOM.createRoot(root).render(
       <OrbiDocExperienceShell>
         <App />
       </OrbiDocExperienceShell>
+      <AccountSyncAgent />
       <VersionHistoryLauncher />
       <QuickScanReaderLauncher />
       <AiRuntimeStatus />
