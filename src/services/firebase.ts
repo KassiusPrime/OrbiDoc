@@ -201,11 +201,7 @@ async function ownedReferences(collectionName: string, uid: string, email: strin
   const current = await getDocs(query(collection(db, collectionName), where('userId', '==', uid)));
   current.docs.forEach((snapshot) => references.set(snapshot.ref.path, snapshot.ref));
 
-  const legacy = await getDocs(query(
-    collection(db, collectionName),
-    where('userEmail', '==', email),
-    where('userId', '==', null),
-  ));
+  const legacy = await getDocs(query(collection(db, collectionName), where('userEmail', '==', email)));
   legacy.docs.forEach((snapshot) => references.set(snapshot.ref.path, snapshot.ref));
   return [...references.values()];
 }
