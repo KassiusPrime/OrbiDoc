@@ -10,7 +10,7 @@ import {
   IconCopy as Copy,
   IconDownload as Download,
   IconGridDots as GridDots,
-  IconLayers as Layers,
+  IconLayoutGrid as Layers,
   IconLock as Lock,
   IconLockOpen as LockOpen,
   IconPhoto as Photo,
@@ -45,19 +45,10 @@ interface DesignEditorStudioProps {
   engineModel?: string;
 }
 
-type DesignState = {
-  version: 4;
-  title: string;
-  width: number;
-  height: number;
-  background: string;
-  elements: StudioElement[];
-};
-
+type DesignState = { version: 4; title: string; width: number; height: number; background: string; elements: StudioElement[] };
 type Interaction =
   | { kind: 'drag'; id: string; dx: number; dy: number }
   | { kind: 'resize'; id: string; startX: number; startY: number; startWidth: number; startHeight: number };
-
 type ExportFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'pdf';
 
 const PRESETS = [
@@ -77,9 +68,14 @@ const cloneDesign = (value: DesignState): DesignState => JSON.parse(JSON.stringi
 const migrateDesign = (project: SavedProject): DesignState => {
   const content = project.content as any;
   if (content?.version === 4 && Array.isArray(content.elements)) return content as DesignState;
-  if (content && Array.isArray(content.elements)) {
-    return { version: 4, title: content.title || project.title || 'Novo design', width: content.width || 1080, height: content.height || 1080, background: content.background || '#ffffff', elements: content.elements };
-  }
+  if (content && Array.isArray(content.elements)) return {
+    version: 4,
+    title: content.title || project.title || 'Novo design',
+    width: content.width || 1080,
+    height: content.height || 1080,
+    background: content.background || '#ffffff',
+    elements: content.elements,
+  };
   if (content && Array.isArray(content.objects)) {
     const elements: StudioElement[] = content.objects.map((object: any) => ({
       ...createStudioElement(object.type === 'rect' || object.type === 'circle' ? 'shape' : object.type, content.width || 1080, content.height || 1080),
@@ -100,25 +96,39 @@ const migrateDesign = (project: SavedProject): DesignState => {
       textAlign: object.textAlign || 'left',
       locked: Boolean(object.locked),
     }));
-    return { version: 4, title: content.title || project.title || 'Novo design', width: content.width || 1080, height: content.height || 1080, background: content.background || '#ffffff', elements };
+    return {
+      version: 4,
+      title: content.title || project.title || 'Novo design',
+      width: content.width || 1080,
+      height: content.height || 1080,
+      background: content.background || '#ffffff',
+      elements,
+    };
   }
   return { version: 4, title: project.title || 'Novo design', width: 1080, height: 1080, background: '#ffffff', elements: [] };
 };
 
+const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = reject;
+  image.src = src;
+});
+
 const wrapCanvasText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
-  const result: string[] = [];
+  const lines: string[] = [];
   for (const paragraph of text.split('\n')) {
-    if (!paragraph.trim()) { result.push(''); continue; }
+    if (!paragraph.trim()) { lines.push(''); continue; }
     const words = paragraph.split(/\s+/);
     let line = '';
     for (const word of words) {
       const candidate = line ? `${line} ${word}` : word;
-      if (line && ctx.measureText(candidate).width > maxWidth) { result.push(line); line = word; }
+      if (line && ctx.measureText(candidate).width > maxWidth) { lines.push(line); line = word; }
       else line = candidate;
     }
-    if (line) result.push(line);
+    if (line) lines.push(line);
   }
-  return result;
+  return lines;
 };
 
 const drawShape = (ctx: CanvasRenderingContext2D, element: StudioElement) => {
@@ -126,17 +136,12 @@ const drawShape = (ctx: CanvasRenderingContext2D, element: StudioElement) => {
   const y = -element.height / 2;
   const w = element.width;
   const h = element.height;
-  const fillAndStroke = () => {
-    if (element.fill !== 'transparent') { ctx.fillStyle = element.fill; ctx.fill(); }
-    if (element.strokeWidth > 0 && element.stroke !== 'transparent') { ctx.strokeStyle = element.stroke; ctx.lineWidth = element.strokeWidth; ctx.stroke(); }
-  };
   ctx.beginPath();
   if (element.shape === 'circle') ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
   else if (element.shape === 'triangle') { ctx.moveTo(0, y); ctx.lineTo(w / 2, h / 2); ctx.lineTo(-w / 2, h / 2); ctx.closePath(); }
   else if (element.shape === 'diamond') { ctx.moveTo(0, y); ctx.lineTo(w / 2, 0); ctx.lineTo(0, h / 2); ctx.lineTo(-w / 2, 0); ctx.closePath(); }
-  else if (element.shape === 'arrow') {
-    ctx.moveTo(x, -h * 0.2); ctx.lineTo(w * 0.16, -h * 0.2); ctx.lineTo(w * 0.16, y); ctx.lineTo(w / 2, 0); ctx.lineTo(w * 0.16, h / 2); ctx.lineTo(w * 0.16, h * 0.2); ctx.lineTo(x, h * 0.2); ctx.closePath();
-  } else if (element.shape === 'star') {
+  else if (element.shape === 'arrow') { ctx.moveTo(x, -h * 0.2); ctx.lineTo(w * 0.16, -h * 0.2); ctx.lineTo(w * 0.16, y); ctx.lineTo(w / 2, 0); ctx.lineTo(w * 0.16, h / 2); ctx.lineTo(w * 0.16, h * 0.2); ctx.lineTo(x, h * 0.2); ctx.closePath(); }
+  else if (element.shape === 'star') {
     const outer = Math.min(w, h) / 2;
     const inner = outer * 0.45;
     for (let i = 0; i < 10; i += 1) {
@@ -155,18 +160,12 @@ const drawShape = (ctx: CanvasRenderingContext2D, element: StudioElement) => {
     return;
   } else if (element.shape === 'rounded') {
     const radius = Math.min(36, w / 5, h / 5);
-    if ('roundRect' in ctx) (ctx as CanvasRenderingContext2D & { roundRect: (x: number, y: number, w: number, h: number, r: number) => void }).roundRect(x, y, w, h, radius);
-    else ctx.rect(x, y, w, h);
+    ctx.roundRect(x, y, w, h, radius);
   } else ctx.rect(x, y, w, h);
-  fillAndStroke();
-};
 
-const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
-  const image = new Image();
-  image.onload = () => resolve(image);
-  image.onerror = reject;
-  image.src = src;
-});
+  if (element.fill !== 'transparent') { ctx.fillStyle = element.fill; ctx.fill(); }
+  if (element.strokeWidth > 0 && element.stroke !== 'transparent') { ctx.strokeStyle = element.stroke; ctx.lineWidth = element.strokeWidth; ctx.stroke(); }
+};
 
 export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
   project,
@@ -238,7 +237,7 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
         previewSnippet: `${design.width}×${design.height} · ${design.elements.length} elemento(s)`,
         updatedAt: new Date().toISOString(),
       };
-      try { localStorage.setItem(storageKey, JSON.stringify({ design, updatedAt: updated.updatedAt })); } catch { /* storage quota */ }
+      try { localStorage.setItem(storageKey, JSON.stringify({ design, updatedAt: updated.updatedAt })); } catch { /* quota */ }
       onProjectChange(updated);
       setLastSaved(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
     }, 550);
@@ -254,7 +253,13 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
   };
 
   const addText = () => addElement(createStudioElement('text', design.width, design.height));
-  const addShape = (shape: StudioShape) => addElement(createStudioElement('shape', design.width, design.height, { shape, height: shape === 'line' ? 30 : Math.round(design.height * 0.22), fill: shape === 'line' ? '#3157F6' : '#3157F6', stroke: shape === 'line' ? '#3157F6' : 'transparent', strokeWidth: shape === 'line' ? 6 : 0 }));
+  const addShape = (shape: StudioShape) => addElement(createStudioElement('shape', design.width, design.height, {
+    shape,
+    height: shape === 'line' ? 30 : Math.round(design.height * 0.22),
+    fill: '#3157F6',
+    stroke: shape === 'line' ? '#3157F6' : 'transparent',
+    strokeWidth: shape === 'line' ? 6 : 0,
+  }));
 
   const addImageData = async (dataUrl: string) => {
     const image = await loadImage(dataUrl).catch(() => null);
@@ -307,19 +312,17 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
     const height = design.height;
     const text = (content: string, x: number, y: number, w: number, h: number, fontSize: number, fill: string, weight = 700) => createStudioElement('text', width, height, { content, x, y, width: w, height: h, fontSize, fill, fontWeight: weight });
     const shape = (x: number, y: number, w: number, h: number, fill: string, shapeType: StudioShape = 'rectangle') => createStudioElement('shape', width, height, { x, y, width: w, height: h, fill, shape: shapeType });
-    let background = '#ffffff';
+    let background = '#FFFFFF';
     let elements: StudioElement[] = [];
     if (kind === 'business') {
       background = '#F7F9FC';
       elements = [shape(0, 0, width * 0.07, height, '#3157F6'), text('RELATÓRIO\nEXECUTIVO', width * 0.13, height * 0.15, width * 0.68, height * 0.22, Math.round(width * 0.07), '#0B1220', 800), text('Estratégia · Resultados · Próximos passos', width * 0.13, height * 0.42, width * 0.64, height * 0.08, Math.round(width * 0.028), '#475569', 500), shape(width * 0.13, height * 0.55, width * 0.22, height * 0.018, '#22D3EE')];
     } else if (kind === 'school') {
-      background = '#FFFFFF';
-      elements = [shape(width * 0.08, height * 0.08, width * 0.84, height * 0.84, '#EFF4FF', 'rounded'), text('TRABALHO\nESCOLAR', width * 0.15, height * 0.2, width * 0.7, height * 0.2, Math.round(width * 0.065), '#2446D8', 800), text('Tema · Nome · Turma · Data', width * 0.15, height * 0.46, width * 0.7, height * 0.08, Math.round(width * 0.027), '#475569', 500), shape(width * 0.15, height * 0.61, width * 0.7, height * 0.012, '#7AA2FF')];
+      elements = [shape(width * 0.08, height * 0.08, width * 0.84, height * 0.84, '#EFF4FF', 'rounded'), text('TRABALHO\nESCOLAR', width * 0.15, height * 0.2, width * 0.7, height * 0.2, Math.round(width * 0.065), '#2446D8', 800), text('Tema · Nome · Turma · Data', width * 0.15, height * 0.46, width * 0.7, height * 0.08, Math.round(width * 0.027), '#475569', 500)];
     } else if (kind === 'poster') {
       background = '#080D18';
       elements = [text('IDEIA\nEM DESTAQUE', width * 0.09, height * 0.12, width * 0.82, height * 0.25, Math.round(width * 0.075), '#FFFFFF', 900), shape(width * 0.09, height * 0.43, width * 0.31, height * 0.035, '#6D5EF7'), text('Uma composição pronta para pôster, campanha ou apresentação visual.', width * 0.09, height * 0.53, width * 0.74, height * 0.13, Math.round(width * 0.03), '#CBD5E1', 500)];
     } else {
-      background = '#FFFFFF';
       elements = [text('Título principal', width * 0.1, height * 0.14, width * 0.8, height * 0.12, Math.round(width * 0.06), '#0B1220', 800), text('Subtítulo ou descrição curta para contextualizar a peça.', width * 0.1, height * 0.3, width * 0.72, height * 0.1, Math.round(width * 0.027), '#64748B', 500), shape(width * 0.1, height * 0.48, width * 0.8, height * 0.01, '#3157F6')];
     }
     setDesign((current) => ({ ...current, background, elements }));
@@ -370,8 +373,8 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
       }
     } else {
       const nextWidth = Math.max(24, interaction.startWidth + (point.x - interaction.startX));
-      const nextHeightRaw = Math.max(24, interaction.startHeight + (point.y - interaction.startY));
-      const nextHeight = event.shiftKey ? nextWidth * (interaction.startHeight / Math.max(1, interaction.startWidth)) : nextHeightRaw;
+      const rawHeight = Math.max(24, interaction.startHeight + (point.y - interaction.startY));
+      const nextHeight = event.shiftKey ? nextWidth * (interaction.startHeight / Math.max(1, interaction.startWidth)) : rawHeight;
       updateElement(element.id, { width: nextWidth, height: nextHeight });
     }
   };
@@ -385,11 +388,14 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') { event.preventDefault(); duplicateSelected(); return; }
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) { event.preventDefault(); removeSelected(); return; }
-      const selectedElement = design.elements.find((element) => element.id === selectedId);
-      if (!selectedElement || selectedElement.locked || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      const element = design.elements.find((item) => item.id === selectedId);
+      if (!element || element.locked || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
       event.preventDefault();
       const step = event.shiftKey ? 10 : 1;
-      updateElement(selectedElement.id, { x: selectedElement.x + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0), y: selectedElement.y + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0) });
+      updateElement(element.id, {
+        x: element.x + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0),
+        y: element.y + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0),
+      });
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -436,30 +442,29 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         const ratio = Math.min(pageWidth / design.width, pageHeight / design.height);
-        const w = design.width * ratio;
-        const h = design.height * ratio;
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', (pageWidth - w) / 2, (pageHeight - h) / 2, w, h, undefined, 'FAST');
+        const width = design.width * ratio;
+        const height = design.height * ratio;
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', (pageWidth - width) / 2, (pageHeight - height) / 2, width, height, undefined, 'FAST');
         pdf.save(`${base}.pdf`);
       } else {
-        let exportCanvas = canvas;
+        let output = canvas;
         if (format === 'jpg') {
-          exportCanvas = document.createElement('canvas');
-          exportCanvas.width = canvas.width;
-          exportCanvas.height = canvas.height;
-          const ctx = exportCanvas.getContext('2d');
-          if (!ctx) throw new Error('Canvas 2D indisponível.');
-          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(canvas, 0, 0);
+          output = document.createElement('canvas');
+          output.width = canvas.width;
+          output.height = canvas.height;
+          const outputCtx = output.getContext('2d');
+          if (!outputCtx) throw new Error('Canvas 2D indisponível.');
+          outputCtx.fillStyle = '#ffffff'; outputCtx.fillRect(0, 0, output.width, output.height); outputCtx.drawImage(canvas, 0, 0);
         }
         const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
-        const blob = await new Promise<Blob>((resolve, reject) => exportCanvas.toBlob((value) => value ? resolve(value) : reject(new Error(`Falha ao codificar ${format.toUpperCase()}.`)), mime, 0.94));
+        const blob = await new Promise<Blob>((resolve, reject) => output.toBlob((value) => value ? resolve(value) : reject(new Error(`Falha ao codificar ${format.toUpperCase()}.`)), mime, 0.94));
         if (format === 'avif' && blob.type !== 'image/avif') throw new Error('Este navegador não oferece codificação AVIF.');
         saveAs(blob, `${base}.${format}`);
       }
       onSaveToHistory?.({ type: 'canva', title: design.title, summary: `${design.width}×${design.height} · ${design.elements.length} elementos · ${format.toUpperCase()}`, tags: ['Design', format.toUpperCase()] });
       showNotification(`Design exportado como ${format.toUpperCase()}.`, 'success');
-    } catch (error: any) {
-      showNotification(error?.message || 'Falha ao exportar design.', 'error');
-    } finally { setExportBusy(false); }
+    } catch (error: any) { showNotification(error?.message || 'Falha ao exportar design.', 'error'); }
+    finally { setExportBusy(false); }
   };
 
   const generateLayout = async () => {
@@ -534,12 +539,12 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
           {selected ? <>
             <div className="flex gap-1"><button onClick={duplicateSelected} className="flex-1 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-bold inline-flex items-center justify-center gap-1"><Copy className="w-3.5 h-3.5" /> Duplicar</button><button onClick={() => moveLayer('up')} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700"><ArrowUp className="w-4 h-4 mx-auto" /></button><button onClick={() => moveLayer('down')} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700"><ArrowDown className="w-4 h-4 mx-auto" /></button><button onClick={() => updateElement(selected.id, { locked: !selected.locked })} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700">{selected.locked ? <Lock className="w-4 h-4 mx-auto" /> : <LockOpen className="w-4 h-4 mx-auto" />}</button></div>
             {selected.type === 'text' && <section className="space-y-2"><div className="text-[10px] font-black text-slate-400 uppercase">Tipografia</div><textarea value={selected.content} onChange={(event) => updateElement(selected.id, { content: event.target.value })} className="w-full min-h-24 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2 text-xs" /><select value={selected.fontFamily} onChange={(event) => updateElement(selected.id, { fontFamily: event.target.value })} className="w-full h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 text-xs">{OFFICE_FONTS.map((font) => <option key={font.label} value={font.value}>{font.label}</option>)}</select><div className="grid grid-cols-2 gap-2"><NumberField label="Tamanho" value={selected.fontSize} min={8} onChange={(value) => updateElement(selected.id, { fontSize: Math.max(8, Math.min(300, value)) })} /><label className="text-[10px]">Peso<select value={selected.fontWeight} onChange={(event) => updateElement(selected.id, { fontWeight: Number(event.target.value) })} className="mt-1 w-full h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2"><option value="400">Regular</option><option value="500">Médio</option><option value="600">Semibold</option><option value="700">Bold</option><option value="800">Extra bold</option><option value="900">Black</option></select></label></div><div className="grid grid-cols-3 gap-1"><AlignButton active={selected.textAlign === 'left'} onClick={() => updateElement(selected.id, { textAlign: 'left' })}><AlignLeft /></AlignButton><AlignButton active={selected.textAlign === 'center'} onClick={() => updateElement(selected.id, { textAlign: 'center' })}><AlignCenter /></AlignButton><AlignButton active={selected.textAlign === 'right'} onClick={() => updateElement(selected.id, { textAlign: 'right' })}><AlignRight /></AlignButton></div></section>}
-            {selected.type === 'shape' && <section className="space-y-2"><div className="text-[10px] font-black text-slate-400 uppercase">Forma</div><select value={selected.shape || 'rectangle'} onChange={(event) => updateElement(selected.id, { shape: event.target.value as StudioShape })} className="w-full h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 text-xs">{SHAPE_LIBRARY.map((shape) => <option key={shape.type} value={shape.type}>{shape.label}</option>)}</select><div className="grid grid-cols-2 gap-2"><ColorField label="Preenchimento" value={selected.fill} onChange={(value) => updateElement(selected.id, { fill: value })} /><ColorField label="Contorno" value={selected.stroke === 'transparent' ? '#3157F6' : selected.stroke} onChange={(value) => updateElement(selected.id, { stroke: value, strokeWidth: Math.max(1, selected.strokeWidth) })} /></div><NumberField label="Espessura do contorno" value={selected.strokeWidth} min={0} onChange={(value) => updateElement(selected.id, { strokeWidth: Math.max(0, value) })} /></section>}
+            {selected.type === 'shape' && <section className="space-y-2"><div className="text-[10px] font-black text-slate-400 uppercase">Forma</div><select value={selected.shape || 'rectangle'} onChange={(event) => updateElement(selected.id, { shape: event.target.value as StudioShape })} className="w-full h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 text-xs">{SHAPE_LIBRARY.map((shape) => <option key={shape.type} value={shape.type}>{shape.label}</option>)}</select><div className="grid grid-cols-2 gap-2"><ColorField label="Preenchimento" value={selected.fill === 'transparent' ? '#3157F6' : selected.fill} onChange={(value) => updateElement(selected.id, { fill: value })} /><ColorField label="Contorno" value={selected.stroke === 'transparent' ? '#3157F6' : selected.stroke} onChange={(value) => updateElement(selected.id, { stroke: value, strokeWidth: Math.max(1, selected.strokeWidth) })} /></div><NumberField label="Espessura do contorno" value={selected.strokeWidth} min={0} onChange={(value) => updateElement(selected.id, { strokeWidth: Math.max(0, value) })} /></section>}
             {selected.type === 'image' && <section><div className="text-[10px] font-black text-slate-400 uppercase mb-2">Imagem</div><button onClick={() => imageInputRef.current?.click()} className="w-full h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Adicionar outra imagem</button>{onSendToOcr && <button onClick={() => onSendToOcr(selected.content)} className="mt-1 w-full h-9 rounded-xl text-[10px] font-bold text-cyan-600">Enviar esta imagem para OCR</button>}</section>}
-            {selected.type !== 'image' && <ColorField label="Cor principal" value={selected.fill === 'transparent' ? '#3157F6' : selected.fill} onChange={(value) => updateElement(selected.id, { fill: value })} />}
+            {selected.type === 'text' && <ColorField label="Cor do texto" value={selected.fill} onChange={(value) => updateElement(selected.id, { fill: value })} />}
             <section><div className="text-[10px] font-black text-slate-400 uppercase mb-2">Posição e tamanho</div><div className="grid grid-cols-2 gap-2"><NumberField label="X" value={selected.x} onChange={(value) => updateElement(selected.id, { x: value })} /><NumberField label="Y" value={selected.y} onChange={(value) => updateElement(selected.id, { y: value })} /><NumberField label="Largura" value={selected.width} min={20} onChange={(value) => updateElement(selected.id, { width: Math.max(20, value) })} /><NumberField label="Altura" value={selected.height} min={20} onChange={(value) => updateElement(selected.id, { height: Math.max(20, value) })} /><NumberField label="Rotação" value={selected.rotation} onChange={(value) => updateElement(selected.id, { rotation: value })} /><label className="text-[10px]">Opacidade<input type="range" min="0.05" max="1" step="0.05" value={selected.opacity} onChange={(event) => updateElement(selected.id, { opacity: Number(event.target.value) })} className="mt-2 w-full" /></label></div></section>
             <button onClick={removeSelected} className="w-full h-9 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 text-[10px] font-black inline-flex items-center justify-center gap-2"><Trash className="w-4 h-4" /> Excluir elemento</button>
-          </> : <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-5 text-center text-[11px] text-slate-400"><Plus className="w-5 h-5 mx-auto mb-2" />Adicione ou selecione um elemento. Ao mover, as guias magenta indicam alinhamento com o canvas e outros objetos.</div>}
+          </> : <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-5 text-center text-[11px] text-slate-400"><Plus className="w-5 h-5 mx-auto mb-2" />Adicione ou selecione um elemento. As guias magenta aparecem durante o alinhamento.</div>}
         </aside>
       </div>
     </div>
@@ -547,8 +552,8 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
 };
 
 const StudioElementView: React.FC<{ element: StudioElement; selected: boolean; onPointerDown: (event: React.PointerEvent) => void; onResizePointerDown: (event: React.PointerEvent) => void }> = ({ element, selected, onPointerDown, onResizePointerDown }) => {
-  const common: React.CSSProperties = { position: 'absolute', left: element.x, top: element.y, width: element.width, height: element.height, transform: `rotate(${element.rotation}deg)`, transformOrigin: 'center', opacity: element.opacity, cursor: element.locked ? 'not-allowed' : 'move', userSelect: 'none' };
-  return <div style={common} onPointerDown={onPointerDown} className={`group ${selected ? 'outline outline-2 outline-[#3157F6] outline-offset-2 z-[80]' : ''}`}>
+  const style: React.CSSProperties = { position: 'absolute', left: element.x, top: element.y, width: element.width, height: element.height, transform: `rotate(${element.rotation}deg)`, transformOrigin: 'center', opacity: element.opacity, cursor: element.locked ? 'not-allowed' : 'move', userSelect: 'none' };
+  return <div style={style} onPointerDown={onPointerDown} className={selected ? 'outline outline-2 outline-[#3157F6] outline-offset-2 z-[80]' : ''}>
     {element.type === 'text' ? <div className="w-full h-full overflow-hidden whitespace-pre-wrap leading-[1.18]" style={{ color: element.fill, fontFamily: element.fontFamily, fontSize: element.fontSize, fontWeight: element.fontWeight, textAlign: element.textAlign }}>{element.content}</div>
       : element.type === 'image' ? <img src={element.content} alt="Elemento" draggable={false} className="w-full h-full object-fill pointer-events-none" />
         : element.shape === 'line' ? <div className="absolute left-0 right-0 top-1/2" style={{ borderTop: `${Math.max(1, element.strokeWidth || 4)}px solid ${element.stroke === 'transparent' ? element.fill : element.stroke}` }} />
