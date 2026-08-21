@@ -38,18 +38,11 @@
     import { getAuth, signInWithEmailAndPassword, deleteUser } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
     import { getFirestore, collection, query, where, getDocs, writeBatch, doc, getDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 
-    const firebaseConfig = {
-      projectId: 'gen-lang-client-0703075207',
-      appId: '1:303700792038:web:b09a2fbac8f16002462127',
-      apiKey: 'AIzaSyDflCVK73Z0BBpeXL42rh6wnDoe0LtVgk0',
-      authDomain: 'gen-lang-client-0703075207.firebaseapp.com',
-      storageBucket: 'gen-lang-client-0703075207.firebasestorage.app',
-      messagingSenderId: '303700792038'
-    };
-    const databaseId = 'ai-studio-docswiss-116c7e86-02a0-4cef-95a3-4f36aa66518a';
+    const firebaseConfig = __ORBIDOC_FIREBASE_CONFIG__;
+    const databaseId = __ORBIDOC_FIRESTORE_DATABASE_ID__;
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const db = getFirestore(app, databaseId);
+    const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 
     const form = document.getElementById('delete-form');
     const button = document.getElementById('delete-button');
