@@ -1,1 +1,1 @@
-export { DocumentEditorPro as DocumentEditor } from './DocumentEditorPro';
+export { DocumentEditorStudio as DocumentEditor } from './DocumentEditorStudio';
