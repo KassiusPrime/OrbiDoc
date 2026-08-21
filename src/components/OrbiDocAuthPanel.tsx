@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  IconAlertTriangle as AlertTriangle,
   IconAt as At,
   IconCheck as Check,
   IconKey as Key,
@@ -8,11 +9,13 @@ import {
   IconLogout as LogOut,
   IconMailCheck as MailCheck,
   IconShieldCheck as ShieldCheck,
+  IconTrash as Trash,
   IconUser as User,
   IconUserPlus as UserPlus,
 } from '@tabler/icons-react';
 import {
   createOrbiDocAccount,
+  deleteOrbiDocAccountAndCloudData,
   getFriendlyAuthError,
   isOrbiDocAuthConfigured,
   OrbiDocAuthUser,
@@ -30,7 +33,7 @@ interface OrbiDocAuthPanelProps {
 }
 
 type Mode = 'signin' | 'signup';
-type BusyAction = 'signin' | 'signup' | 'reset' | 'verify' | 'logout' | null;
+type BusyAction = 'signin' | 'signup' | 'reset' | 'verify' | 'logout' | 'delete' | null;
 
 const Field: React.FC<{
   label: string;
@@ -69,12 +72,20 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletePhrase, setDeletePhrase] = useState('');
   const [busy, setBusy] = useState<BusyAction>(null);
   const [inlineError, setInlineError] = useState('');
   const configured = isOrbiDocAuthConfigured();
 
   useEffect(() => subscribeToOrbiDocAuth((next) => {
     setUser(next);
+    if (!next) {
+      setDeleteOpen(false);
+      setDeletePassword('');
+      setDeletePhrase('');
+    }
     onUserChange?.(next);
   }), [onUserChange]);
 
@@ -86,10 +97,12 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
     try {
       await operation();
       if (success) onNotification(success, 'success');
+      return true;
     } catch (error) {
       const message = getFriendlyAuthError(error);
       setInlineError(message);
       onNotification(message, 'error');
+      return false;
     } finally {
       setBusy(null);
     }
@@ -110,6 +123,23 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
 
   const resetPassword = async () => {
     await run('reset', () => resetOrbiDocPassword(email), 'Se o endereço estiver cadastrado, o Firebase enviará as instruções de recuperação.');
+  };
+
+  const deleteAccount = async () => {
+    if (deletePhrase.trim().toUpperCase() !== 'EXCLUIR') {
+      setInlineError('Digite EXCLUIR para confirmar a exclusão permanente.');
+      return;
+    }
+    const completed = await run(
+      'delete',
+      () => deleteOrbiDocAccountAndCloudData(deletePassword),
+      'Conta OrbiDoc e dados associados na nuvem foram excluídos. Seus projetos que existem apenas neste dispositivo foram preservados.',
+    );
+    if (completed) {
+      setDeleteOpen(false);
+      setDeletePassword('');
+      setDeletePhrase('');
+    }
   };
 
   if (user) {
@@ -142,6 +172,27 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
             <button disabled={busy === 'logout'} onClick={() => void run('logout', signOutOrbiDocAccount, 'Sessão encerrada. Seus arquivos locais permaneceram neste dispositivo.')} className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[9px] font-black inline-flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"><LogOut className="w-3.5 h-3.5" /> Sair</button>
           </div>
         </section>
+
+        {!user.isAnonymous && (
+          <section className="rounded-2xl border border-rose-200 dark:border-rose-900/70 bg-rose-50/40 dark:bg-rose-950/10 p-3.5">
+            {!deleteOpen ? (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 flex items-center justify-center"><Trash className="w-4 h-4" /></div>
+                <div className="min-w-0 flex-1"><div className="text-[10px] font-black text-rose-700 dark:text-rose-300">Excluir conta e dados da nuvem</div><div className="mt-0.5 text-[8px] leading-relaxed text-slate-500 dark:text-slate-400">Remove permanentemente a identidade OrbiDoc, perfil, preferências, documentos sincronizados e sessões de chat associadas.</div></div>
+                <button onClick={() => { setDeleteOpen(true); setInlineError(''); }} className="h-8 px-2.5 rounded-lg border border-rose-200 dark:border-rose-800 text-[8px] font-black text-rose-600 dark:text-rose-300">Excluir</button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 text-rose-700 dark:text-rose-300"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><div><div className="text-[10px] font-black">Esta ação é permanente</div><div className="mt-1 text-[8px] leading-relaxed text-slate-600 dark:text-slate-400">A conta e os dados associados na nuvem serão apagados. Projetos que existem somente neste dispositivo não são apagados automaticamente, para evitar perda de arquivos locais sem uma ação separada.</div></div></div>
+                <Field label="Senha atual" type="password" value={deletePassword} onChange={setDeletePassword} autoComplete="current-password" placeholder="Confirme sua senha" icon={Lock} />
+                <Field label="Digite EXCLUIR" value={deletePhrase} onChange={setDeletePhrase} autoComplete="off" placeholder="EXCLUIR" icon={Trash} />
+                {inlineError && <div className="rounded-xl bg-rose-100/70 dark:bg-rose-950/30 px-3 py-2 text-[9px] font-semibold text-rose-700 dark:text-rose-300">{inlineError}</div>}
+                <div className="grid grid-cols-2 gap-2"><button disabled={busy === 'delete'} onClick={() => { setDeleteOpen(false); setDeletePassword(''); setDeletePhrase(''); setInlineError(''); }} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black disabled:opacity-50">Cancelar</button><button disabled={busy === 'delete' || !deletePassword || deletePhrase.trim().toUpperCase() !== 'EXCLUIR'} onClick={() => void deleteAccount()} className="h-9 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[9px] font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-40">{busy === 'delete' ? <Loader className="w-4 h-4 animate-spin" /> : <Trash className="w-3.5 h-3.5" />} Excluir permanentemente</button></div>
+              </div>
+            )}
+          </section>
+        )}
+
         <WorkspaceBackupControls onNotification={onNotification} />
       </div>
     );
