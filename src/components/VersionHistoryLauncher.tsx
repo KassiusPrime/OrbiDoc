@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  IconClockRotateRight as History,
+  IconHistory as History,
   IconDeviceFloppy as Save,
   IconRefresh as Restore,
   IconTrash as Trash,
