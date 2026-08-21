@@ -45,9 +45,9 @@ test('snaps an element center to the canvas center and returns visual guides', (
 test('snaps edges and centers to neighboring elements', () => {
   const moving = element({ id: 'moving', width: 100, height: 80 });
   const neighbor = element({ id: 'neighbor', x: 300, y: 240, width: 200, height: 120 });
-  const edge = snapStudioElement(moving, 196, 246, [moving, neighbor], 1000, 1000, 8);
-  assert.equal(edge.x, 200);
-  assert.equal(edge.y, 260);
-  assert.ok(edge.guides.vertical.includes(300));
-  assert.ok(edge.guides.horizontal.includes(300));
+  const result = snapStudioElement(moving, 196, 258, [moving, neighbor], 1000, 1000, 8);
+  assert.equal(result.x, 200);
+  assert.equal(result.y, 260);
+  assert.ok(result.guides.vertical.includes(300));
+  assert.ok(result.guides.horizontal.includes(300));
 });
