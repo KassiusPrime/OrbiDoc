@@ -62,8 +62,10 @@ export function isUniversalImageInput(file: File): boolean {
 
 export function getSupportedOutputs(file: File): ConvertibleFormat[] {
   if (isUniversalImageInput(file)) {
+    const raw = rawExtension(file);
     const extension = getFileExtension(file);
-    return IMAGE_OUTPUTS.filter((format) => format !== extension);
+    const jpegAlias = raw === 'jpeg' || raw === 'jpe' || raw === 'jfif';
+    return IMAGE_OUTPUTS.filter((format) => format !== extension || (format === 'jpg' && jpegAlias));
   }
   return getCoreSupportedOutputs(file);
 }
