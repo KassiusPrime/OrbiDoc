@@ -53,10 +53,11 @@ test('recognizes advanced image formats handled by the WASM fallback', () => {
     assert.equal(isUniversalImageInput(file), true, name);
     assert.equal(isSupportedInput(file), true, name);
     const outputs = getSupportedOutputs(file);
-    assert.ok(outputs.includes('png'), name);
-    assert.ok(outputs.includes('jpg'), name);
-    assert.ok(outputs.includes('webp'), name);
-    assert.ok(outputs.includes('tiff'), name);
+    const source = getFileExtension(file);
+    for (const format of ['png', 'jpg', 'webp', 'tiff'] as const) {
+      if (source === format) assert.equal(outputs.includes(format), false, `${name} should not repeat its source format`);
+      else assert.ok(outputs.includes(format), `${name} -> ${format}`);
+    }
     assert.ok(outputs.includes('pdf'), name);
   }
 });
