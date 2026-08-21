@@ -6,6 +6,7 @@ import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
+import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import './index.css';
@@ -32,6 +33,7 @@ ReactDOM.createRoot(root).render(
       <OrbiDocExperienceShell>
         <App />
       </OrbiDocExperienceShell>
+      <VersionHistoryLauncher />
       <QuickScanReaderLauncher />
       <AiRuntimeStatus />
     </AppErrorBoundary>
