@@ -1,1 +1,1 @@
-export { SpreadsheetEditorPro as SpreadsheetEditor } from './SpreadsheetEditorPro';
+export { SpreadsheetEditorStudio as SpreadsheetEditor } from './SpreadsheetEditorStudio';
