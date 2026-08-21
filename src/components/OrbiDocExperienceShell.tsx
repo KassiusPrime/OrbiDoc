@@ -43,7 +43,7 @@ const onboardingCards = [
     icon: Cloud,
     eyebrow: 'Local primeiro',
     title: 'Sua conta e a nuvem continuam opcionais',
-    text: 'Você pode começar no modo local. Google Drive e Microsoft podem ser conectados depois pela Central de contas.',
+    text: 'Você pode começar no modo local. Google Drive e Microsoft podem ser conectados depois em Entrar e conectar.',
     tone: 'text-[#008CA8] bg-[#ECFEFF] dark:bg-[#063A45]/55',
   },
 ] as const;
@@ -69,7 +69,7 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
 
   return (
     <>
-      {children}
+      <div className="orbidoc-app-root">{children}</div>
 
       {phase === 'splash' && (
         <div className="fixed inset-0 z-[140] overflow-hidden bg-[#F7F9FC] dark:bg-[#080D18] text-[#0B1220] dark:text-white flex items-center justify-center px-6" role="status" aria-label="Iniciando OrbiDoc">
@@ -95,7 +95,7 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
                 <OrbiDocLogo size="md" />
                 <div className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-[#3157F6] dark:text-[#7AA2FF]">Primeiros passos</div>
                 <h1 id="orbidoc-onboarding-title" className="mt-1 text-2xl sm:text-3xl font-black tracking-[-0.035em] text-[#0B1220] dark:text-white">Um workspace completo, sem ruído visual.</h1>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">O OrbiDoc mantém a identidade Orbital Azure nos pontos importantes e deixa o conteúdo ocupar o centro da experiência.</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">O OrbiDoc usa Orbital Azure para orientar ações e mantém o conteúdo como protagonista.</p>
               </div>
               <button onClick={finishOnboarding} className="w-9 h-9 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500" aria-label="Pular introdução"><X className="w-4 h-4" /></button>
             </div>
