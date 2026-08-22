@@ -3,6 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
+import { isOrbiDocNativeRuntime, nativeAssetUrl } from './nativeRuntime';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -18,6 +19,15 @@ export interface OcrProgress {
   statusText?: string;
   currentPage?: number;
   totalPages?: number;
+}
+
+function tesseractRuntimeOptions() {
+  if (!isOrbiDocNativeRuntime()) return {};
+  return {
+    workerPath: nativeAssetUrl('native-ocr/worker.min.js'),
+    corePath: nativeAssetUrl('native-ocr/core'),
+    langPath: nativeAssetUrl('native-ocr/lang'),
+  };
 }
 
 async function preprocessImageToBlob(file: File, enhanceContrast = true): Promise<Blob | File> {
@@ -72,6 +82,7 @@ export async function extractTextFromImageAdvanced(
   onProgress?.({ progress: 22, statusText: 'Iniciando OCR local…' });
 
   const result = await Tesseract.recognize(processed, language, {
+    ...tesseractRuntimeOptions(),
     logger(message) {
       if (message.status === 'recognizing text') {
         onProgress?.({
@@ -156,6 +167,7 @@ export async function extractTextFromPdfAdvanced(
     }
 
     const ocr = await Tesseract.recognize(blob, language, {
+      ...tesseractRuntimeOptions(),
       logger(message) {
         if (message.status !== 'recognizing text') return;
         const pageShare = 65 / totalPages;
