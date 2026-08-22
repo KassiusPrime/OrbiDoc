@@ -8,12 +8,9 @@ on:
         required: true
         default: debug
         type: choice
-        options:
-          - debug
-          - release
+        options: [debug, release]
   push:
-    tags:
-      - "android-v*"
+    tags: ["android-v*"]
 
 permissions:
   contents: write
@@ -30,119 +27,63 @@ jobs:
       BUILD_MODE: ${{ startsWith(github.ref, 'refs/tags/android-v') && 'release' || inputs.build_mode || 'debug' }}
       ORBIDOC_VERSION_CODE: ${{ github.run_number }}
       ORBIDOC_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/android-v') && github.ref_name || format('0.9.{0}', github.run_number) }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android 16 SDK
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
-
-      - name: Install web dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Validate OrbiDoc core
-        run: |
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - run: bun install --frozen-lockfile
+      - run: |
           bun run lint
           bun run typecheck
           bun run test
           bun run build
-
-      - name: Install transient native toolchain
-        run: |
-          npm install --no-save --package-lock=false \
-            @capacitor/core@8 \
-            @capacitor/cli@8 \
-            @capacitor/android@8 \
-            @capacitor/assets@3 \
-            @tesseract.js-data/por@1 \
-            @tesseract.js-data/eng@1
-
-      - name: Embed OCR runtime and languages
-        run: node scripts/prepare-native-offline-assets.mjs
-
-      - name: Generate Android project
-        run: npx cap add android
-
-      - name: Generate OrbiDoc Android icon and splash resources
-        run: |
-          rm -rf native-assets
-          mkdir -p native-assets
+      - run: npm install --no-save --package-lock=false @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/assets@3 @tesseract.js-data/por@1 @tesseract.js-data/eng@1
+      - run: node scripts/prepare-native-offline-assets.mjs
+      - run: npx cap add android
+      - name: Configure secure Android AI, Downloads and file intents
+        run: node scripts/configure-native-android-bridge.mjs
+      - run: |
+          rm -rf native-assets && mkdir -p native-assets
           cp public/brand/orbidoc-app-icon.svg native-assets/logo.svg
           cp public/brand/orbidoc-app-icon.svg native-assets/logo-dark.svg
-          npx @capacitor/assets generate --android \
-            --assetPath native-assets \
-            --iconBackgroundColor "#3157F6" \
-            --iconBackgroundColorDark "#080D18" \
-            --splashBackgroundColor "#F7F9FC" \
-            --splashBackgroundColorDark "#080D18"
-
-      - name: Sync bundled web application
-        run: npx cap sync android
-
-      - name: Verify native architecture and Android target
-        run: |
+          npx @capacitor/assets generate --android --assetPath native-assets --iconBackgroundColor "#3157F6" --iconBackgroundColorDark "#080D18" --splashBackgroundColor "#F7F9FC" --splashBackgroundColorDark "#080D18"
+      - run: npx cap sync android
+      - run: |
           node scripts/verify-native-build.mjs
           grep -Eq 'targetSdkVersion[[:space:]]*=[[:space:]]*36' android/variables.gradle
           grep -Eq 'compileSdkVersion[[:space:]]*=[[:space:]]*36' android/variables.gradle
           test -f android/app/src/main/assets/public/index.html
           test -f android/app/src/main/assets/public/native-ocr/lang/por.traineddata.gz
           test -f android/app/src/main/assets/public/native-ocr/lang/eng.traineddata.gz
-
-      - name: Build installable debug APK
-        if: env.BUILD_MODE == 'debug'
+          test -f android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'android.intent.action.VIEW' android/app/src/main/AndroidManifest.xml
+      - if: env.BUILD_MODE == 'debug'
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
-
-      - name: Stage debug APK
-        if: env.BUILD_MODE == 'debug'
+      - if: env.BUILD_MODE == 'debug'
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk OrbiDoc-debug.apk
           sha256sum OrbiDoc-debug.apk > OrbiDoc-debug.apk.sha256
-
-      - name: Verify release signing secrets
-        if: env.BUILD_MODE == 'release'
+      - if: env.BUILD_MODE == 'release'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ORBIDOC_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ORBIDOC_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ORBIDOC_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "ANDROID_KEYSTORE_BASE64 não configurado."; exit 1; }
-          test -n "$ORBIDOC_KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD não configurado."; exit 1; }
-          test -n "$ORBIDOC_KEY_ALIAS" || { echo "ANDROID_KEY_ALIAS não configurado."; exit 1; }
-          test -n "$ORBIDOC_KEY_PASSWORD" || { echo "ANDROID_KEY_PASSWORD não configurado."; exit 1; }
-
-      - name: Configure release signing
-        if: env.BUILD_MODE == 'release'
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ORBIDOC_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ORBIDOC_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ORBIDOC_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ORBIDOC_KEYSTORE_PASSWORD"
+          test -n "$ORBIDOC_KEY_ALIAS"
+          test -n "$ORBIDOC_KEY_PASSWORD"
           export ORBIDOC_KEYSTORE_PATH="$RUNNER_TEMP/orbidoc-release.jks"
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ORBIDOC_KEYSTORE_PATH"
           export ORBIDOC_SIGN_RELEASE=true
           node scripts/configure-android-release-signing.mjs
-          test -s "$ORBIDOC_KEYSTORE_PATH"
-
-      - name: Build signed release APK and AAB
-        if: env.BUILD_MODE == 'release'
+      - if: env.BUILD_MODE == 'release'
         env:
           ORBIDOC_KEYSTORE_PATH: ${{ runner.temp }}/orbidoc-release.jks
           ORBIDOC_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -150,19 +91,14 @@ jobs:
           ORBIDOC_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         working-directory: android
         run: ./gradlew assembleRelease bundleRelease --stacktrace
-
-      - name: Stage and verify signed release packages
-        if: env.BUILD_MODE == 'release'
+      - if: env.BUILD_MODE == 'release'
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk OrbiDoc-release.apk
           cp android/app/build/outputs/bundle/release/app-release.aab OrbiDoc-release.aab
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose OrbiDoc-release.apk
           sha256sum OrbiDoc-release.apk OrbiDoc-release.aab > OrbiDoc-release.sha256
-
-      - name: Upload debug APK
-        if: env.BUILD_MODE == 'debug'
+      - if: env.BUILD_MODE == 'debug'
         uses: actions/upload-artifact@v4
         with:
           name: OrbiDoc-Android-debug
@@ -170,9 +106,7 @@ jobs:
             OrbiDoc-debug.apk
             OrbiDoc-debug.apk.sha256
           if-no-files-found: error
-
-      - name: Upload signed release packages
-        if: env.BUILD_MODE == 'release'
+      - if: env.BUILD_MODE == 'release'
         uses: actions/upload-artifact@v4
         with:
           name: OrbiDoc-Android-release
@@ -181,15 +115,7 @@ jobs:
             OrbiDoc-release.aab
             OrbiDoc-release.sha256
           if-no-files-found: error
-
-      - name: Publish tagged Android release
-        if: startsWith(github.ref, 'refs/tags/android-v') && env.BUILD_MODE == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - if: startsWith(github.ref, 'refs/tags/android-v') && env.BUILD_MODE == 'release'
+        env: { GH_TOKEN: ${{ github.token }} }
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            OrbiDoc-release.apk \
-            OrbiDoc-release.aab \
-            OrbiDoc-release.sha256 \
-            --title "OrbiDoc ${GITHUB_REF_NAME#android-}" \
-            --notes "APK Android instalável diretamente e AAB para distribuição em loja. O núcleo do OrbiDoc está empacotado no aplicativo e não depende da hospedagem web para iniciar."
+          gh release create "$GITHUB_REF_NAME" OrbiDoc-release.apk OrbiDoc-release.aab OrbiDoc-release.sha256 --title "OrbiDoc ${GITHUB_REF_NAME#android-}" --notes "APK Android local-first com IA BYOK protegida pelo Android Keystore, downloads em Downloads/OrbiDoc e AAB para loja."
