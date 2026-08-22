@@ -32,6 +32,8 @@ jobs:
       - run: bun run verify:playstore
         env: { ANDROID_TARGET_SDK: "36" }
       - run: bun run verify:native
+      - run: bun run verify:mobile
+      - run: bun run verify:auth
 
   native-android-apk:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
@@ -50,11 +52,12 @@ jobs:
       - run: npm install --no-save --package-lock=false @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/assets@3 @tesseract.js-data/por@1 @tesseract.js-data/eng@1
       - run: node scripts/prepare-native-offline-assets.mjs
       - run: npx cap add android
-      - name: Configure Android Keystore AI, Downloads and file intents
+      - name: Configure Android Keystore AI, Downloads, file intents and viewport
         run: |
           node scripts/configure-native-android-bridge.mjs
           node scripts/configure-native-android-network.mjs
           node scripts/fix-native-android-generated-java.mjs
+          node scripts/configure-native-android-window.mjs
       - run: |
           rm -rf native-assets && mkdir -p native-assets
           cp public/brand/orbidoc-app-icon.svg native-assets/logo.svg
@@ -63,10 +66,14 @@ jobs:
       - run: npx cap sync android
       - run: |
           bun run verify:native
+          bun run verify:mobile
           test -f android/app/src/main/assets/public/index.html
           test -f android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           grep -q 'OrbiDocNativePlugin' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'fetchUrlPayload' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'WindowCompat.enableEdgeToEdge' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
+          grep -q 'SOFT_INPUT_ADJUST_RESIZE' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
+          grep -q 'windowSoftInputMode="stateAlwaysHidden|adjustResize"' android/app/src/main/AndroidManifest.xml
           grep -q 'android.intent.action.VIEW' android/app/src/main/AndroidManifest.xml
       - working-directory: android
         run: ./gradlew assembleDebug --stacktrace
