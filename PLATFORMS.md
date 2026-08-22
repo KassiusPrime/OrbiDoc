@@ -1,70 +1,112 @@
 # OrbiDoc Platforms
 
-O OrbiDoc deve permanecer um único produto, com um único núcleo de editores e dados, distribuído em três experiências.
+O OrbiDoc deve permanecer um único produto, com um único núcleo de editores e dados, distribuído em experiências diferentes sem duplicar o frontend.
 
 ## 1. Web
 
-Base atual: Vite + React + Vercel.
+Base: Vite + React + Vercel.
 
 Responsabilidades:
 - acesso por URL sem instalação;
 - criação/edição completa;
-- conta OrbiDoc via Firebase Authentication;
+- conta OrbiDoc opcional via Firebase Authentication;
 - integração opcional com serviços externos;
 - atualizações imediatas;
 - fallback local-first.
 
+A versão web continua existindo, mas **não é requisito para o Android nativo iniciar**.
+
 ## 2. Mobile
 
-Base atual: PWA instalável + WebAPK/TWA.
+### Android — distribuição principal nativa
 
-O perfil `mobile` é detectado pelo runtime e adapta:
+Base: **Capacitor 8 + build Vite empacotado dentro do APK/AAB**.
+
+O Android nativo contém o conteúdo de `dist/` dentro do próprio pacote. Não existe `server.url` em `capacitor.config.json`, portanto o shell não aponta para uma hospedagem web para abrir o workspace.
+
+O perfil `mobile` adapta:
 - áreas de toque;
 - safe areas;
 - navegação inferior;
-- scanner e câmera traseira;
+- scanner e câmera;
 - densidade visual;
 - gestos e scroll;
-- modo standalone.
+- armazenamento local;
+- execução offline do núcleo.
 
-### Android
+O runtime detecta Capacitor e:
+- marca `data-orbidoc-native="true"`;
+- considera o aplicativo já instalado;
+- esconde CTAs de instalação PWA;
+- não registra service worker da PWA dentro do app nativo;
+- usa worker/core/idiomas locais para OCR.
 
-Fase 1: instalação normal pelo Chrome/PWA.
+### Saídas Android
 
-Fase 2: TWA/AAB usando `ANDROID_PACKAGE_NAME` e `ANDROID_SHA256_CERT_FINGERPRINT`.
+1. **APK debug** — instalável diretamente para testes, sem Play Store.
+2. **APK release assinado** — instalável diretamente e apropriado para distribuição fora da loja.
+3. **AAB release assinado** — formato destinado a lojas como Google Play.
 
-A lógica do app continua a mesma. O pacote Android é apenas o shell de distribuição.
+O workflow `.github/workflows/android-native.yml` gera esses pacotes. A versão release exige secrets de assinatura; a chave privada nunca deve ser commitada.
+
+### PWA Android — alternativa
+
+A PWA/WebAPK continua disponível para quem preferir instalar pelo navegador. Ela não é mais a arquitetura principal do Android.
 
 ### iOS
 
-Distribuição inicial como PWA adicionada à Tela de Início. Recursos dependentes de APIs específicas devem sempre possuir fallback de navegador.
+Distribuição inicial como PWA adicionada à Tela de Início. Um shell Capacitor iOS pode ser acrescentado posteriormente usando o mesmo `dist/`, sem criar um frontend separado.
 
 ## 3. Desktop
 
 Base atual: PWA standalone, com `display_override: ["window-controls-overlay", "standalone"]`.
 
-Isso já permite uma experiência de aplicativo separada do navegador sem manter outro frontend.
+Isso permite experiência separada do navegador sem manter outro frontend.
 
 ### Desktop nativo futuro
 
-Quando o core PWA estiver estável, empacotar com Tauri 2:
+Quando necessário, empacotar com Tauri 2:
 - Windows: `.msi` / `.exe`;
 - macOS: `.app` / `.dmg`;
-- Linux: AppImage/deb/rpm conforme necessidade.
+- Linux: AppImage/deb/rpm.
 
-O wrapper Tauri deve reutilizar o build web e adicionar apenas capacidades nativas que tragam valor real, por exemplo:
+O wrapper Tauri deve reutilizar o mesmo build e adicionar apenas capacidades realmente nativas, por exemplo:
 - abrir/salvar arquivos pelo sistema;
 - associação de extensões;
 - drag & drop nativo;
 - acesso a diretórios escolhidos pelo usuário;
-- menu de aplicativo;
-- atualização automática;
-- impressão e exportação nativa;
-- integração com compartilhamento do sistema.
+- menus do sistema;
+- impressão e exportação nativa.
+
+## Núcleo que deve funcionar sem servidor
+
+Depois que o APK estiver instalado, o funcionamento básico não deve depender de Vercel, Firebase ou outro backend:
+
+- Documentos;
+- Planilhas;
+- Apresentações;
+- Design;
+- scanner;
+- processamento de imagem local;
+- leitura de PDF/DOCX/XLSX/EPUB/ZIP/texto/imagens;
+- OCR Português + Inglês empacotado no APK;
+- histórico local e backup local;
+- criação/edição/exportação local.
+
+## Recursos naturalmente online e opcionais
+
+Esses recursos podem usar Internet, mas **não podem impedir o app de abrir ou o núcleo local de funcionar**:
+
+- geração/restauração por IA remota;
+- Real-ESRGAN hospedado externamente;
+- Firebase Authentication e sincronização em nuvem;
+- Google Drive/OneDrive;
+- baixar um arquivo de uma URL externa;
+- atualizações do aplicativo.
 
 ## Regra de arquitetura
 
-Não criar três cópias dos editores.
+Não criar cópias independentes dos editores.
 
 ```text
 OrbiDoc Core
@@ -75,14 +117,15 @@ OrbiDoc Core
 ├── Scan & Reader
 ├── PDF/OCR
 ├── Conversor
-├── IA
-├── Conta / Sync
-└── Histórico de versões
+├── histórico / backup local
+├── IA opcional
+└── Conta / Sync opcional
 
         ↓
 
-Web Shell     Mobile Shell     Desktop Shell
-Vercel        PWA/TWA          PWA/Tauri
+Web Shell          Android Native        Desktop Shell
+Vite/PWA           Capacitor 8           PWA/Tauri
+URL opcional       APK/AAB local         build compartilhado
 ```
 
 ## Detecção atual
@@ -92,15 +135,17 @@ Vercel        PWA/TWA          PWA/Tauri
 - `data-orbidoc-platform="mobile"`
 - `data-orbidoc-platform="desktop"`
 
-`src/platform.css` aplica diferenças de interação sem alterar lógica de documento.
+`src/lib/nativeRuntime.ts` adiciona:
+- `data-orbidoc-native="true|false"`
+- `data-orbidoc-native-platform="android|ios"` quando aplicável.
 
-## Ordem recomendada de evolução
+## Ordem recomendada
 
-1. estabilizar PR do workspace profissional;
-2. validar autenticação real Email/Password no Firebase;
-3. implementar sync seletivo e conflitos;
-4. concluir file-open/reader/scanner;
-5. publicar PWA web/mobile;
-6. assinar Android TWA/AAB;
-7. empacotar Tauri para desktop;
-8. adicionar capacidades nativas somente quando não houver equivalente web confiável.
+1. manter o core local estável;
+2. validar o workflow de APK debug;
+3. criar uma chave de assinatura permanente;
+4. gerar APK release assinado;
+5. testar instalação e atualização em Android real;
+6. distribuir o APK diretamente quando desejado;
+7. gerar AAB e publicar na Play Store somente se houver interesse;
+8. manter recursos de nuvem/IA como complementos opcionais.
