@@ -42,14 +42,16 @@ jobs:
           bun run typecheck
           bun run test
           bun run build
+          bun run verify:auth
       - run: npm install --no-save --package-lock=false @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/assets@3 @tesseract.js-data/por@1 @tesseract.js-data/eng@1
       - run: node scripts/prepare-native-offline-assets.mjs
       - run: npx cap add android
-      - name: Configure secure Android AI, Downloads and file intents
+      - name: Configure secure Android AI, Downloads, file intents and viewport
         run: |
           node scripts/configure-native-android-bridge.mjs
           node scripts/configure-native-android-network.mjs
           node scripts/fix-native-android-generated-java.mjs
+          node scripts/configure-native-android-window.mjs
       - run: |
           rm -rf native-assets && mkdir -p native-assets
           cp public/brand/orbidoc-app-icon.svg native-assets/logo.svg
@@ -58,7 +60,8 @@ jobs:
       - run: npx cap sync android
       - name: Verify native Android package
         run: |
-          node scripts/verify-native-build.mjs
+          bun run verify:native
+          bun run verify:mobile
           grep -Eq 'targetSdkVersion[[:space:]]*=[[:space:]]*36' android/variables.gradle
           grep -Eq 'compileSdkVersion[[:space:]]*=[[:space:]]*36' android/variables.gradle
           test -f android/app/src/main/assets/public/index.html
@@ -66,6 +69,9 @@ jobs:
           test -f android/app/src/main/assets/public/native-ocr/lang/eng.traineddata.gz
           test -f android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           grep -q 'fetchUrlPayload' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'WindowCompat.enableEdgeToEdge' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
+          grep -q 'SOFT_INPUT_ADJUST_RESIZE' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
+          grep -q 'windowSoftInputMode="stateAlwaysHidden|adjustResize"' android/app/src/main/AndroidManifest.xml
           grep -q 'android.intent.action.VIEW' android/app/src/main/AndroidManifest.xml
 
       - name: Explain release fallback when signing is not configured
@@ -154,4 +160,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/android-v') && env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'
         env: { GH_TOKEN: ${{ github.token }} }
         run: |
-          gh release create "$GITHUB_REF_NAME" OrbiDoc-release.apk OrbiDoc-release.aab OrbiDoc-release.sha256 --title "OrbiDoc ${GITHUB_REF_NAME#android-}" --notes "APK Android local-first com IA BYOK protegida pelo Android Keystore, downloads em Downloads/OrbiDoc e AAB para loja."
+          gh release create "$GITHUB_REF_NAME" OrbiDoc-release.apk OrbiDoc-release.aab OrbiDoc-release.sha256 --title "OrbiDoc ${GITHUB_REF_NAME#android-}" --notes "APK Android local-first com IA BYOK, autenticação OrbiDoc, safe areas, downloads em Downloads/OrbiDoc e AAB para loja."
