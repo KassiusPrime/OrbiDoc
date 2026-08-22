@@ -1,11 +1,15 @@
+import { isOrbiDocNativeRuntime } from './nativeRuntime';
+
 export type OrbiDocPlatform = 'web' | 'desktop' | 'mobile';
 
 const isStandalone = () => {
+  if (isOrbiDocNativeRuntime()) return true;
   const navigatorStandalone = Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
   return navigatorStandalone || window.matchMedia?.('(display-mode: standalone)').matches || window.matchMedia?.('(display-mode: window-controls-overlay)').matches;
 };
 
 const isMobileDevice = () => {
+  if (isOrbiDocNativeRuntime()) return true;
   const coarse = window.matchMedia?.('(pointer: coarse)').matches;
   const narrow = window.matchMedia?.('(max-width: 767px)').matches;
   const userAgentMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
@@ -23,6 +27,7 @@ export function applyOrbiDocPlatformProfile() {
   const platform = detectOrbiDocPlatform();
   root.dataset.orbidocPlatform = platform;
   root.dataset.orbidocStandalone = isStandalone() ? 'true' : 'false';
+  root.dataset.orbidocNative = isOrbiDocNativeRuntime() ? 'true' : 'false';
   root.classList.remove('orbidoc-platform-web', 'orbidoc-platform-desktop', 'orbidoc-platform-mobile');
   root.classList.add(`orbidoc-platform-${platform}`);
 
@@ -30,6 +35,7 @@ export function applyOrbiDocPlatformProfile() {
     const next = detectOrbiDocPlatform();
     root.dataset.orbidocPlatform = next;
     root.dataset.orbidocStandalone = isStandalone() ? 'true' : 'false';
+    root.dataset.orbidocNative = isOrbiDocNativeRuntime() ? 'true' : 'false';
     root.classList.remove('orbidoc-platform-web', 'orbidoc-platform-desktop', 'orbidoc-platform-mobile');
     root.classList.add(`orbidoc-platform-${next}`);
   };
