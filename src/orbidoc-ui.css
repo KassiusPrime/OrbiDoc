@@ -42,12 +42,6 @@
   --orbi-shadow-hover: 0 2px 6px rgb(0 0 0 / 0.2), 0 20px 44px rgb(0 0 0 / 0.22);
 }
 
-.orbidoc-app-root *,
-.orbidoc-app-root *::before,
-.orbidoc-app-root *::after {
-  min-width: 0;
-}
-
 .orbidoc-app-root button,
 .orbidoc-app-root a,
 .orbidoc-app-root label {
@@ -83,13 +77,15 @@
   letter-spacing: -0.01em;
 }
 
-.orbidoc-app-root > div > div {
+.orbidoc-app-root > div > div,
+.orbidoc-app-root > div > div > header,
+.orbidoc-app-root main,
+.orbidoc-app-root main > div {
   min-width: 0;
 }
 
 .orbidoc-app-root > div > div > header {
   min-height: 64px;
-  min-width: 0;
   overflow: visible;
   background: color-mix(in srgb, var(--orbi-surface) 91%, transparent) !important;
   border-color: color-mix(in srgb, var(--orbi-line) 82%, transparent) !important;
@@ -115,7 +111,6 @@
 
 /* Workspace canvas */
 .orbidoc-app-root main {
-  min-width: 0;
   overflow-x: clip;
   background:
     radial-gradient(circle at 10% 0%, rgb(49 87 246 / 0.035), transparent 26rem),
@@ -133,7 +128,6 @@
 
 .orbidoc-app-root main > div {
   width: 100%;
-  min-width: 0;
 }
 
 /* Unify the many historically independent workspace panels. */
@@ -192,8 +186,7 @@
 
 .orbidoc-app-root main img,
 .orbidoc-app-root main video,
-.orbidoc-app-root main canvas,
-.orbidoc-app-root main svg {
+.orbidoc-app-root main canvas {
   max-width: 100%;
 }
 
@@ -263,7 +256,7 @@
 
 /* Give desktop pages enough scroll clearance for the utility buttons. */
 @media (min-width: 1024px) {
-  .orbidoc-app-root main:not(:has(.orbidoc-page)) {
+  .orbidoc-app-root main {
     padding-bottom: 82px !important;
   }
 }
@@ -412,9 +405,10 @@
     line-height: 1.2 !important;
   }
 
-  .orbidoc-app-root main p,
-  .orbidoc-app-root main span,
-  .orbidoc-app-root main button {
+  .orbidoc-app-root main h1,
+  .orbidoc-app-root main h2,
+  .orbidoc-app-root main h3,
+  .orbidoc-app-root main p {
     overflow-wrap: anywhere;
   }
 
