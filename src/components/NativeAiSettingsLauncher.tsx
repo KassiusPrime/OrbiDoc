@@ -28,6 +28,46 @@ export const NativeAiSettingsLauncher: React.FC = () => {
 
   useEffect(() => {
     if (!native) return;
+    const openSettings = () => setOpen(true);
+    window.addEventListener('orbidoc:open-ai-settings', openSettings);
+    return () => window.removeEventListener('orbidoc:open-ai-settings', openSettings);
+  }, [native]);
+
+  useEffect(() => {
+    if (!native) return;
+
+    const patchAssistantEmptyState = () => {
+      const candidates = Array.from(document.querySelectorAll<HTMLDivElement>('div'));
+      const banner = candidates.find((element) => element.textContent?.includes('Nenhum provedor de IA está ativo.'));
+      if (!banner || banner.dataset.orbidocNativeAiPatched === 'true') return;
+
+      const copy = banner.querySelector('span');
+      if (copy) {
+        copy.textContent = 'Nenhum provedor de IA está ativo. No app Android, conecte Google Gemini, Groq ou OpenRouter diretamente neste aparelho.';
+      }
+
+      banner.classList.add('flex-wrap');
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.textContent = 'Conectar IA';
+      action.className = 'ml-6 sm:ml-auto h-9 px-3 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-[10px] font-black shrink-0';
+      action.setAttribute('aria-label', 'Conectar provedor de IA agora');
+      action.addEventListener('click', () => setOpen(true));
+      banner.appendChild(action);
+      banner.dataset.orbidocNativeAiPatched = 'true';
+
+      const arenaCopy = candidates.find((element) => element.textContent?.includes('A arena usa apenas modelos que o servidor informou como configurados.'));
+      if (arenaCopy) arenaCopy.textContent = 'A arena usa apenas modelos que estão conectados e disponíveis neste aparelho.';
+    };
+
+    patchAssistantEmptyState();
+    const observer = new MutationObserver(patchAssistantEmptyState);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [native]);
+
+  useEffect(() => {
+    if (!native) return;
     let timeout = 0;
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ fileName?: string }>).detail;
@@ -75,19 +115,19 @@ export const NativeAiSettingsLauncher: React.FC = () => {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="fixed z-[73] right-[132px] bottom-[84px] lg:right-[300px] lg:bottom-5 h-12 lg:h-11 w-12 lg:w-auto lg:px-4 rounded-2xl bg-[#3157F6] hover:bg-[#2446D8] text-white shadow-xl shadow-[#3157F6]/20 border border-white/15 text-[10px] font-black inline-flex items-center justify-center gap-2 active:scale-95 transition-transform"
+      className="fixed z-[73] right-3 bottom-[84px] lg:right-[300px] lg:bottom-5 h-12 lg:h-11 px-3.5 lg:px-4 rounded-2xl bg-[#3157F6] hover:bg-[#2446D8] text-white shadow-xl shadow-[#3157F6]/20 border border-white/15 text-[10px] font-black inline-flex items-center justify-center gap-2 active:scale-95 transition-transform"
       aria-label="Conectar IA no aparelho"
       title={configured ? 'Provedores de IA conectados' : 'Conectar provedor de IA'}
     >
       <IconKey className="w-5 h-5" />
-      <span className="hidden lg:inline">{configured ? 'IAs' : 'Conectar IA'}</span>
+      <span>{configured ? 'IAs' : 'Conectar IA'}</span>
     </button>
 
     {open && <div className="fixed inset-0 z-[180] bg-slate-950/70 backdrop-blur-sm p-3 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="native-ai-settings-title">
       <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#101827] border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
         <header className="p-4 flex items-center gap-3 border-b border-slate-200 dark:border-slate-800">
           <div className="w-10 h-10 rounded-2xl bg-[#3157F6]/10 text-[#3157F6] flex items-center justify-center"><IconKey className="w-5 h-5" /></div>
-          <div className="flex-1"><h3 id="native-ai-settings-title" className="text-sm font-black">IA conectada ao aparelho</h3><p className="text-[10px] text-slate-500">Sem Vercel: o Android chama o provedor diretamente.</p></div>
+          <div className="flex-1"><h3 id="native-ai-settings-title" className="text-sm font-black">Configurações · Provedores de IA</h3><p className="text-[10px] text-slate-500">Sem Vercel: o Android chama o provedor diretamente.</p></div>
           <button onClick={() => setOpen(false)} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center"><IconX className="w-4 h-4" /></button>
         </header>
 
