@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 35
     env:
       BUILD_MODE: ${{ startsWith(github.ref, 'refs/tags/android-v') && 'release' || inputs.build_mode || 'debug' }}
+      SIGNING_CONFIGURED: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
       ORBIDOC_VERSION_CODE: ${{ github.run_number }}
       ORBIDOC_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/android-v') && github.ref_name || format('0.9.{0}', github.run_number) }}
     steps:
@@ -55,7 +56,8 @@ jobs:
           cp public/brand/orbidoc-app-icon.svg native-assets/logo-dark.svg
           npx @capacitor/assets generate --android --assetPath native-assets --iconBackgroundColor "#3157F6" --iconBackgroundColorDark "#080D18" --splashBackgroundColor "#F7F9FC" --splashBackgroundColorDark "#080D18"
       - run: npx cap sync android
-      - run: |
+      - name: Verify native Android package
+        run: |
           node scripts/verify-native-build.mjs
           grep -Eq 'targetSdkVersion[[:space:]]*=[[:space:]]*36' android/variables.gradle
           grep -Eq 'compileSdkVersion[[:space:]]*=[[:space:]]*36' android/variables.gradle
@@ -65,29 +67,50 @@ jobs:
           test -f android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           grep -q 'fetchUrlPayload' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           grep -q 'android.intent.action.VIEW' android/app/src/main/AndroidManifest.xml
-      - if: env.BUILD_MODE == 'debug'
+
+      - name: Explain release fallback when signing is not configured
+        if: env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true'
+        run: |
+          {
+            echo '## OrbiDoc Android'
+            echo
+            echo 'Release assinado foi solicitado, mas os Secrets de assinatura ainda não estão configurados.'
+            echo 'O workflow continuará com um APK debug instalável para não interromper a validação.'
+            echo
+            echo 'Para gerar APK release + AAB, configure:'
+            echo '- ANDROID_KEYSTORE_BASE64'
+            echo '- ANDROID_KEYSTORE_PASSWORD'
+            echo '- ANDROID_KEY_ALIAS'
+            echo '- ANDROID_KEY_PASSWORD'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build installable debug APK
+        if: env.BUILD_MODE == 'debug' || (env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true')
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
-      - if: env.BUILD_MODE == 'debug'
+
+      - name: Prepare debug APK
+        if: env.BUILD_MODE == 'debug' || (env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true')
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk OrbiDoc-debug.apk
           sha256sum OrbiDoc-debug.apk > OrbiDoc-debug.apk.sha256
-      - if: env.BUILD_MODE == 'release'
+
+      - name: Configure permanent release signing
+        if: env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ORBIDOC_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ORBIDOC_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ORBIDOC_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          test -n "$ANDROID_KEYSTORE_BASE64"
-          test -n "$ORBIDOC_KEYSTORE_PASSWORD"
-          test -n "$ORBIDOC_KEY_ALIAS"
-          test -n "$ORBIDOC_KEY_PASSWORD"
           export ORBIDOC_KEYSTORE_PATH="$RUNNER_TEMP/orbidoc-release.jks"
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ORBIDOC_KEYSTORE_PATH"
+          test -s "$ORBIDOC_KEYSTORE_PATH"
           export ORBIDOC_SIGN_RELEASE=true
           node scripts/configure-android-release-signing.mjs
-      - if: env.BUILD_MODE == 'release'
+
+      - name: Build signed release APK and AAB
+        if: env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'
         env:
           ORBIDOC_KEYSTORE_PATH: ${{ runner.temp }}/orbidoc-release.jks
           ORBIDOC_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -95,14 +118,19 @@ jobs:
           ORBIDOC_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         working-directory: android
         run: ./gradlew assembleRelease bundleRelease --stacktrace
-      - if: env.BUILD_MODE == 'release'
+
+      - name: Verify signed release packages
+        if: env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk OrbiDoc-release.apk
           cp android/app/build/outputs/bundle/release/app-release.aab OrbiDoc-release.aab
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose OrbiDoc-release.apk
           sha256sum OrbiDoc-release.apk OrbiDoc-release.aab > OrbiDoc-release.sha256
-      - if: env.BUILD_MODE == 'debug'
+
+      - name: Upload installable debug APK
+        if: env.BUILD_MODE == 'debug' || (env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true')
         uses: actions/upload-artifact@v4
         with:
           name: OrbiDoc-Android-debug
@@ -110,7 +138,9 @@ jobs:
             OrbiDoc-debug.apk
             OrbiDoc-debug.apk.sha256
           if-no-files-found: error
-      - if: env.BUILD_MODE == 'release'
+
+      - name: Upload signed release packages
+        if: env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: OrbiDoc-Android-release
@@ -119,7 +149,9 @@ jobs:
             OrbiDoc-release.aab
             OrbiDoc-release.sha256
           if-no-files-found: error
-      - if: startsWith(github.ref, 'refs/tags/android-v') && env.BUILD_MODE == 'release'
+
+      - name: Publish tagged Android release
+        if: startsWith(github.ref, 'refs/tags/android-v') && env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'
         env: { GH_TOKEN: ${{ github.token }} }
         run: |
           gh release create "$GITHUB_REF_NAME" OrbiDoc-release.apk OrbiDoc-release.aab OrbiDoc-release.sha256 --title "OrbiDoc ${GITHUB_REF_NAME#android-}" --notes "APK Android local-first com IA BYOK protegida pelo Android Keystore, downloads em Downloads/OrbiDoc e AAB para loja."
