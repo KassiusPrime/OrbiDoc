@@ -19,6 +19,7 @@ import { mountPwaInstallStateAgent } from './lib/pwaInstall';
 import './index.css';
 import './orbidoc-ui.css';
 import './orbidoc-motion.css';
+import './orbidoc-native-ui.css';
 import './platform.css';
 import './scan-reader.css';
 
