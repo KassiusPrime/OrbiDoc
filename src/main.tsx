@@ -6,11 +6,13 @@ import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
+import { NativeAiSettingsLauncher } from './components/NativeAiSettingsLauncher';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
+import { installNativeAiApiBridge, installNativeFileOpenBridge } from './lib/nativeAndroidBridge';
 import { applyOrbiDocNativeRuntimeProfile } from './lib/nativeRuntime';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import { mountPwaInstallStateAgent } from './lib/pwaInstall';
@@ -22,6 +24,10 @@ import './scan-reader.css';
 
 migrateLegacyBrandStorage();
 const nativeRuntime = applyOrbiDocNativeRuntimeProfile();
+if (nativeRuntime) {
+  installNativeAiApiBridge();
+  installNativeFileOpenBridge();
+}
 applyOrbiDocPlatformProfile();
 mountPwaInstallStateAgent();
 
@@ -52,6 +58,7 @@ ReactDOM.createRoot(root).render(
       <VersionHistoryLauncher />
       <QuickScanReaderLauncher />
       <AiRuntimeStatus />
+      <NativeAiSettingsLauncher />
     </AppErrorBoundary>
   </React.StrictMode>
 );
