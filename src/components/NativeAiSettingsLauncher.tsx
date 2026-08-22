@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { IconKey, IconTrash, IconX } from '@tabler/icons-react';
+import { IconCheck, IconKey, IconTrash, IconX } from '@tabler/icons-react';
 import { clearNativeAiKey, getNativeAiStatus, isNativeBridgeAvailable, setNativeAiKey, type NativeAiProvider } from '../lib/nativeAndroidBridge';
 import { isOrbiDocNativeRuntime } from '../lib/nativeRuntime';
 
@@ -17,6 +17,7 @@ export const NativeAiSettingsLauncher: React.FC = () => {
   const [status, setStatus] = useState<Array<{ provider: NativeAiProvider; configured: boolean }>>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [downloadNotice, setDownloadNotice] = useState('');
 
   const refresh = async () => {
     if (!native) return;
@@ -24,6 +25,23 @@ export const NativeAiSettingsLauncher: React.FC = () => {
   };
 
   useEffect(() => { void refresh(); }, [native]);
+
+  useEffect(() => {
+    if (!native) return;
+    let timeout = 0;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ fileName?: string }>).detail;
+      setDownloadNotice(`Salvo em Downloads/OrbiDoc${detail?.fileName ? ` · ${detail.fileName}` : ''}`);
+      window.clearTimeout(timeout);
+      timeout = window.setTimeout(() => setDownloadNotice(''), 4200);
+    };
+    window.addEventListener('orbidoc:native-download', handler);
+    return () => {
+      window.removeEventListener('orbidoc:native-download', handler);
+      window.clearTimeout(timeout);
+    };
+  }, [native]);
+
   if (!native) return null;
 
   const configured = status.some((item) => item.configured);
@@ -52,6 +70,8 @@ export const NativeAiSettingsLauncher: React.FC = () => {
   };
 
   return <>
+    {downloadNotice && <div className="fixed z-[176] left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm bottom-[9.2rem] sm:bottom-20 rounded-2xl bg-emerald-600 text-white shadow-2xl px-4 py-3 flex items-center gap-2 text-[10px] font-black" role="status"><IconCheck className="w-4 h-4 shrink-0" /><span className="truncate">{downloadNotice}</span></div>}
+
     <button
       type="button"
       onClick={() => setOpen(true)}
