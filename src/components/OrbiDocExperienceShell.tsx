@@ -11,7 +11,7 @@ import { OrbiDocLogo } from './OrbiDocLogo';
 
 const ONBOARDING_KEY = 'orbidoc_onboarding_v1';
 
-type ExperiencePhase = 'splash' | 'onboarding' | 'ready';
+type ExperiencePhase = 'splash' | 'splash-exit' | 'onboarding' | 'ready';
 
 function hasSeenOnboarding() {
   try { return localStorage.getItem(ONBOARDING_KEY) === 'done'; } catch { return false; }
@@ -48,18 +48,39 @@ const onboardingCards = [
   },
 ] as const;
 
+const launchMessages = [
+  'Preparando a interface',
+  'Carregando recursos locais',
+  'Workspace pronto',
+] as const;
+
 export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [phase, setPhase] = useState<ExperiencePhase>('splash');
+  const [launchStage, setLaunchStage] = useState(0);
   const [onboardingIndex, setOnboardingIndex] = useState(0);
   const standalone = useMemo(() => isStandaloneDisplay(), []);
 
   useEffect(() => {
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const splashDuration = reducedMotion ? 80 : standalone ? 900 : 520;
-    const timer = window.setTimeout(() => {
+    if (reducedMotion) {
       setPhase(hasSeenOnboarding() ? 'ready' : 'onboarding');
-    }, splashDuration);
-    return () => window.clearTimeout(timer);
+      return;
+    }
+
+    const total = standalone ? 760 : 560;
+    const stageOne = window.setTimeout(() => setLaunchStage(1), Math.round(total * 0.33));
+    const stageTwo = window.setTimeout(() => setLaunchStage(2), Math.round(total * 0.67));
+    const beginExit = window.setTimeout(() => setPhase('splash-exit'), total);
+    const finish = window.setTimeout(() => {
+      setPhase(hasSeenOnboarding() ? 'ready' : 'onboarding');
+    }, total + 180);
+
+    return () => {
+      window.clearTimeout(stageOne);
+      window.clearTimeout(stageTwo);
+      window.clearTimeout(beginExit);
+      window.clearTimeout(finish);
+    };
   }, [standalone]);
 
   const finishOnboarding = () => {
@@ -67,28 +88,38 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
     setPhase('ready');
   };
 
+  const showSplash = phase === 'splash' || phase === 'splash-exit';
+
   return (
     <>
       <div className="orbidoc-app-root">{children}</div>
 
-      {phase === 'splash' && (
-        <div className="fixed inset-0 z-[140] overflow-hidden bg-[#F7F9FC] dark:bg-[#080D18] text-[#0B1220] dark:text-white flex items-center justify-center px-6" role="status" aria-label="Iniciando OrbiDoc">
+      {showSplash && (
+        <div
+          className={`orbidoc-launch-screen fixed inset-0 z-[140] overflow-hidden bg-[#F7F9FC] dark:bg-[#080D18] text-[#0B1220] dark:text-white flex items-center justify-center px-6 ${phase === 'splash-exit' ? 'is-exiting' : ''}`}
+          role="status"
+          aria-live="polite"
+          aria-label="Iniciando OrbiDoc"
+        >
           <div className="pointer-events-none absolute -top-28 -right-20 w-80 h-80 rounded-full border border-[#3157F6]/10 dark:border-[#7AA2FF]/10" />
           <div className="pointer-events-none absolute -bottom-36 -left-24 w-96 h-96 rounded-full border border-[#22D3EE]/10" />
-          <div className="relative w-full max-w-sm text-center animate-[fadeIn_0.28s_ease]">
-            <div className="flex justify-center"><OrbiDocLogo size="xl" className="scale-110" /></div>
-            <p className="mt-6 text-sm font-semibold tracking-[-0.01em] text-slate-600 dark:text-slate-300">Documentos em órbita. Inteligência em conexão.</p>
-            <div className="mt-8 h-1 w-44 mx-auto rounded-full bg-[#3157F6]/10 dark:bg-white/10 overflow-hidden">
-              <div className="h-full rounded-full bg-[#3157F6] dark:bg-[#7AA2FF] animate-[orbidocLaunch_0.9s_cubic-bezier(0.4,0,0.2,1)_forwards]" />
+          <div className="orbidoc-launch-stage relative w-full max-w-sm text-center">
+            <div className="orbidoc-launch-orbit">
+              <div className="orbidoc-launch-logo flex justify-center"><OrbiDocLogo size="xl" className="scale-110" /></div>
             </div>
-            <div className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">{standalone ? 'OrbiDoc App' : 'OrbiDoc Workspace'}</div>
+            <p className="mt-5 text-sm font-semibold tracking-[-0.01em] text-slate-600 dark:text-slate-300">Documentos em órbita. Inteligência em conexão.</p>
+            <div className="orbidoc-launch-progress mt-7 h-1 w-44 mx-auto rounded-full bg-[#3157F6]/10 dark:bg-white/10">
+              <div className="h-full rounded-full bg-[#3157F6] dark:bg-[#7AA2FF] transition-[width] duration-200 ease-out" style={{ width: `${34 + launchStage * 33}%` }} />
+            </div>
+            <div key={launchStage} className="orbidoc-launch-status mt-3 text-[10px] font-bold tracking-[0.04em] text-slate-400 dark:text-slate-500">{launchMessages[launchStage]}</div>
+            <div className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-300 dark:text-slate-600">{standalone ? 'OrbiDoc App' : 'OrbiDoc Workspace'}</div>
           </div>
         </div>
       )}
 
       {phase === 'onboarding' && (
         <div className="fixed inset-0 z-[135] bg-[#080D18]/55 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="orbidoc-onboarding-title">
-          <div className="relative w-full sm:max-w-[720px] rounded-t-[30px] sm:rounded-[30px] border border-white/10 bg-white dark:bg-[#101827] shadow-2xl overflow-hidden animate-[fadeIn_0.22s_ease]">
+          <div className="relative w-full sm:max-w-[720px] rounded-t-[30px] sm:rounded-[30px] border border-white/10 bg-white dark:bg-[#101827] shadow-2xl overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#3157F6] via-[#22D3EE] to-[#6D5EF7]" />
             <div className="px-5 sm:px-7 pt-6 sm:pt-7 flex items-start gap-4">
               <div className="flex-1 min-w-0">
@@ -112,9 +143,9 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
                 {(() => {
                   const card = onboardingCards[onboardingIndex];
                   const Icon = card.icon;
-                  return <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-[#F7F9FC] dark:bg-[#080D18]/55 p-5 min-h-[220px]"><div className={`w-11 h-11 rounded-xl flex items-center justify-center ${card.tone}`}><Icon className="w-5 h-5" /></div><div className="mt-5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{card.eyebrow}</div><h2 className="mt-1 text-lg font-black text-[#0B1220] dark:text-white leading-snug">{card.title}</h2><p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{card.text}</p></div>;
+                  return <div key={card.title} className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-[#F7F9FC] dark:bg-[#080D18]/55 p-5 min-h-[220px] animate-[orbidoc-view-in_0.22s_ease_both]"><div className={`w-11 h-11 rounded-xl flex items-center justify-center ${card.tone}`}><Icon className="w-5 h-5" /></div><div className="mt-5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{card.eyebrow}</div><h2 className="mt-1 text-lg font-black text-[#0B1220] dark:text-white leading-snug">{card.title}</h2><p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{card.text}</p></div>;
                 })()}
-                <div className="mt-4 flex justify-center gap-1.5">{onboardingCards.map((card, index) => <button key={card.title} onClick={() => setOnboardingIndex(index)} className={`h-1.5 rounded-full transition-all ${index === onboardingIndex ? 'w-7 bg-[#3157F6]' : 'w-1.5 bg-slate-300 dark:bg-slate-700'}`} aria-label={`Ir para etapa ${index + 1}`} />)}</div>
+                <div className="mt-4 flex justify-center gap-1.5">{onboardingCards.map((card, index) => <button key={card.title} onClick={() => setOnboardingIndex(index)} className={`h-1.5 rounded-full transition-all duration-200 ${index === onboardingIndex ? 'w-7 bg-[#3157F6]' : 'w-1.5 bg-slate-300 dark:bg-slate-700'}`} aria-label={`Ir para etapa ${index + 1}`} />)}</div>
               </div>
             </div>
 
