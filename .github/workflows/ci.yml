@@ -52,3 +52,6 @@ jobs:
         run: bun run verify:playstore
         env:
           ANDROID_TARGET_SDK: "36"
+
+      - name: Verify server-independent native Android architecture
+        run: bun run verify:native
