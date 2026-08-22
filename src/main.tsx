@@ -5,8 +5,10 @@ import App from './AppV5';
 import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
+import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
 import { NativeAiSettingsLauncher } from './components/NativeAiSettingsLauncher';
+import { NativeViewportAgent } from './components/NativeViewportAgent';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
@@ -53,6 +55,7 @@ ReactDOM.createRoot(root).render(
       <OrbiDocExperienceShell>
         <App />
       </OrbiDocExperienceShell>
+      <NativeViewportAgent />
       <AccountSyncAgent />
       <SystemFileOpenAgent />
       <MediaToolsLauncher />
@@ -60,6 +63,7 @@ ReactDOM.createRoot(root).render(
       <QuickScanReaderLauncher />
       <AiRuntimeStatus />
       <NativeAiSettingsLauncher />
+      <LocalUtilitiesLauncher />
     </AppErrorBoundary>
   </React.StrictMode>
 );
