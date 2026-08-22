@@ -48,6 +48,7 @@ jobs:
         run: |
           node scripts/configure-native-android-bridge.mjs
           node scripts/configure-native-android-network.mjs
+          node scripts/fix-native-android-generated-java.mjs
       - run: |
           rm -rf native-assets && mkdir -p native-assets
           cp public/brand/orbidoc-app-icon.svg native-assets/logo.svg
