@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const manifestPath = path.resolve('dist/manifest.webmanifest');
+const manifestPath = path.resolve('dist/manifest.json');
+const legacyManifestPath = path.resolve('dist/manifest.webmanifest');
 
 const fileHandlers = [{
   action: '/',
@@ -35,8 +36,14 @@ try {
   const manifest = JSON.parse(source);
   manifest.file_handlers = fileHandlers;
   manifest.launch_handler = { client_mode: ['focus-existing', 'auto'] };
-  await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  console.log(`PWA file handlers: ${Object.keys(fileHandlers[0].accept).length} MIME groups registered.`);
+
+  const normalized = `${JSON.stringify(manifest, null, 2)}\n`;
+  await Promise.all([
+    fs.writeFile(manifestPath, normalized, 'utf8'),
+    fs.writeFile(legacyManifestPath, normalized, 'utf8'),
+  ]);
+
+  console.log(`PWA manifest: canonical /manifest.json + legacy /manifest.webmanifest synchronized; ${Object.keys(fileHandlers[0].accept).length} MIME groups registered.`);
 } catch (error) {
   console.error('Failed to augment PWA manifest with file handlers:', error);
   process.exitCode = 1;
