@@ -3,6 +3,17 @@ html {
   --orbidoc-safe-right: env(safe-area-inset-right, 0px);
   --orbidoc-safe-bottom: env(safe-area-inset-bottom, 0px);
   --orbidoc-safe-left: env(safe-area-inset-left, 0px);
+  --orbidoc-visual-height: 100dvh;
+  --orbidoc-visual-offset-top: 0px;
+  --orbidoc-keyboard-inset: 0px;
+  --orbidoc-bottom-nav-height: 72px;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
 }
 
 html[data-orbidoc-installed="true"][data-orbidoc-mobile="true"] [data-orbidoc-install-cta="true"] {
@@ -12,12 +23,14 @@ html[data-orbidoc-installed="true"][data-orbidoc-mobile="true"] [data-orbidoc-in
 html.orbidoc-platform-mobile body {
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
 }
 
 html.orbidoc-platform-mobile button,
 html.orbidoc-platform-mobile [role="button"],
 html.orbidoc-platform-mobile input,
-html.orbidoc-platform-mobile select {
+html.orbidoc-platform-mobile select,
+html.orbidoc-platform-mobile textarea {
   touch-action: manipulation;
 }
 
@@ -25,13 +38,144 @@ html.orbidoc-platform-mobile button:not(.orbidoc-compact-control) {
   min-height: 36px;
 }
 
+/* AppV5 used a 560px minimum viewport. That becomes larger than the visible
+   WebView when the IME opens, pushing controls behind the software keyboard. */
+html.orbidoc-platform-mobile .orbidoc-app-root > div {
+  height: var(--orbidoc-visual-height, 100dvh) !important;
+  min-height: 0 !important;
+  max-height: var(--orbidoc-visual-height, 100dvh) !important;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* The first AppV5 header is the native top app bar. Keep its controls below
+   status bars/cutouts while the background itself can continue edge-to-edge. */
+html.orbidoc-platform-mobile .orbidoc-app-root > div > div.flex-1 > header:first-child {
+  box-sizing: border-box;
+  height: calc(4rem + var(--orbidoc-safe-top)) !important;
+  min-height: calc(4rem + var(--orbidoc-safe-top));
+  padding-top: var(--orbidoc-safe-top);
+  padding-left: max(0.75rem, var(--orbidoc-safe-left));
+  padding-right: max(0.75rem, var(--orbidoc-safe-right));
+}
+
+html.orbidoc-platform-mobile .orbidoc-app-root > div > div.flex-1 > main {
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scroll-padding-top: calc(1rem + var(--orbidoc-safe-top));
+  scroll-padding-bottom: calc(var(--orbidoc-bottom-nav-height) + var(--orbidoc-safe-bottom) + 1rem);
+  padding-left: max(0.75rem, var(--orbidoc-safe-left)) !important;
+  padding-right: max(0.75rem, var(--orbidoc-safe-right)) !important;
+  padding-bottom: calc(var(--orbidoc-bottom-nav-height) + var(--orbidoc-safe-bottom) + 1rem) !important;
+}
+
 html.orbidoc-platform-mobile .orbidoc-bottom-nav,
 html.orbidoc-platform-mobile nav[aria-label="Navegação principal"] {
-  padding-bottom: max(4px, var(--orbidoc-safe-bottom));
+  min-height: calc(var(--orbidoc-bottom-nav-height) + var(--orbidoc-safe-bottom));
+  padding-bottom: max(0.4rem, var(--orbidoc-safe-bottom));
+  padding-left: max(0.5rem, var(--orbidoc-safe-left));
+  padding-right: max(0.5rem, var(--orbidoc-safe-right));
+  transition: transform 160ms ease, opacity 120ms ease;
+}
+
+/* Text entry gets the complete visual viewport. Hiding the hotbar while the
+   software keyboard is visible prevents it from sitting on top of editors. */
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='open'] .orbidoc-bottom-nav,
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='open'] nav[aria-label="Navegação principal"] {
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='open'] .orbidoc-app-root > div > div.flex-1 > main {
+  scroll-padding-bottom: 1rem;
+  padding-bottom: 1rem !important;
+}
+
+/* These actions are already reachable from Apps / Assistant / creation sheet.
+   On phones, four fixed launchers competing with the hotbar caused the key/API
+   control to overlap Design and other workspace content. Keep them desktop-only. */
+html.orbidoc-platform-mobile button[aria-label="Abrir ferramentas de mídia e qualidade"],
+html.orbidoc-platform-mobile button[aria-label="Abrir histórico de versões"],
+html.orbidoc-platform-mobile button[aria-label="Abrir Scan e Reader"],
+html.orbidoc-platform-mobile button[aria-label="Conectar IA no aparelho"] {
+  display: none !important;
 }
 
 html.orbidoc-platform-mobile .orbidoc-editor-canvas {
   scroll-padding: 1rem;
+  scroll-margin-bottom: calc(var(--orbidoc-safe-bottom) + 1rem);
+}
+
+/* Full-screen launcher headers need their own system-bar inset because these
+   overlays live outside AppV5's normal top bar. */
+html.orbidoc-platform-mobile .fixed.inset-0.flex.flex-col > header:first-child {
+  box-sizing: border-box;
+  height: calc(3.5rem + var(--orbidoc-safe-top)) !important;
+  min-height: calc(3.5rem + var(--orbidoc-safe-top));
+  padding-top: var(--orbidoc-safe-top);
+  padding-left: max(0.75rem, var(--orbidoc-safe-left));
+  padding-right: max(0.75rem, var(--orbidoc-safe-right));
+}
+
+html.orbidoc-platform-mobile [role="dialog"][aria-modal="true"] {
+  padding-left: max(0px, var(--orbidoc-safe-left));
+  padding-right: max(0px, var(--orbidoc-safe-right));
+}
+
+html.orbidoc-platform-mobile .orbidoc-keyboard-safe-panel,
+html.orbidoc-platform-mobile .orbidoc-account-panel {
+  max-height: calc(var(--orbidoc-visual-height, 100dvh) - max(1rem, var(--orbidoc-safe-top)) - max(1rem, var(--orbidoc-safe-bottom))) !important;
+}
+
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='open'] .orbidoc-account-panel {
+  top: max(0.5rem, var(--orbidoc-safe-top)) !important;
+  bottom: 0.5rem !important;
+  max-height: calc(var(--orbidoc-visual-height, 100dvh) - 1rem) !important;
+}
+
+html.orbidoc-platform-mobile .orbidoc-local-tools-overlay {
+  padding-top: var(--orbidoc-safe-top);
+  padding-bottom: var(--orbidoc-safe-bottom);
+}
+
+/* App-level notices must not sit underneath the Android notification/status bar. */
+html.orbidoc-platform-mobile .orbidoc-app-root > div > [role="status"],
+html.orbidoc-platform-mobile .orbidoc-app-root > div > [role="alert"] {
+  top: calc(var(--orbidoc-safe-top) + 0.75rem) !important;
+  max-width: calc(100vw - var(--orbidoc-safe-left) - var(--orbidoc-safe-right) - 1.5rem);
+}
+
+/* Side drawers and onboarding sheets remain reachable on gesture navigation,
+   cutouts and landscape devices. */
+html.orbidoc-platform-mobile .orbidoc-app-root > div > .fixed.inset-0 aside {
+  padding-top: max(0.75rem, var(--orbidoc-safe-top));
+  padding-bottom: max(0.75rem, var(--orbidoc-safe-bottom));
+}
+
+html.orbidoc-platform-mobile :focus-visible {
+  outline: 2px solid #7AA2FF;
+  outline-offset: 2px;
+}
+
+/* Thin overlay scrollbars avoid stealing horizontal room from editor canvases. */
+html.orbidoc-platform-mobile * {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / .55) transparent;
+}
+
+html.orbidoc-platform-mobile *::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+html.orbidoc-platform-mobile *::-webkit-scrollbar-thumb {
+  background: rgb(148 163 184 / .55);
+  border-radius: 999px;
+}
+
+html.orbidoc-platform-mobile *::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Desktop/PWA windows must remain genuinely resizable. A hard 760px body floor
@@ -40,6 +184,11 @@ html.orbidoc-platform-desktop body {
   min-width: 0;
   width: 100%;
   overflow-x: hidden;
+}
+
+html.orbidoc-platform-desktop .orbidoc-app-root > div > div.flex-1 > main,
+html.orbidoc-platform-desktop [class*="overflow-y-auto"] {
+  scrollbar-gutter: stable;
 }
 
 @media (display-mode: window-controls-overlay) {
