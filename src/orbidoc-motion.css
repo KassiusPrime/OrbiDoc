@@ -1,0 +1,312 @@
+/* OrbiDoc interaction and motion layer.
+ * Keeps movement short and functional: navigation feedback, launch staging,
+ * responsive AI layout, modal transitions and touch states.
+ */
+
+:root {
+  --orbi-ease-out: cubic-bezier(.2, .8, .2, 1);
+  --orbi-ease-spring: cubic-bezier(.2, .9, .25, 1.15);
+  --orbi-motion-fast: 140ms;
+  --orbi-motion-normal: 220ms;
+  --orbi-motion-slow: 360ms;
+}
+
+.orbidoc-app-root {
+  isolation: isolate;
+}
+
+/* Page / tool entrance. React mounts a new direct child when the active workspace changes. */
+.orbidoc-app-root main > div > * {
+  animation: orbidoc-view-in var(--orbi-motion-normal) var(--orbi-ease-out) both;
+  transform-origin: 50% 18%;
+}
+
+@keyframes orbidoc-view-in {
+  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(.995); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Consistent focus and press feedback like a native app. */
+.orbidoc-app-root :where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid color-mix(in srgb, #3157F6 72%, white);
+  outline-offset: 2px;
+}
+
+.orbidoc-app-root :where(button, a) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@media (pointer: coarse) {
+  .orbidoc-app-root button:not(:disabled),
+  .orbidoc-app-root [role='button'] {
+    transition: transform var(--orbi-motion-fast) var(--orbi-ease-out),
+      background-color var(--orbi-motion-fast) ease,
+      border-color var(--orbi-motion-fast) ease,
+      opacity var(--orbi-motion-fast) ease;
+  }
+
+  .orbidoc-app-root button:not(:disabled):active,
+  .orbidoc-app-root [role='button']:active {
+    transform: scale(.965);
+  }
+}
+
+/* Theme changes should feel continuous instead of flashing. */
+.orbidoc-app-root,
+.orbidoc-app-root > div > aside,
+.orbidoc-app-root > div > div > header,
+.orbidoc-app-root main,
+.orbidoc-app-root nav[aria-label='Navegação principal'] {
+  transition: background-color 190ms ease, border-color 190ms ease, color 190ms ease, box-shadow 190ms ease;
+}
+
+/* Short modal/sheet animation used by onboarding and other real dialogs. */
+.orbidoc-app-root [role='dialog'],
+body > [role='dialog'] {
+  animation: orbidoc-backdrop-in 180ms ease both;
+}
+
+.orbidoc-app-root [role='dialog'] > :first-child,
+body > [role='dialog'] > :first-child {
+  animation: orbidoc-sheet-in 240ms var(--orbi-ease-out) both;
+}
+
+@keyframes orbidoc-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes orbidoc-sheet-in {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Launch experience */
+.orbidoc-launch-screen {
+  opacity: 1;
+  transition: opacity 180ms ease, transform 180ms var(--orbi-ease-out);
+}
+
+.orbidoc-launch-screen.is-exiting {
+  opacity: 0;
+  transform: scale(1.012);
+  pointer-events: none;
+}
+
+.orbidoc-launch-stage {
+  animation: orbidoc-launch-content 420ms var(--orbi-ease-out) both;
+}
+
+.orbidoc-launch-orbit {
+  position: relative;
+  width: 118px;
+  height: 118px;
+  margin-inline: auto;
+  display: grid;
+  place-items: center;
+}
+
+.orbidoc-launch-orbit::before,
+.orbidoc-launch-orbit::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  border: 1px solid rgb(49 87 246 / .14);
+  animation: orbidoc-orbit-spin 4.8s linear infinite;
+}
+
+.orbidoc-launch-orbit::after {
+  inset: 15px -4px;
+  border-color: rgb(34 211 238 / .12);
+  animation-duration: 6.4s;
+  animation-direction: reverse;
+}
+
+.dark .orbidoc-launch-orbit::before { border-color: rgb(122 162 255 / .18); }
+.dark .orbidoc-launch-orbit::after { border-color: rgb(34 211 238 / .13); }
+
+.orbidoc-launch-logo {
+  position: relative;
+  z-index: 1;
+  animation: orbidoc-logo-breathe 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 10px 26px rgb(49 87 246 / .12));
+}
+
+.orbidoc-launch-progress {
+  position: relative;
+  overflow: hidden;
+}
+
+.orbidoc-launch-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / .72), transparent);
+  animation: orbidoc-progress-sheen 900ms ease-in-out infinite;
+}
+
+.orbidoc-launch-status {
+  min-height: 18px;
+  animation: orbidoc-status-in 180ms ease both;
+}
+
+@keyframes orbidoc-launch-content {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes orbidoc-orbit-spin { to { transform: rotate(360deg); } }
+
+@keyframes orbidoc-logo-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+@keyframes orbidoc-progress-sheen {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(330%); }
+}
+
+@keyframes orbidoc-status-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Empty model selects look like a loading/availability state instead of a broken control. */
+.orbidoc-app-root select:empty {
+  background-image: linear-gradient(100deg, transparent 20%, rgb(148 163 184 / .12) 36%, transparent 52%);
+  background-size: 220% 100%;
+  animation: orbidoc-shimmer 1.25s linear infinite;
+}
+
+@keyframes orbidoc-shimmer { to { background-position-x: -220%; } }
+
+/* AI workspace: the previous fixed viewport height + 560px minimum caused the
+ * composer to disappear behind the bottom dock. These selectors intentionally
+ * target only AiWorkspace's root class token without coupling to component JS. */
+.orbidoc-app-root main:has(> div > [class~='h-[calc(100dvh-7.5rem)]']) > div,
+.orbidoc-app-root main:has(> div > [class~='h-[calc(100dvh-7.5rem)]']) > div > [class~='h-[calc(100dvh-7.5rem)]'] {
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .orbidoc-app-root main:has(> div > [class~='h-[calc(100dvh-7.5rem)]']) {
+    overflow: hidden !important;
+    padding-bottom: 12px !important;
+  }
+
+  .orbidoc-app-root main:has(> div > [class~='h-[calc(100dvh-7.5rem)]']) > div {
+    height: 100%;
+  }
+
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] {
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100%;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .orbidoc-app-root > div {
+    min-height: 100dvh !important;
+  }
+
+  .orbidoc-app-root main:has(> div > [class~='h-[calc(100dvh-7.5rem)]']) {
+    overflow: hidden !important;
+    padding-top: 8px !important;
+    padding-bottom: calc(var(--orbi-mobile-nav-height) + 8px) !important;
+  }
+
+  .orbidoc-app-root main:has(> div > [class~='h-[calc(100dvh-7.5rem)]']) > div {
+    height: 100%;
+  }
+
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] {
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100%;
+    border-radius: 18px !important;
+  }
+
+  /* The app header already identifies the assistant. Hide redundant branding
+   * inside the compact AI toolbar and preserve room for tabs/model/history. */
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='h-14'] {
+    height: 50px !important;
+    min-height: 50px;
+    padding-inline: 8px !important;
+    gap: 6px !important;
+  }
+
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='h-14'] > [class~='w-9'][class~='h-9']:first-child {
+    display: none !important;
+  }
+
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='h-14'] > [class~='ml-2'] {
+    margin-left: 0 !important;
+  }
+
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] {
+    padding: 8px 10px !important;
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+  }
+
+  .dark .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='dark:bg-rose-950/30'] {
+    background-color: rgb(76 5 25 / .22) !important;
+  }
+
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] [class~='py-16'] {
+    padding-top: 28px !important;
+    padding-bottom: 28px !important;
+  }
+
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] textarea {
+    font-size: 16px;
+  }
+
+  /* Peripheral launchers should step out while the user is composing in chat.
+   * :has() keeps this automatic without another global state store. */
+  body:has(.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]']) > #root button[aria-label='Abrir ferramentas de mídia e qualidade'],
+  body:has(.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]']) > #root button[aria-label='Abrir histórico de versões'],
+  body:has(.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]']) > #root button[aria-label='Abrir Scan e Reader'] {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px) scale(.92);
+  }
+
+  /* Suggestion cards enter in a light cascade on first opening. */
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] [class~='grid-cols-1'] > button {
+    animation: orbidoc-suggestion-in 260ms var(--orbi-ease-out) both;
+  }
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] [class~='grid-cols-1'] > button:nth-child(2) { animation-delay: 35ms; }
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] [class~='grid-cols-1'] > button:nth-child(3) { animation-delay: 70ms; }
+  .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] [class~='grid-cols-1'] > button:nth-child(4) { animation-delay: 105ms; }
+}
+
+@keyframes orbidoc-suggestion-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Prevent long scrolling surfaces from rubber-banding over the shell. */
+.orbidoc-app-root main,
+.orbidoc-app-root [class*='overflow-y-auto'] {
+  overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbidoc-app-root main > div > *,
+  .orbidoc-launch-stage,
+  .orbidoc-launch-logo,
+  .orbidoc-launch-orbit::before,
+  .orbidoc-launch-orbit::after,
+  .orbidoc-launch-progress::after,
+  .orbidoc-app-root select:empty,
+  .orbidoc-app-root main button {
+    animation: none !important;
+    transition-duration: .01ms !important;
+  }
+}
