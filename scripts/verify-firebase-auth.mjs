@@ -5,6 +5,7 @@ if (!config.apiKey || !config.projectId || !config.authDomain) {
   throw new Error('Firebase config incompleta: apiKey/projectId/authDomain ausentes.');
 }
 
+const strict = process.env.ORBIDOC_REQUIRE_PASSWORD_AUTH === 'true';
 const endpoint = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(config.apiKey)}`;
 const response = await fetch(endpoint, {
   method: 'POST',
@@ -21,9 +22,15 @@ const code = String(payload?.error?.message || '');
 if (response.ok) {
   throw new Error('O health-check de autenticação entrou inesperadamente com uma conta inexistente.');
 }
-if (code.includes('OPERATION_NOT_ALLOWED') || code.includes('CONFIGURATION_NOT_FOUND')) {
-  throw new Error(`Firebase Authentication por e-mail/senha não está habilitado: ${code}`);
+
+const providerDisabled = /PASSWORD_LOGIN_DISABLED|OPERATION_NOT_ALLOWED|CONFIGURATION_NOT_FOUND/.test(code);
+if (providerDisabled) {
+  const message = `Firebase acessível, mas o provedor e-mail/senha está desativado no projeto (${code}).`;
+  if (strict) throw new Error(message);
+  console.warn(`${message} O app continuará local-first; o formulário informará este estado sem fingir que o login está ativo.`);
+  process.exit(0);
 }
+
 if (!/INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND|INVALID_PASSWORD|USER_DISABLED/.test(code)) {
   throw new Error(`Resposta inesperada do Firebase Authentication (${response.status}): ${code || 'sem código'}`);
 }
