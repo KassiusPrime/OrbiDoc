@@ -175,14 +175,17 @@ body > [role='dialog'] > :first-child {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Empty model selects look like a loading/availability state instead of a broken control. */
-.orbidoc-app-root select:empty {
-  background-image: linear-gradient(100deg, transparent 20%, rgb(148 163 184 / .12) 36%, transparent 52%);
-  background-size: 220% 100%;
-  animation: orbidoc-shimmer 1.25s linear infinite;
+/* A model selector with no options reads as a broken black box. Hide it until
+ * provider discovery actually returns a model. */
+.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] select:empty {
+  display: none;
 }
 
-@keyframes orbidoc-shimmer { to { background-position-x: -220%; } }
+/* The shell menu is already the navigation affordance for Assistente IA. The
+ * old generic editor-back button created two adjacent navigation icons. */
+.orbidoc-app-root > div > div:has(main > div > [class~='h-[calc(100dvh-7.5rem)]']) > header button[aria-label='Voltar aos arquivos'] {
+  display: none;
+}
 
 /* AI workspace: the previous fixed viewport height + 560px minimum caused the
  * composer to disappear behind the bottom dock. These selectors intentionally
@@ -271,7 +274,8 @@ body > [role='dialog'] > :first-child {
    * :has() keeps this automatic without another global state store. */
   body:has(.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]']) > #root button[aria-label='Abrir ferramentas de mídia e qualidade'],
   body:has(.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]']) > #root button[aria-label='Abrir histórico de versões'],
-  body:has(.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]']) > #root button[aria-label='Abrir Scan e Reader'] {
+  body:has(.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]']) > #root button[aria-label='Abrir Scan e Reader'],
+  body:has(.orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]']) > #root .orbidoc-ai-runtime {
     opacity: 0;
     pointer-events: none;
     transform: translateY(10px) scale(.92);
@@ -304,7 +308,6 @@ body > [role='dialog'] > :first-child {
   .orbidoc-launch-orbit::before,
   .orbidoc-launch-orbit::after,
   .orbidoc-launch-progress::after,
-  .orbidoc-app-root select:empty,
   .orbidoc-app-root main button {
     animation: none !important;
     transition-duration: .01ms !important;
