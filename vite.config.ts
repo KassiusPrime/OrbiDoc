@@ -64,6 +64,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
+      manifestFilename: "manifest.json",
       includeAssets: [
         "brand/orbidoc-symbol-light.svg",
         "brand/orbidoc-symbol-dark.svg",
@@ -167,7 +168,7 @@ export default defineConfig({
         id: "/",
         name: "OrbiDoc",
         short_name: "OrbiDoc",
-        description: "Workspace para documentos, planilhas, apresentações, PDF, OCR, conversão de arquivos e IA.",
+        description: "Workspace local-first para documentos, planilhas, apresentações, design, PDF, scanner, OCR e conversão de arquivos.",
         lang: "pt-BR",
         dir: "ltr",
         theme_color: "#3157F6",
@@ -178,7 +179,7 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         prefer_related_applications: false,
-        categories: ["productivity", "business", "utilities"],
+        categories: ["productivity", "business", "education", "utilities"],
         icons: [
           { src: "/brand/orbidoc-app-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
           { src: "/logo-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
