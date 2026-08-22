@@ -55,3 +55,95 @@ jobs:
 
       - name: Verify server-independent native Android architecture
         run: bun run verify:native
+
+  native-android-apk:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 16 SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Install web dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build bundled web core
+        run: bun run build
+
+      - name: Install transient Capacitor and offline OCR packages
+        run: |
+          npm install --no-save --package-lock=false \
+            @capacitor/core@8 \
+            @capacitor/cli@8 \
+            @capacitor/android@8 \
+            @capacitor/assets@3 \
+            @tesseract.js-data/por@1 \
+            @tesseract.js-data/eng@1
+
+      - name: Embed native OCR assets
+        run: node scripts/prepare-native-offline-assets.mjs
+
+      - name: Create local Android shell
+        run: npx cap add android
+
+      - name: Generate OrbiDoc launcher and splash assets
+        run: |
+          rm -rf native-assets
+          mkdir -p native-assets
+          cp public/brand/orbidoc-app-icon.svg native-assets/logo.svg
+          cp public/brand/orbidoc-app-icon.svg native-assets/logo-dark.svg
+          npx @capacitor/assets generate --android \
+            --assetPath native-assets \
+            --iconBackgroundColor "#3157F6" \
+            --iconBackgroundColorDark "#080D18" \
+            --splashBackgroundColor "#F7F9FC" \
+            --splashBackgroundColorDark "#080D18"
+
+      - name: Sync bundled app into Android
+        run: npx cap sync android
+
+      - name: Assert API 36 and local bundled assets
+        run: |
+          bun run verify:native
+          grep -Eq 'targetSdkVersion[[:space:]]*=[[:space:]]*36' android/variables.gradle
+          grep -Eq 'compileSdkVersion[[:space:]]*=[[:space:]]*36' android/variables.gradle
+          test -f android/app/src/main/assets/public/index.html
+          test -f android/app/src/main/assets/public/native-ocr/worker.min.js
+          test -f android/app/src/main/assets/public/native-ocr/lang/por.traineddata.gz
+          test -f android/app/src/main/assets/public/native-ocr/lang/eng.traineddata.gz
+
+      - name: Compile installable APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Stage APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk OrbiDoc-debug.apk
+          sha256sum OrbiDoc-debug.apk > OrbiDoc-debug.apk.sha256
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrbiDoc-Android-debug-${{ github.sha }}
+          path: |
+            OrbiDoc-debug.apk
+            OrbiDoc-debug.apk.sha256
+          retention-days: 14
+          if-no-files-found: error
