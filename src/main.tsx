@@ -16,6 +16,7 @@ import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import { mountPwaInstallStateAgent } from './lib/pwaInstall';
 import './index.css';
 import './orbidoc-ui.css';
+import './orbidoc-motion.css';
 import './platform.css';
 import './scan-reader.css';
 
