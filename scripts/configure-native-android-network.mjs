@@ -9,9 +9,15 @@ if (!source.includes('fetchUrlPayload(PluginCall call)')) {
   private String fileNameFromConnection(HttpURLConnection conn, String url) {
     String disposition = conn.getHeaderField("Content-Disposition");
     if (disposition != null) {
-      java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("filename\\\\*?=(?:UTF-8''|\\\")?([^;\\\"]+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(disposition);
-      if (matcher.find()) {
-        try { return java.net.URLDecoder.decode(matcher.group(1).trim(), "UTF-8"); } catch (Exception ignored) { return matcher.group(1).trim(); }
+      String lower = disposition.toLowerCase(java.util.Locale.ROOT);
+      int marker = lower.indexOf("filename*=");
+      int offset = 10;
+      if (marker < 0) { marker = lower.indexOf("filename="); offset = 9; }
+      if (marker >= 0) {
+        String raw = disposition.substring(marker + offset).split(";", 2)[0].trim();
+        if (raw.toLowerCase(java.util.Locale.ROOT).startsWith("utf-8''")) raw = raw.substring(7);
+        if (raw.startsWith("\\\"") && raw.endsWith("\\\"") && raw.length() > 1) raw = raw.substring(1, raw.length() - 1);
+        try { return java.net.URLDecoder.decode(raw, "UTF-8"); } catch (Exception ignored) { return raw; }
       }
     }
     try {
