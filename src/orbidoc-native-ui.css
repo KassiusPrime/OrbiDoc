@@ -1,0 +1,33 @@
+/* Native-only UI adjustments that depend on the Android runtime profile. */
+
+html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] {
+  background: rgb(49 87 246 / .075) !important;
+  border-color: rgb(49 87 246 / .18) !important;
+  color: #2446d8 !important;
+}
+
+html.dark[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] {
+  background: rgb(122 162 255 / .08) !important;
+  border-color: rgb(122 162 255 / .16) !important;
+  color: #b8ccff !important;
+}
+
+/* The server-only message is misleading in the APK because the native bridge can
+ * store provider keys in Android Keystore. Preserve the warning semantics but
+ * replace only its copy on native builds. */
+html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] > span {
+  font-size: 0;
+}
+
+html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] > span::after {
+  content: 'IA ainda não conectada. Toque no botão de chave para conectar Gemini, Groq ou OpenRouter neste aparelho.';
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
+@media (min-width: 1024px) {
+  html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] > span::after {
+    font-size: 11px;
+  }
+}
