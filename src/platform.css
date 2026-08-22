@@ -34,8 +34,12 @@ html.orbidoc-platform-mobile .orbidoc-editor-canvas {
   scroll-padding: 1rem;
 }
 
+/* Desktop/PWA windows must remain genuinely resizable. A hard 760px body floor
+   forced horizontal overflow when a desktop window was snapped or narrowed. */
 html.orbidoc-platform-desktop body {
-  min-width: 760px;
+  min-width: 0;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 @media (display-mode: window-controls-overlay) {
