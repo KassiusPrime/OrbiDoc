@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   IconBrandGoogle as Google,
   IconBrandWindows as Microsoft,
@@ -56,7 +57,9 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<'google' | 'microsoft' | null>(null);
   const [orbiUser, setOrbiUser] = useState<OrbiDocAuthUser | null>(null);
+  const [mobileSheet, setMobileSheet] = useState(() => window.matchMedia('(max-width: 639px)').matches);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const currentGoogle = user ?? googleUser ?? getStoredGoogleUser();
   const currentMicrosoft = msUser ?? getStoredMicrosoftUser();
 
@@ -69,8 +72,17 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
   useEffect(() => subscribeToOrbiDocAuth(setOrbiUser), []);
 
   useEffect(() => {
+    const media = window.matchMedia('(max-width: 639px)');
+    const sync = () => setMobileSheet(media.matches);
+    sync();
+    media.addEventListener?.('change', sync);
+    return () => media.removeEventListener?.('change', sync);
+  }, []);
+
+  useEffect(() => {
     const close = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
@@ -84,11 +96,11 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!open || window.innerWidth >= 640) return;
+    if (!open || !mobileSheet) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previousOverflow; };
-  }, [open]);
+  }, [mobileSheet, open]);
 
   const connectGoogle = async () => {
     setBusy('google');
@@ -132,6 +144,57 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
   const primaryName = orbiUser?.displayName || orbiUser?.email?.split('@')[0] || currentGoogle?.name || currentMicrosoft?.name;
   const connectedCount = Number(Boolean(currentGoogle)) + Number(Boolean(currentMicrosoft));
 
+  const accountPanel = (
+    <div
+      ref={panelRef}
+      className={mobileSheet
+        ? 'orbidoc-account-panel fixed left-3 right-3 top-[72px] bottom-[calc(86px+env(safe-area-inset-bottom))] z-[105] flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] text-slate-900 dark:text-slate-100 shadow-2xl'
+        : 'orbidoc-account-panel absolute right-0 top-12 z-[105] flex w-[390px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-80px)] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] text-slate-900 dark:text-slate-100 shadow-2xl'}
+    >
+      <div className="h-1 shrink-0 bg-gradient-to-r from-[#3157F6] via-[#22D3EE] to-[#6D5EF7]" />
+      <div className="px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <OrbiDocLogo size="sm" />
+            <div className="mt-3 flex items-center gap-1.5 text-xs font-black text-[#0B1220] dark:text-white"><ShieldCheck className="w-4 h-4 text-[#3157F6] dark:text-[#7AA2FF]" /> Conta e conexões</div>
+            <div className="mt-1 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">A conta OrbiDoc usa e-mail e senha. Google e Microsoft ficam opcionais apenas para conectar serviços externos.</div>
+          </div>
+          <button onClick={() => setOpen(false)} className="w-8 h-8 shrink-0 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500" aria-label="Fechar conta e conexões"><X className="w-4 h-4" /></button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 space-y-3">
+        <OrbiDocAuthPanel onNotification={notify} onUserChange={setOrbiUser} />
+
+        <section>
+          <div className="px-1 mb-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-400"><PlugConnected className="w-3.5 h-3.5" /> Serviços externos opcionais</div>
+          <div className="space-y-2">
+            <AccountRow
+              icon={<Google className="w-4 h-4" />}
+              title="Google Drive"
+              subtitle={currentGoogle ? currentGoogle.email : 'Somente se você quiser acessar o Drive'}
+              connected={Boolean(currentGoogle)}
+              busy={busy === 'google'}
+              onConnect={connectGoogle}
+              onDisconnect={disconnectGoogle}
+            />
+            <AccountRow
+              icon={<Microsoft className="w-4 h-4" />}
+              title="OneDrive"
+              subtitle={currentMicrosoft ? currentMicrosoft.email : isMicrosoftOAuthConfigured() ? 'Microsoft Graph / OneDrive' : 'Opcional · requer Client ID do Entra'}
+              connected={Boolean(currentMicrosoft)}
+              busy={busy === 'microsoft'}
+              onConnect={connectMicrosoft}
+              onDisconnect={disconnectMicrosoft}
+            />
+          </div>
+        </section>
+      </div>
+
+      <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-[#F7F9FC] dark:bg-[#080D18]/55 text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed flex items-start gap-2 shrink-0"><Cloud className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#008CA8] dark:text-[#22D3EE]" /><span><strong>Conta não significa upload automático.</strong> O workspace permanece local-first. Google Drive, OneDrive e futura sincronização OrbiDoc são recursos separados.</span></div>
+    </div>
+  );
+
   return (
     <div ref={rootRef} className="relative shrink-0">
       <button
@@ -154,59 +217,20 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
         <ChevronDown className="orbidoc-account-trigger-chevron w-3.5 h-3.5 text-slate-400 hidden sm:block shrink-0" />
       </button>
 
-      {open && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[104] bg-slate-950/45 backdrop-blur-[1px] sm:hidden"
-            onClick={() => setOpen(false)}
-            aria-label="Fechar conta e conexões"
-          />
-          <div className="orbidoc-account-panel fixed left-3 right-3 top-[72px] bottom-[calc(86px+env(safe-area-inset-bottom))] z-[105] flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] shadow-2xl sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:bottom-auto sm:w-[390px] sm:max-w-[calc(100vw-24px)] sm:max-h-[calc(100dvh-80px)]">
-            <div className="h-1 shrink-0 bg-gradient-to-r from-[#3157F6] via-[#22D3EE] to-[#6D5EF7]" />
-            <div className="px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <OrbiDocLogo size="sm" />
-                  <div className="mt-3 flex items-center gap-1.5 text-xs font-black text-[#0B1220] dark:text-white"><ShieldCheck className="w-4 h-4 text-[#3157F6] dark:text-[#7AA2FF]" /> Conta e conexões</div>
-                  <div className="mt-1 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">A conta OrbiDoc usa e-mail e senha. Google e Microsoft ficam opcionais apenas para conectar serviços externos.</div>
-                </div>
-                <button onClick={() => setOpen(false)} className="w-8 h-8 shrink-0 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500" aria-label="Fechar conta e conexões"><X className="w-4 h-4" /></button>
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 space-y-3">
-              <OrbiDocAuthPanel onNotification={notify} onUserChange={setOrbiUser} />
-
-              <section>
-                <div className="px-1 mb-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-400"><PlugConnected className="w-3.5 h-3.5" /> Serviços externos opcionais</div>
-                <div className="space-y-2">
-                  <AccountRow
-                    icon={<Google className="w-4 h-4" />}
-                    title="Google Drive"
-                    subtitle={currentGoogle ? currentGoogle.email : 'Somente se você quiser acessar o Drive'}
-                    connected={Boolean(currentGoogle)}
-                    busy={busy === 'google'}
-                    onConnect={connectGoogle}
-                    onDisconnect={disconnectGoogle}
-                  />
-                  <AccountRow
-                    icon={<Microsoft className="w-4 h-4" />}
-                    title="OneDrive"
-                    subtitle={currentMicrosoft ? currentMicrosoft.email : isMicrosoftOAuthConfigured() ? 'Microsoft Graph / OneDrive' : 'Opcional · requer Client ID do Entra'}
-                    connected={Boolean(currentMicrosoft)}
-                    busy={busy === 'microsoft'}
-                    onConnect={connectMicrosoft}
-                    onDisconnect={disconnectMicrosoft}
-                  />
-                </div>
-              </section>
-            </div>
-
-            <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-[#F7F9FC] dark:bg-[#080D18]/55 text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed flex items-start gap-2 shrink-0"><Cloud className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#008CA8] dark:text-[#22D3EE]" /><span><strong>Conta não significa upload automático.</strong> O workspace permanece local-first. Google Drive, OneDrive e futura sincronização OrbiDoc são recursos separados.</span></div>
-          </div>
-        </>
-      )}
+      {open && (mobileSheet
+        ? createPortal(
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-[104] bg-slate-950/45 backdrop-blur-[1px]"
+                onClick={() => setOpen(false)}
+                aria-label="Fechar conta e conexões"
+              />
+              {accountPanel}
+            </>,
+            document.body,
+          )
+        : accountPanel)}
     </div>
   );
 };
