@@ -11,11 +11,11 @@ function readJson(file) {
   catch { failures.push(`${file} não é JSON válido.`); return null; }
 }
 
-const manifestPath = path.join(dist, 'manifest.webmanifest');
+const manifestPath = path.join(dist, 'manifest.json');
 const assetlinksPath = path.join(dist, '.well-known', 'assetlinks.json');
 const privacyPath = path.join(dist, 'privacy.html');
 const deletionPath = path.join(dist, 'delete-account.html');
-if (!fs.existsSync(manifestPath)) failures.push('dist/manifest.webmanifest ausente. Execute o build antes da auditoria Play Store.');
+if (!fs.existsSync(manifestPath)) failures.push('dist/manifest.json ausente. Execute o build antes da auditoria Play Store.');
 if (!fs.existsSync(assetlinksPath)) failures.push('dist/.well-known/assetlinks.json ausente.');
 if (!fs.existsSync(privacyPath)) failures.push('dist/privacy.html ausente. A distribuição precisa publicar uma política de privacidade acessível.');
 if (!fs.existsSync(deletionPath)) failures.push('dist/delete-account.html ausente. Apps que criam contas precisam publicar um recurso web de exclusão de conta.');
@@ -100,6 +100,6 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Google Play: estrutura PWA/TWA compatível e alvo Android mínimo fixado em API ${REQUIRED_TARGET_SDK}.`);
+console.log(`Google Play: manifesto canônico e alvo Android mínimo fixado em API ${REQUIRED_TARGET_SDK}.`);
 warnings.forEach((warning) => console.log(`Aviso: ${warning}`));
 console.log('A auditoria estrutural não substitui assinatura do AAB, Data Safety, testes da Play Console nem a revisão final da loja.');
