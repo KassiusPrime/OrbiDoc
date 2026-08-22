@@ -4,6 +4,7 @@ html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc
   background: rgb(49 87 246 / .075) !important;
   border-color: rgb(49 87 246 / .18) !important;
   color: #2446d8 !important;
+  animation: orbidoc-native-ai-notice 220ms ease 480ms both;
 }
 
 html.dark[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] {
@@ -26,8 +27,19 @@ html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc
   font-weight: 650;
 }
 
+@keyframes orbidoc-native-ai-notice {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (min-width: 1024px) {
   html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] > span::after {
     font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] {
+    animation: none;
   }
 }
