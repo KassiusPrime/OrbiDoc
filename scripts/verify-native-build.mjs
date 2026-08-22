@@ -43,6 +43,12 @@ for (const token of ['getNativeAiCatalog', 'nativeAiComplete', 'saveNativeBlob',
   if (!androidBridge.includes(token)) failures.push(`nativeAndroidBridge.ts não contém ${token}.`);
 }
 
+const nativeNetwork = read('src/lib/nativeNetwork.ts');
+if (!nativeNetwork.includes('fetchNativeUrlPayload')) failures.push('nativeNetwork.ts não expõe o transporte nativo de URLs.');
+
+const linkDownloader = read('src/lib/linkDownloader.ts');
+if (!linkDownloader.includes('fetchNativeUrlPayload') || !linkDownloader.includes("transport: 'native'")) failures.push('linkDownloader.ts não usa o transporte nativo no APK.');
+
 const fileSaver = read('src/lib/nativeFileSaver.ts');
 if (!fileSaver.includes('saveNativeBlob') || !fileSaver.includes('downloadNativeUrl')) failures.push('nativeFileSaver.ts não encaminha exports para Downloads do Android.');
 
@@ -62,10 +68,16 @@ for (const token of ['AndroidKeyStore', 'MediaStore.Downloads', 'OrbiDocNativePl
   if (!bridgeScript.includes(token)) failures.push(`configure-native-android-bridge.mjs não contém ${token}.`);
 }
 
+const networkScript = read('scripts/configure-native-android-network.mjs');
+for (const token of ['fetchUrlPayload', 'HttpURLConnection', '300L * 1024L * 1024L']) {
+  if (!networkScript.includes(token)) failures.push(`configure-native-android-network.mjs não contém ${token}.`);
+}
+
 for (const workflowFile of ['.github/workflows/ci.yml', '.github/workflows/android-native.yml']) {
   const workflow = read(workflowFile);
   if (!workflow.includes('@capacitor/android@8')) failures.push(`${workflowFile} não fixa Capacitor 8.`);
   if (!workflow.includes('configure-native-android-bridge.mjs')) failures.push(`${workflowFile} não injeta a ponte nativa Android.`);
+  if (!workflow.includes('configure-native-android-network.mjs')) failures.push(`${workflowFile} não injeta o transporte nativo de URLs.`);
   if (!workflow.includes('assembleDebug')) failures.push(`${workflowFile} não gera APK debug instalável.`);
 }
 
@@ -83,4 +95,5 @@ console.log('Native Android: shell Capacitor local, sem server.url e sem service
 console.log('Native Android: OCR por+eng configurado para assets empacotados no APK/AAB.');
 console.log('Native Android: IA BYOK protegida pelo Android Keystore e chamadas diretas aos provedores.');
 console.log('Native Android: exports encaminhados ao MediaStore em Downloads/OrbiDoc e intents de arquivos configuradas.');
+console.log('Native Android: links públicos diretos usam transporte HTTP nativo, sem depender de CORS da WebView.');
 warnings.forEach((warning) => console.log(`Aviso: ${warning}`));
