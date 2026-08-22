@@ -11,6 +11,7 @@ import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
+import { applyOrbiDocNativeRuntimeProfile } from './lib/nativeRuntime';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import { mountPwaInstallStateAgent } from './lib/pwaInstall';
 import './index.css';
@@ -19,15 +20,21 @@ import './platform.css';
 import './scan-reader.css';
 
 migrateLegacyBrandStorage();
+const nativeRuntime = applyOrbiDocNativeRuntimeProfile();
 applyOrbiDocPlatformProfile();
 mountPwaInstallStateAgent();
 
-registerSW({
-  immediate: true,
-  onRegisterError(error) {
-    console.error('OrbiDoc service worker registration failed:', error);
-  },
-});
+// Capacitor embeds dist/ inside the APK/AAB and serves it locally. Registering the
+// PWA service worker there would add a second cache/boot layer with no benefit and
+// could make a native build depend on stale web assets. Web/PWA keeps auto-update.
+if (!nativeRuntime) {
+  registerSW({
+    immediate: true,
+    onRegisterError(error) {
+      console.error('OrbiDoc service worker registration failed:', error);
+    },
+  });
+}
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Elemento raiz do OrbiDoc não foi encontrado.');
