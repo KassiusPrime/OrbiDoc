@@ -55,17 +55,19 @@ export const NativeAiSettingsLauncher: React.FC = () => {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="fixed z-[145] right-3 bottom-[5.8rem] sm:bottom-5 h-10 px-3 rounded-2xl bg-[#3157F6] text-white shadow-xl border border-white/15 text-[10px] font-black flex items-center gap-2"
+      className="fixed z-[73] right-[132px] bottom-[84px] lg:right-[300px] lg:bottom-5 h-12 lg:h-11 w-12 lg:w-auto lg:px-4 rounded-2xl bg-[#3157F6] hover:bg-[#2446D8] text-white shadow-xl shadow-[#3157F6]/20 border border-white/15 text-[10px] font-black inline-flex items-center justify-center gap-2 active:scale-95 transition-transform"
       aria-label="Conectar IA no aparelho"
+      title={configured ? 'Provedores de IA conectados' : 'Conectar provedor de IA'}
     >
-      <IconKey className="w-4 h-4" /> {configured ? 'IAs' : 'Conectar IA'}
+      <IconKey className="w-5 h-5" />
+      <span className="hidden lg:inline">{configured ? 'IAs' : 'Conectar IA'}</span>
     </button>
 
-    {open && <div className="fixed inset-0 z-[180] bg-slate-950/70 backdrop-blur-sm p-3 flex items-end sm:items-center justify-center">
+    {open && <div className="fixed inset-0 z-[180] bg-slate-950/70 backdrop-blur-sm p-3 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="native-ai-settings-title">
       <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#101827] border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
         <header className="p-4 flex items-center gap-3 border-b border-slate-200 dark:border-slate-800">
           <div className="w-10 h-10 rounded-2xl bg-[#3157F6]/10 text-[#3157F6] flex items-center justify-center"><IconKey className="w-5 h-5" /></div>
-          <div className="flex-1"><h3 className="text-sm font-black">IA conectada ao aparelho</h3><p className="text-[10px] text-slate-500">Sem Vercel: o Android chama o provedor diretamente.</p></div>
+          <div className="flex-1"><h3 id="native-ai-settings-title" className="text-sm font-black">IA conectada ao aparelho</h3><p className="text-[10px] text-slate-500">Sem Vercel: o Android chama o provedor diretamente.</p></div>
           <button onClick={() => setOpen(false)} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center"><IconX className="w-4 h-4" /></button>
         </header>
 
