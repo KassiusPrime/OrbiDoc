@@ -1,3 +1,6 @@
+import { isOrbiDocNativeRuntime } from './nativeRuntime';
+import { fetchNativeUrlPayload } from './nativeNetwork';
+
 export type DirectDownloadKind = 'image' | 'video' | 'audio' | 'document' | 'archive' | 'file';
 
 export interface DirectDownloadResult {
@@ -7,7 +10,7 @@ export interface DirectDownloadResult {
   size: number;
   kind: DirectDownloadKind;
   sourceUrl: string;
-  transport: 'direct';
+  transport: 'direct' | 'native';
 }
 
 const MAX_DEFAULT_BYTES = 300 * 1024 * 1024;
@@ -88,11 +91,30 @@ export async function downloadDirectUrl(
   maxBytes = MAX_DEFAULT_BYTES,
 ): Promise<DirectDownloadResult> {
   const url = normalizeDirectDownloadUrl(input);
+
+  if (isOrbiDocNativeRuntime()) {
+    const native = await fetchNativeUrlPayload(url.toString());
+    if (native.size > maxBytes) throw new Error(`O arquivo tem ${(native.size / 1024 / 1024).toFixed(1)} MB e excede o limite local de ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`);
+    if (/^text\/html$/i.test(native.mimeType) && !/\.(html?|xhtml)$/i.test(url.pathname)) {
+      throw new Error('Este endereço retornou uma página web, não um arquivo direto. O OrbiDoc não extrai mídia de páginas ou serviços de streaming.');
+    }
+    onProgress?.(100, native.size, native.size);
+    return {
+      blob: native.blob,
+      filename: sanitizeDownloadFilename(native.fileName),
+      mimeType: native.mimeType,
+      size: native.size,
+      kind: inferDirectDownloadKind(native.sourceUrl, native.mimeType),
+      sourceUrl: native.sourceUrl,
+      transport: 'native',
+    };
+  }
+
   let response: Response;
   try {
     response = await fetch(url.toString(), { method: 'GET', mode: 'cors', credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
   } catch {
-    throw new Error('O servidor do link bloqueou o download direto pelo navegador (CORS/rede). O OrbiDoc não contorna essa proteção; abra o link original ou use uma fonte que permita download direto.');
+    throw new Error('O servidor do link bloqueou o download direto pelo navegador (CORS/rede). No app Android instalado, o OrbiDoc usa transporte nativo para links públicos diretos.');
   }
   if (!response.ok) throw new Error(`O servidor respondeu ${response.status}. Verifique se o link ainda é válido e público.`);
 
