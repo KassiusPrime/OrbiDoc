@@ -23,6 +23,7 @@ import './orbidoc-ui.css';
 import './orbidoc-motion.css';
 import './orbidoc-native-ui.css';
 import './platform.css';
+import './orbidoc-overlay-safety.css';
 import './scan-reader.css';
 
 migrateLegacyBrandStorage();
