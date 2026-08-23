@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 
 const read = (path) => fs.readFile(path, 'utf8');
-const [main, platform, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, installHub, nativeAi, localTools] = await Promise.all([
+const [main, platform, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, installHub, nativeAi, localTools, fabMenu, experienceShell] = await Promise.all([
   read('src/main.tsx'),
   read('src/platform.css'),
   read('src/components/NativeViewportAgent.tsx'),
@@ -11,6 +11,8 @@ const [main, platform, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, 
   read('src/components/BrowserGuideModal.tsx'),
   read('src/components/NativeAiSettingsLauncher.tsx'),
   read('src/components/LocalUtilitiesLauncher.tsx'),
+  read('src/components/FabMenuSheet.tsx'),
+  read('src/components/OrbiDocExperienceShell.tsx'),
 ]);
 
 const assertions = [
@@ -23,6 +25,11 @@ const assertions = [
   [platform.includes('orbidoc-install-overlay'), 'Hub de instalação não recebeu safe areas próprias.'],
   [platform.includes('orbidoc-native-ai-overlay'), 'Configurações nativas de IA não receberam safe areas próprias.'],
   [platform.includes('orbidoc-native-download-notice'), 'Avisos de download não respeitam hotbar/gesture area.'],
+  [platform.includes('[class~="min-h-[560px]"]'), 'Piso de 560px do Assistente não é neutralizado no mobile.'],
+  [platform.includes('[class~="h-[calc(100dvh-7.5rem)]"]'), 'Assistente não está vinculado ao visualViewport no mobile.'],
+  [platform.includes('orbidoc-fab-footer'), 'Criação rápida não reserva a barra de gesto inferior.'],
+  [platform.includes('orbidoc-onboarding-footer'), 'Onboarding não reserva a barra de gesto inferior.'],
+  [platform.includes('orbidoc-launch-screen'), 'Splash não recebeu safe areas do sistema.'],
   [viewportAgent.includes('window.visualViewport'), 'visualViewport não está sendo observado.'],
   [viewportAgent.includes('scrollIntoView'), 'Campos focados não são revelados após abertura do teclado.'],
   [windowScript.includes('WindowCompat.enableEdgeToEdge'), 'Android não ativa edge-to-edge explicitamente.'],
@@ -38,8 +45,14 @@ const assertions = [
   [nativeAi.includes('autoCapitalize="off"') && nativeAi.includes('spellCheck={false}'), 'Campo de API key pode sofrer autocorreção/capitalização.'],
   [localTools.includes('utf8ToBase64') && localTools.includes('base64ToUtf8'), 'Ferramentas locais não incluem Base64 UTF-8 offline.'],
   [localTools.includes('crypto.randomUUID()'), 'Ferramentas locais não incluem UUID offline.'],
+  [fabMenu.includes('orbidoc-fab-footer'), 'Bottom sheet de criação rápida não identifica o footer seguro.'],
+  [fabMenu.includes("document.body.style.overflow = 'hidden'"), 'Bottom sheet de criação rápida não bloqueia scroll do fundo.'],
+  [experienceShell.includes('isOrbiDocNativeRuntime'), 'Splash/onboarding não reconhecem runtime Android nativo.'],
+  [experienceShell.includes('orbidoc-keyboard-safe-panel'), 'Onboarding não usa painel limitado ao viewport visível.'],
+  [experienceShell.includes('orbidoc-onboarding-footer'), 'Onboarding não identifica o footer protegido por safe area.'],
+  [experienceShell.includes('overflow-y-auto overscroll-contain'), 'Conteúdo do onboarding não é rolável em telas baixas/paisagem.'],
 ];
 
 const failures = assertions.filter(([ok]) => !ok).map(([, message]) => message);
 if (failures.length) throw new Error(`Auditoria mobile falhou:\n- ${failures.join('\n- ')}`);
-console.log('Mobile UI audit OK: safe areas, keyboard viewport, native install/AI panels and free local tools are wired.');
+console.log('Mobile UI audit OK: viewport, keyboard, system bars, install/AI panels, onboarding, quick-create and free local tools are wired.');
