@@ -48,6 +48,18 @@ html.orbidoc-platform-mobile .orbidoc-app-root > div {
   overflow: hidden;
 }
 
+/* AiWorkspace still carries a desktop-oriented 560px floor and a 100dvh
+   calculation. On phones both must follow visualViewport so the composer never
+   lands behind the software keyboard. */
+html.orbidoc-platform-mobile .orbidoc-app-root [class~="min-h-[560px]"] {
+  min-height: 0 !important;
+}
+
+html.orbidoc-platform-mobile .orbidoc-app-root [class~="h-[calc(100dvh-7.5rem)]"] {
+  height: max(0px, calc(var(--orbidoc-visual-height, 100dvh) - 7.5rem)) !important;
+  max-height: max(0px, calc(var(--orbidoc-visual-height, 100dvh) - 7.5rem)) !important;
+}
+
 /* The first AppV5 header is the native top app bar. Keep its controls below
    status bars/cutouts while the background itself can continue edge-to-edge. */
 html.orbidoc-platform-mobile .orbidoc-app-root > div > div.flex-1 > header:first-child {
