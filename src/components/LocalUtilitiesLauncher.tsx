@@ -39,6 +39,23 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+function utf8ToBase64(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+  }
+  return btoa(binary);
+}
+
+function base64ToUtf8(value: string) {
+  const binary = atob(value.trim());
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new TextDecoder().decode(bytes);
+}
+
 export const LocalUtilitiesLauncher: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -48,6 +65,10 @@ export const LocalUtilitiesLauncher: React.FC = () => {
   const [password, setPassword] = useState(() => randomPassword(20));
   const [hashInput, setHashInput] = useState('');
   const [hash, setHash] = useState('');
+  const [codecInput, setCodecInput] = useState('');
+  const [codecOutput, setCodecOutput] = useState('');
+  const [codecNotice, setCodecNotice] = useState('');
+  const [uuid, setUuid] = useState(() => crypto.randomUUID());
   const [copied, setCopied] = useState('');
 
   useEffect(() => {
@@ -61,13 +82,22 @@ export const LocalUtilitiesLauncher: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [open]);
+
   const stats = useMemo(() => {
     const trimmed = text.trim();
+    const words = trimmed ? trimmed.split(/\s+/).length : 0;
     return {
       chars: text.length,
       charsNoSpaces: text.replace(/\s/g, '').length,
-      words: trimmed ? trimmed.split(/\s+/).length : 0,
+      words,
       lines: text ? text.split(/\r?\n/).length : 0,
+      readingMinutes: words ? Math.max(1, Math.ceil(words / 200)) : 0,
     };
   }, [text]);
 
@@ -88,6 +118,23 @@ export const LocalUtilitiesLauncher: React.FC = () => {
 
   const createHash = async () => setHash(await sha256(hashInput));
 
+  const runCodec = (mode: 'base64-encode' | 'base64-decode' | 'url-encode' | 'url-decode') => {
+    try {
+      const result = mode === 'base64-encode'
+        ? utf8ToBase64(codecInput)
+        : mode === 'base64-decode'
+          ? base64ToUtf8(codecInput)
+          : mode === 'url-encode'
+            ? encodeURIComponent(codecInput)
+            : decodeURIComponent(codecInput);
+      setCodecOutput(result);
+      setCodecNotice('Processado localmente.');
+    } catch {
+      setCodecOutput('');
+      setCodecNotice(mode === 'base64-decode' ? 'Base64 inválido.' : 'Conteúdo inválido para esta conversão.');
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -103,7 +150,7 @@ export const LocalUtilitiesLauncher: React.FC = () => {
           <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] p-4 space-y-3">
             <div className="flex items-center gap-2"><IconTextCaption className="w-4 h-4 text-[#3157F6]" /><h3 className="text-xs font-black">Texto</h3></div>
             <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="Cole ou digite um texto…" className="w-full min-h-40 resize-y rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 text-xs outline-none focus:border-[#3157F6]" />
-            <div className="grid grid-cols-4 gap-2 text-center">{[[stats.words, 'Palavras'], [stats.chars, 'Caracteres'], [stats.charsNoSpaces, 'Sem espaços'], [stats.lines, 'Linhas']].map(([value, label]) => <div key={String(label)} className="rounded-xl bg-slate-50 dark:bg-slate-900 p-2"><div className="text-xs font-black">{value}</div><div className="text-[8px] text-slate-400">{label}</div></div>)}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">{[[stats.words, 'Palavras'], [stats.chars, 'Caracteres'], [stats.charsNoSpaces, 'Sem espaços'], [stats.lines, 'Linhas'], [stats.readingMinutes, 'Min leitura']].map(([value, label]) => <div key={String(label)} className="rounded-xl bg-slate-50 dark:bg-slate-900 p-2"><div className="text-xs font-black">{value}</div><div className="text-[8px] text-slate-400">{label}</div></div>)}</div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <button onClick={() => setText(text.toLocaleUpperCase('pt-BR'))} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">MAIÚSCULAS</button>
               <button onClick={() => setText(text.toLocaleLowerCase('pt-BR'))} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">minúsculas</button>
@@ -112,13 +159,14 @@ export const LocalUtilitiesLauncher: React.FC = () => {
               <button onClick={() => setText(uniqueLines(text))} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">Remover duplicadas</button>
               <button onClick={() => setText(sortLines(text))} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">Ordenar linhas</button>
             </div>
+            <button disabled={!text} onClick={() => { void copyText(text); confirmCopied('texto'); }} className="h-9 px-3 rounded-xl border border-[#3157F6]/25 text-[#3157F6] dark:text-[#7AA2FF] text-[9px] font-black inline-flex items-center gap-1.5 disabled:opacity-40">{copied === 'texto' ? <IconCheck className="w-4 h-4" /> : <IconCopy className="w-4 h-4" />} Copiar texto</button>
           </section>
 
           <section className="space-y-4">
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] p-4 space-y-3">
               <div className="flex items-center gap-2"><IconBraces className="w-4 h-4 text-emerald-600" /><h3 className="text-xs font-black">JSON</h3></div>
               <textarea value={json} onChange={(event) => { setJson(event.target.value); setJsonNotice(''); }} placeholder='{"nome":"OrbiDoc"}' className="w-full min-h-28 resize-y rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 font-mono text-[10px] outline-none focus:border-emerald-500" />
-              <div className="flex gap-2"><button onClick={() => formatJson(false)} className="h-9 px-3 rounded-xl bg-emerald-600 text-white text-[9px] font-black">Formatar / validar</button><button onClick={() => formatJson(true)} className="h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">Minificar</button></div>
+              <div className="flex flex-wrap gap-2"><button onClick={() => formatJson(false)} className="h-9 px-3 rounded-xl bg-emerald-600 text-white text-[9px] font-black">Formatar / validar</button><button onClick={() => formatJson(true)} className="h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">Minificar</button></div>
               {jsonNotice && <div className="text-[9px] text-slate-500 dark:text-slate-400">{jsonNotice}</div>}
             </div>
 
@@ -134,6 +182,25 @@ export const LocalUtilitiesLauncher: React.FC = () => {
               <input value={hashInput} onChange={(event) => setHashInput(event.target.value)} placeholder="Texto para gerar hash" className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 text-[10px] outline-none focus:border-cyan-500" />
               <button disabled={!hashInput} onClick={() => void createHash()} className="h-9 px-3 rounded-xl bg-cyan-600 text-white text-[9px] font-black disabled:opacity-40">Gerar hash</button>
               {hash && <div className="flex gap-2"><code className="min-w-0 flex-1 break-all rounded-xl bg-slate-50 dark:bg-slate-950 p-2 text-[8px]">{hash}</code><button onClick={() => { void copyText(hash); confirmCopied('hash'); }} className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center" aria-label="Copiar hash">{copied === 'hash' ? <IconCheck className="w-4 h-4" /> : <IconCopy className="w-4 h-4" />}</button></div>}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] p-4 space-y-3">
+              <div className="flex items-center gap-2"><IconBraces className="w-4 h-4 text-[#3157F6]" /><h3 className="text-xs font-black">Base64 e URL</h3></div>
+              <textarea value={codecInput} onChange={(event) => { setCodecInput(event.target.value); setCodecNotice(''); }} placeholder="Texto, Base64 ou trecho de URL…" className="w-full min-h-24 resize-y rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 font-mono text-[10px] outline-none focus:border-[#3157F6]" />
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => runCodec('base64-encode')} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">→ Base64</button>
+                <button onClick={() => runCodec('base64-decode')} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">Base64 → texto</button>
+                <button onClick={() => runCodec('url-encode')} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">Codificar URL</button>
+                <button onClick={() => runCodec('url-decode')} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">Decodificar URL</button>
+              </div>
+              {codecNotice && <div className="text-[9px] text-slate-500 dark:text-slate-400">{codecNotice}</div>}
+              {codecOutput && <div className="flex gap-2"><code className="min-w-0 flex-1 whitespace-pre-wrap break-all rounded-xl bg-slate-50 dark:bg-slate-950 p-2 text-[8px]">{codecOutput}</code><button onClick={() => { void copyText(codecOutput); confirmCopied('codec'); }} className="w-10 h-10 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center" aria-label="Copiar resultado">{copied === 'codec' ? <IconCheck className="w-4 h-4" /> : <IconCopy className="w-4 h-4" />}</button></div>}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] p-4 space-y-3">
+              <div className="flex items-center gap-2"><IconKey className="w-4 h-4 text-amber-600" /><h3 className="text-xs font-black">UUID v4</h3></div>
+              <div className="flex gap-2"><code className="min-w-0 flex-1 break-all rounded-xl bg-slate-50 dark:bg-slate-950 px-3 py-2.5 text-[9px]">{uuid}</code><button onClick={() => { void copyText(uuid); confirmCopied('uuid'); }} className="w-10 h-10 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center" aria-label="Copiar UUID">{copied === 'uuid' ? <IconCheck className="w-4 h-4" /> : <IconCopy className="w-4 h-4" />}</button></div>
+              <button onClick={() => setUuid(crypto.randomUUID())} className="h-9 px-3 rounded-xl border border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-300 text-[9px] font-black inline-flex items-center gap-1.5"><IconRefresh className="w-4 h-4" /> Gerar outro UUID</button>
             </div>
           </section>
         </main>
