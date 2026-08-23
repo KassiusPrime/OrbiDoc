@@ -1,9 +1,10 @@
 import fs from 'node:fs/promises';
 
 const read = (path) => fs.readFile(path, 'utf8');
-const [main, platform, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, installHub, nativeAi, localTools, fabMenu, experienceShell] = await Promise.all([
+const [main, platform, overlaySafety, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, installHub, nativeAi, localTools, fabMenu, experienceShell] = await Promise.all([
   read('src/main.tsx'),
   read('src/platform.css'),
+  read('src/orbidoc-overlay-safety.css'),
   read('src/components/NativeViewportAgent.tsx'),
   read('scripts/configure-native-android-window.mjs'),
   read('.github/workflows/android-native.yml'),
@@ -18,6 +19,7 @@ const [main, platform, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, 
 const assertions = [
   [main.includes('NativeViewportAgent'), 'NativeViewportAgent não está montado no app.'],
   [main.includes('LocalUtilitiesLauncher'), 'Ferramentas locais gratuitas não estão montadas.'],
+  [main.includes("./orbidoc-overlay-safety.css"), 'Regras globais de overlays fullscreen não são carregadas.'],
   [platform.includes('--orbidoc-visual-height'), 'CSS não usa a altura visual dinâmica.'],
   [platform.includes("data-orbidoc-keyboard='open'"), 'CSS não possui estado específico para teclado virtual.'],
   [platform.includes('safe-area-inset-top'), 'Safe area superior não está configurada.'],
@@ -30,6 +32,11 @@ const assertions = [
   [platform.includes('orbidoc-fab-footer'), 'Criação rápida não reserva a barra de gesto inferior.'],
   [platform.includes('orbidoc-onboarding-footer'), 'Onboarding não reserva a barra de gesto inferior.'],
   [platform.includes('orbidoc-launch-screen'), 'Splash não recebeu safe areas do sistema.'],
+  [overlaySafety.includes('.fixed.inset-0.flex.flex-col'), 'Workspaces fullscreen não seguem a altura visual real.'],
+  [overlaySafety.includes('var(--orbidoc-visual-height'), 'Camada fullscreen não usa visualViewport.'],
+  [overlaySafety.includes('> footer:last-child'), 'Rodapés fullscreen não reservam a barra de gestos.'],
+  [overlaySafety.includes('> [role="status"]') && overlaySafety.includes('var(--orbidoc-safe-top)'), 'Avisos fullscreen não respeitam a status bar/cutout.'],
+  [overlaySafety.includes('orientation: landscape'), 'Workspaces fullscreen não têm proteção para paisagem baixa.'],
   [viewportAgent.includes('window.visualViewport'), 'visualViewport não está sendo observado.'],
   [viewportAgent.includes('scrollIntoView'), 'Campos focados não são revelados após abertura do teclado.'],
   [windowScript.includes('WindowCompat.enableEdgeToEdge'), 'Android não ativa edge-to-edge explicitamente.'],
@@ -55,4 +62,4 @@ const assertions = [
 
 const failures = assertions.filter(([ok]) => !ok).map(([, message]) => message);
 if (failures.length) throw new Error(`Auditoria mobile falhou:\n- ${failures.join('\n- ')}`);
-console.log('Mobile UI audit OK: viewport, keyboard, system bars, install/AI panels, onboarding, quick-create and free local tools are wired.');
+console.log('Mobile UI audit OK: viewport, keyboard, system bars, fullscreen workspaces, install/AI panels, onboarding, quick-create and free local tools are wired.');
