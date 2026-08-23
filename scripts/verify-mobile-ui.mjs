@@ -52,6 +52,8 @@ const assertions = [
   [nativeAi.includes('autoCapitalize="off"') && nativeAi.includes('spellCheck={false}'), 'Campo de API key pode sofrer autocorreção/capitalização.'],
   [localTools.includes('utf8ToBase64') && localTools.includes('base64ToUtf8'), 'Ferramentas locais não incluem Base64 UTF-8 offline.'],
   [localTools.includes('crypto.randomUUID()'), 'Ferramentas locais não incluem UUID offline.'],
+  [localTools.includes('sha256File') && localTools.includes('file.arrayBuffer()'), 'Ferramentas locais não calculam SHA-256 de arquivo no dispositivo.'],
+  [localTools.includes('Integridade de arquivo') && localTools.includes('200 * 1024 * 1024'), 'Verificador de arquivo não possui UI ou limite de memória.'],
   [fabMenu.includes('orbidoc-fab-footer'), 'Bottom sheet de criação rápida não identifica o footer seguro.'],
   [fabMenu.includes("document.body.style.overflow = 'hidden'"), 'Bottom sheet de criação rápida não bloqueia scroll do fundo.'],
   [experienceShell.includes('isOrbiDocNativeRuntime'), 'Splash/onboarding não reconhecem runtime Android nativo.'],
