@@ -1,0 +1,50 @@
+/* Shared mobile safety for fullscreen workspaces such as Media, Scan/Reader,
+   system file preview and version history. Android WebViews may keep the CSS
+   layout viewport taller than the visible area while the IME is open, so these
+   surfaces explicitly follow the visualViewport value maintained by
+   NativeViewportAgent. */
+html.orbidoc-platform-mobile .fixed.inset-0.flex.flex-col {
+  box-sizing: border-box;
+  height: var(--orbidoc-visual-height, 100dvh) !important;
+  max-height: var(--orbidoc-visual-height, 100dvh) !important;
+  min-height: 0 !important;
+  bottom: auto !important;
+  overflow: hidden;
+}
+
+/* Fullscreen workspaces with their own footer must keep actions/text above the
+   Android gesture/navigation area. The rule intentionally targets only a direct
+   final footer so editor toolbars inside the content are unaffected. */
+html.orbidoc-platform-mobile .fixed.inset-0.flex.flex-col > footer:last-child {
+  box-sizing: border-box;
+  height: auto !important;
+  min-height: calc(2.5rem + var(--orbidoc-safe-bottom));
+  padding-bottom: max(0.5rem, var(--orbidoc-safe-bottom));
+  padding-left: max(0.75rem, var(--orbidoc-safe-left));
+  padding-right: max(0.75rem, var(--orbidoc-safe-right));
+}
+
+/* Notices rendered by fullscreen tools are outside the normal AppV5 notice
+   container, so give them an independent status-bar/cutout offset. */
+html.orbidoc-platform-mobile .fixed.inset-0.flex.flex-col > [role="status"],
+html.orbidoc-platform-mobile .fixed.inset-0.flex.flex-col > [role="alert"] {
+  top: calc(var(--orbidoc-safe-top) + 0.75rem) !important;
+  left: max(0.75rem, var(--orbidoc-safe-left));
+  right: max(0.75rem, var(--orbidoc-safe-right));
+  max-width: none !important;
+  transform: none !important;
+}
+
+/* Landscape phones have little vertical space. Keep nav/tab strips horizontally
+   scrollable rather than allowing them to wrap and consume the editor viewport. */
+@media (max-height: 520px) and (orientation: landscape) {
+  html.orbidoc-platform-mobile .fixed.inset-0.flex.flex-col > nav {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  html.orbidoc-platform-mobile .fixed.inset-0.flex.flex-col > nav::-webkit-scrollbar {
+    display: none;
+  }
+}
