@@ -33,10 +33,25 @@ function randomPassword(length: number) {
   return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
 }
 
+function digestToHex(buffer: ArrayBuffer) {
+  return Array.from(new Uint8Array(buffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return digestToHex(await crypto.subtle.digest('SHA-256', bytes));
+}
+
+async function sha256File(file: File) {
+  return digestToHex(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()));
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / (1024 ** index);
+  return `${value.toFixed(index === 0 ? 0 : value >= 100 ? 0 : value >= 10 ? 1 : 2)} ${units[index]}`;
 }
 
 function utf8ToBase64(value: string) {
@@ -56,6 +71,14 @@ function base64ToUtf8(value: string) {
   return new TextDecoder().decode(bytes);
 }
 
+type FileIntegrityInfo = {
+  name: string;
+  size: number;
+  type: string;
+  lastModified: number;
+  hash: string;
+};
+
 export const LocalUtilitiesLauncher: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -65,6 +88,9 @@ export const LocalUtilitiesLauncher: React.FC = () => {
   const [password, setPassword] = useState(() => randomPassword(20));
   const [hashInput, setHashInput] = useState('');
   const [hash, setHash] = useState('');
+  const [fileIntegrity, setFileIntegrity] = useState<FileIntegrityInfo | null>(null);
+  const [fileIntegrityNotice, setFileIntegrityNotice] = useState('');
+  const [fileIntegrityBusy, setFileIntegrityBusy] = useState(false);
   const [codecInput, setCodecInput] = useState('');
   const [codecOutput, setCodecOutput] = useState('');
   const [codecNotice, setCodecNotice] = useState('');
@@ -117,6 +143,32 @@ export const LocalUtilitiesLauncher: React.FC = () => {
   };
 
   const createHash = async () => setHash(await sha256(hashInput));
+
+  const verifyFile = async (file?: File) => {
+    if (!file) return;
+    setFileIntegrity(null);
+    setFileIntegrityNotice('');
+    if (file.size > 200 * 1024 * 1024) {
+      setFileIntegrityNotice('Use um arquivo de até 200 MB. O limite evita pressão excessiva de memória no celular.');
+      return;
+    }
+    setFileIntegrityBusy(true);
+    try {
+      const hashValue = await sha256File(file);
+      setFileIntegrity({
+        name: file.name,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        lastModified: file.lastModified,
+        hash: hashValue,
+      });
+      setFileIntegrityNotice('SHA-256 calculado inteiramente neste dispositivo.');
+    } catch {
+      setFileIntegrityNotice('Não foi possível calcular o SHA-256 deste arquivo.');
+    } finally {
+      setFileIntegrityBusy(false);
+    }
+  };
 
   const runCodec = (mode: 'base64-encode' | 'base64-decode' | 'url-encode' | 'url-decode') => {
     try {
@@ -178,10 +230,24 @@ export const LocalUtilitiesLauncher: React.FC = () => {
             </div>
 
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] p-4 space-y-3">
-              <div className="flex items-center gap-2"><IconHash className="w-4 h-4 text-cyan-600" /><h3 className="text-xs font-black">SHA-256</h3></div>
+              <div className="flex items-center gap-2"><IconHash className="w-4 h-4 text-cyan-600" /><h3 className="text-xs font-black">SHA-256 de texto</h3></div>
               <input value={hashInput} onChange={(event) => setHashInput(event.target.value)} placeholder="Texto para gerar hash" className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 text-[10px] outline-none focus:border-cyan-500" />
               <button disabled={!hashInput} onClick={() => void createHash()} className="h-9 px-3 rounded-xl bg-cyan-600 text-white text-[9px] font-black disabled:opacity-40">Gerar hash</button>
               {hash && <div className="flex gap-2"><code className="min-w-0 flex-1 break-all rounded-xl bg-slate-50 dark:bg-slate-950 p-2 text-[8px]">{hash}</code><button onClick={() => { void copyText(hash); confirmCopied('hash'); }} className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center" aria-label="Copiar hash">{copied === 'hash' ? <IconCheck className="w-4 h-4" /> : <IconCopy className="w-4 h-4" />}</button></div>}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] p-4 space-y-3">
+              <div className="flex items-center gap-2"><IconHash className="w-4 h-4 text-teal-600" /><h3 className="text-xs font-black">Integridade de arquivo</h3></div>
+              <p className="text-[9px] leading-relaxed text-slate-500 dark:text-slate-400">Mostra metadados básicos e calcula SHA-256 localmente. Útil para conferir documentos, backups e APKs.</p>
+              <label className={`h-10 px-3 rounded-xl border border-dashed border-teal-300 dark:border-teal-800 text-teal-700 dark:text-teal-300 text-[9px] font-black inline-flex items-center justify-center cursor-pointer ${fileIntegrityBusy ? 'opacity-50 pointer-events-none' : ''}`}>
+                {fileIntegrityBusy ? 'Calculando…' : 'Selecionar arquivo'}
+                <input type="file" className="hidden" disabled={fileIntegrityBusy} onChange={(event) => { void verifyFile(event.target.files?.[0]); event.target.value = ''; }} />
+              </label>
+              {fileIntegrityNotice && <div className="text-[9px] text-slate-500 dark:text-slate-400">{fileIntegrityNotice}</div>}
+              {fileIntegrity && <div className="rounded-xl bg-slate-50 dark:bg-slate-950 p-3 space-y-2">
+                <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-x-2 gap-y-1 text-[8px]"><span className="font-black text-slate-400">Nome</span><span className="break-all">{fileIntegrity.name}</span><span className="font-black text-slate-400">Tamanho</span><span>{formatBytes(fileIntegrity.size)} · {fileIntegrity.size.toLocaleString('pt-BR')} bytes</span><span className="font-black text-slate-400">MIME</span><span className="break-all">{fileIntegrity.type}</span><span className="font-black text-slate-400">Modificado</span><span>{new Date(fileIntegrity.lastModified).toLocaleString('pt-BR')}</span></div>
+                <div><div className="text-[8px] font-black text-slate-400 mb-1">SHA-256</div><div className="flex gap-2"><code className="min-w-0 flex-1 break-all text-[8px]">{fileIntegrity.hash}</code><button onClick={() => { void copyText(fileIntegrity.hash); confirmCopied('file-hash'); }} className="w-9 h-9 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center" aria-label="Copiar SHA-256 do arquivo">{copied === 'file-hash' ? <IconCheck className="w-4 h-4" /> : <IconCopy className="w-4 h-4" />}</button></div></div>
+              </div>}
             </div>
 
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] p-4 space-y-3">
