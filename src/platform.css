@@ -161,6 +161,20 @@ html.orbidoc-platform-mobile .orbidoc-local-tools-overlay {
   padding-bottom: var(--orbidoc-safe-bottom);
 }
 
+/* Bottom sheets may paint edge-to-edge, but their actionable footers stay above
+   Android gesture/navigation bars. */
+html.orbidoc-platform-mobile .orbidoc-fab-footer,
+html.orbidoc-platform-mobile .orbidoc-onboarding-footer {
+  padding-bottom: calc(1rem + var(--orbidoc-safe-bottom)) !important;
+}
+
+html.orbidoc-platform-mobile .orbidoc-launch-screen {
+  padding-top: var(--orbidoc-safe-top);
+  padding-bottom: var(--orbidoc-safe-bottom);
+  padding-left: max(1.5rem, var(--orbidoc-safe-left));
+  padding-right: max(1.5rem, var(--orbidoc-safe-right));
+}
+
 /* Download confirmations float above the hotbar and gesture area, but move down
    when the keyboard is open because the hotbar is hidden in that state. */
 html.orbidoc-platform-mobile .orbidoc-native-download-notice {
