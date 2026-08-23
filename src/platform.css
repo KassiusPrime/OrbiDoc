@@ -123,6 +123,16 @@ html.orbidoc-platform-mobile [role="dialog"][aria-modal="true"] {
   padding-right: max(0px, var(--orbidoc-safe-right));
 }
 
+/* Modal backdrops that contain editable controls must respect system bars on
+   every side. Their inner surfaces then use the real visualViewport height. */
+html.orbidoc-platform-mobile .orbidoc-install-overlay,
+html.orbidoc-platform-mobile .orbidoc-native-ai-overlay {
+  padding-top: max(0.75rem, var(--orbidoc-safe-top)) !important;
+  padding-right: max(0.75rem, var(--orbidoc-safe-right)) !important;
+  padding-bottom: max(0.75rem, var(--orbidoc-safe-bottom)) !important;
+  padding-left: max(0.75rem, var(--orbidoc-safe-left)) !important;
+}
+
 html.orbidoc-platform-mobile .orbidoc-keyboard-safe-panel,
 html.orbidoc-platform-mobile .orbidoc-account-panel {
   max-height: calc(var(--orbidoc-visual-height, 100dvh) - max(1rem, var(--orbidoc-safe-top)) - max(1rem, var(--orbidoc-safe-bottom))) !important;
@@ -137,6 +147,18 @@ html.orbidoc-platform-mobile[data-orbidoc-keyboard='open'] .orbidoc-account-pane
 html.orbidoc-platform-mobile .orbidoc-local-tools-overlay {
   padding-top: var(--orbidoc-safe-top);
   padding-bottom: var(--orbidoc-safe-bottom);
+}
+
+/* Download confirmations float above the hotbar and gesture area, but move down
+   when the keyboard is open because the hotbar is hidden in that state. */
+html.orbidoc-platform-mobile .orbidoc-native-download-notice {
+  bottom: calc(var(--orbidoc-bottom-nav-height) + var(--orbidoc-safe-bottom) + 0.75rem) !important;
+  left: max(0.75rem, var(--orbidoc-safe-left));
+  right: max(0.75rem, var(--orbidoc-safe-right));
+}
+
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='open'] .orbidoc-native-download-notice {
+  bottom: max(0.75rem, var(--orbidoc-safe-bottom)) !important;
 }
 
 /* App-level notices must not sit underneath the Android notification/status bar. */
