@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   IconDownload as Download,
   IconFileCheck as FileCheck,
@@ -51,6 +51,20 @@ const openMediaTab = (label: 'Baixar por link' | 'Aprimorar imagem') => {
 };
 
 export const FabMenuSheet: React.FC<FabMenuSheetProps> = ({ isOpen, onClose, onSelectAction }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isOpen, onClose]);
+
   const runUtility = (action: () => void) => {
     onClose();
     window.setTimeout(action, 50);
@@ -63,13 +77,13 @@ export const FabMenuSheet: React.FC<FabMenuSheetProps> = ({ isOpen, onClose, onS
     { id: 'enhance', title: 'Melhorar imagem', desc: 'HQ local 1×/2×/4× e restauração', icon: Photo, run: () => openMediaTab('Aprimorar imagem') },
     { id: 'scan', title: 'Scan & Reader', desc: 'Scanner, leitor universal e OCR local', icon: Scan, run: () => clickLauncher('Abrir Scan e Reader') },
     { id: 'versions', title: 'Versões', desc: 'Snapshots locais e recuperação', icon: History, run: () => clickLauncher('Abrir histórico de versões') },
-    { id: 'local', title: 'Ferramentas locais', desc: 'Texto, JSON, senhas e SHA-256 offline', icon: Tool, run: () => window.dispatchEvent(new Event('orbidoc:open-local-tools')) },
+    { id: 'local', title: 'Ferramentas locais', desc: 'Texto, JSON, senha, hash, Base64, URL e UUID', icon: Tool, run: () => window.dispatchEvent(new Event('orbidoc:open-local-tools')) },
   ] as const;
 
   return (
     <AnimatePresence>
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="orbidoc-fab-overlay fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-[#080D18]/65 backdrop-blur-sm" />
 
           <motion.div
@@ -115,7 +129,7 @@ export const FabMenuSheet: React.FC<FabMenuSheetProps> = ({ isOpen, onClose, onS
               </section>
             </div>
 
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0"><button type="button" onClick={onClose} className="w-full h-10 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold">Fechar</button></div>
+            <div className="orbidoc-fab-footer p-4 border-t border-slate-100 dark:border-slate-800 shrink-0"><button type="button" onClick={onClose} className="w-full h-10 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold">Fechar</button></div>
           </motion.div>
         </div>
       ) : null}
