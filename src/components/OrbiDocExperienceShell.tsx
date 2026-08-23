@@ -7,6 +7,7 @@ import {
   IconSparkles as Sparkles,
   IconX as X,
 } from '@tabler/icons-react';
+import { isOrbiDocNativeRuntime } from '../lib/nativeRuntime';
 import { OrbiDocLogo } from './OrbiDocLogo';
 
 const ONBOARDING_KEY = 'orbidoc_onboarding_v1';
@@ -58,7 +59,7 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
   const [phase, setPhase] = useState<ExperiencePhase>('splash');
   const [launchStage, setLaunchStage] = useState(0);
   const [onboardingIndex, setOnboardingIndex] = useState(0);
-  const standalone = useMemo(() => isStandaloneDisplay(), []);
+  const appLike = useMemo(() => isStandaloneDisplay() || isOrbiDocNativeRuntime(), []);
 
   useEffect(() => {
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -67,7 +68,7 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
       return;
     }
 
-    const total = standalone ? 760 : 560;
+    const total = appLike ? 760 : 560;
     const stageOne = window.setTimeout(() => setLaunchStage(1), Math.round(total * 0.33));
     const stageTwo = window.setTimeout(() => setLaunchStage(2), Math.round(total * 0.67));
     const beginExit = window.setTimeout(() => setPhase('splash-exit'), total);
@@ -81,7 +82,14 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
       window.clearTimeout(beginExit);
       window.clearTimeout(finish);
     };
-  }, [standalone]);
+  }, [appLike]);
+
+  useEffect(() => {
+    if (phase !== 'onboarding') return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [phase]);
 
   const finishOnboarding = () => {
     try { localStorage.setItem(ONBOARDING_KEY, 'done'); } catch { /* storage can be unavailable */ }
@@ -112,16 +120,16 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
               <div className="h-full rounded-full bg-[#3157F6] dark:bg-[#7AA2FF] transition-[width] duration-200 ease-out" style={{ width: `${34 + launchStage * 33}%` }} />
             </div>
             <div key={launchStage} className="orbidoc-launch-status mt-3 text-[10px] font-bold tracking-[0.04em] text-slate-400 dark:text-slate-500">{launchMessages[launchStage]}</div>
-            <div className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-300 dark:text-slate-600">{standalone ? 'OrbiDoc App' : 'OrbiDoc Workspace'}</div>
+            <div className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-300 dark:text-slate-600">{appLike ? 'OrbiDoc App' : 'OrbiDoc Workspace'}</div>
           </div>
         </div>
       )}
 
       {phase === 'onboarding' && (
-        <div className="fixed inset-0 z-[135] bg-[#080D18]/55 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="orbidoc-onboarding-title">
-          <div className="relative w-full sm:max-w-[720px] rounded-t-[30px] sm:rounded-[30px] border border-white/10 bg-white dark:bg-[#101827] shadow-2xl overflow-hidden">
+        <div className="orbidoc-onboarding-overlay fixed inset-0 z-[135] bg-[#080D18]/55 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="orbidoc-onboarding-title">
+          <div className="orbidoc-keyboard-safe-panel relative w-full sm:max-w-[720px] max-h-[92dvh] rounded-t-[30px] sm:rounded-[30px] border border-white/10 bg-white dark:bg-[#101827] shadow-2xl overflow-hidden flex flex-col">
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#3157F6] via-[#22D3EE] to-[#6D5EF7]" />
-            <div className="px-5 sm:px-7 pt-6 sm:pt-7 flex items-start gap-4">
+            <div className="px-5 sm:px-7 pt-6 sm:pt-7 flex items-start gap-4 shrink-0">
               <div className="flex-1 min-w-0">
                 <OrbiDocLogo size="md" />
                 <div className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-[#3157F6] dark:text-[#7AA2FF]">Primeiros passos</div>
@@ -131,7 +139,7 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
               <button onClick={finishOnboarding} className="w-9 h-9 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500" aria-label="Pular introdução"><X className="w-4 h-4" /></button>
             </div>
 
-            <div className="px-5 sm:px-7 py-6">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-7 py-6">
               <div className="hidden md:grid grid-cols-3 gap-3">
                 {onboardingCards.map((card) => {
                   const Icon = card.icon;
@@ -149,7 +157,7 @@ export const OrbiDocExperienceShell: React.FC<React.PropsWithChildren> = ({ chil
               </div>
             </div>
 
-            <div className="px-5 sm:px-7 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-[#080D18]/45 flex flex-col-reverse sm:flex-row sm:items-center gap-3">
+            <div className="orbidoc-onboarding-footer px-5 sm:px-7 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-[#080D18]/45 flex flex-col-reverse sm:flex-row sm:items-center gap-3 shrink-0">
               <div className="flex items-center gap-2 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400"><Lock className="w-3.5 h-3.5 shrink-0 text-[#008CA8]" /> Login não é obrigatório para abrir o workspace.</div>
               <div className="sm:ml-auto flex gap-2">
                 <button onClick={finishOnboarding} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] text-xs font-bold text-slate-600 dark:text-slate-300">Pular</button>
