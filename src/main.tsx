@@ -13,6 +13,7 @@ import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
+import { installAiInternetAgent } from './lib/aiInternet';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
 import { installNativeAiApiBridge, installNativeFileOpenBridge } from './lib/nativeAndroidBridge';
 import { applyOrbiDocNativeRuntimeProfile } from './lib/nativeRuntime';
@@ -32,6 +33,9 @@ if (nativeRuntime) {
   installNativeAiApiBridge();
   installNativeFileOpenBridge();
 }
+// Install after the native bridge so this layer can enrich both web requests and
+// Capacitor-local /api/chat interception with real-time search intent.
+installAiInternetAgent();
 applyOrbiDocPlatformProfile();
 mountPwaInstallStateAgent();
 
