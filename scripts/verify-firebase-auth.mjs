@@ -1,13 +1,26 @@
 import fs from 'node:fs/promises';
 
-const [configRaw, localAccount, authPanel] = await Promise.all([
+const [configRaw, deployConfigRaw, localAccount, authPanel] = await Promise.all([
   fs.readFile('firebase-applet-config.json', 'utf8'),
+  fs.readFile('firebase.json', 'utf8'),
   fs.readFile('src/services/localAccount.ts', 'utf8'),
   fs.readFile('src/components/OrbiDocAuthPanel.tsx', 'utf8'),
 ]);
 const config = JSON.parse(configRaw);
+const deployConfig = JSON.parse(deployConfigRaw);
 if (!config.apiKey || !config.projectId || !config.authDomain) {
   throw new Error('Firebase config incompleta: apiKey/projectId/authDomain ausentes.');
+}
+
+if (deployConfig?.auth?.providers?.emailPassword !== true) {
+  throw new Error('firebase.json precisa declarar auth.providers.emailPassword=true para que o provedor possa ser implantado como código.');
+}
+
+const firestoreEntries = Array.isArray(deployConfig.firestore)
+  ? deployConfig.firestore
+  : deployConfig.firestore ? [deployConfig.firestore] : [];
+if (config.firestoreDatabaseId && !firestoreEntries.some((entry) => entry?.database === config.firestoreDatabaseId && entry?.rules === 'firestore.rules')) {
+  throw new Error(`firestore.rules não está associado ao banco nomeado usado pelo app (${config.firestoreDatabaseId}).`);
 }
 
 for (const token of ['PBKDF2', "hash: 'SHA-256'", '310_000', 'crypto.getRandomValues', 'passwordHash', 'SESSION_KEY']) {
@@ -56,4 +69,5 @@ if (!/INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND|INVALID_PASSWORD|USER_DISABLED/.
 }
 
 console.log(`Firebase Authentication está acessível e o provedor e-mail/senha responde corretamente (${code}).`);
+console.log(`Firestore rules estão associadas ao banco ${config.firestoreDatabaseId || '(default)'}.`);
 console.log('Conta local segura também permanece disponível como opção offline.');
