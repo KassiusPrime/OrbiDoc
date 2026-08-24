@@ -5,9 +5,15 @@ const root = process.cwd();
 const skipDirs = new Set(['.git', 'node_modules', 'dist', '.vercel']);
 const textExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.html', '.css', '.md', '.yml', '.yaml', '.txt', '.toml']);
 const banned = ['DocSwiss', 'DocPlus+', 'DocPlus', 'DocuTools Pro', 'docswiss', 'docplus', 'docutools-pro'];
+const legacyFirestoreDatabaseId = 'ai-studio-docswiss-116c7e86-02a0-4cef-95a3-4f36aa66518a';
 
+// Infrastructure identifiers created before the OrbiDoc rename cannot be renamed in-place.
+// They are allowed only where Firebase must address that exact existing database; this does
+// not permit legacy product branding in source UI, copy, manifests, documentation or assets.
 const allowedFragments = new Map([
-  ['firebase-applet-config.json', ['ai-studio-docswiss-116c7e86-02a0-4cef-95a3-4f36aa66518a']],
+  ['firebase-applet-config.json', [legacyFirestoreDatabaseId]],
+  ['firebase.json', [legacyFirestoreDatabaseId]],
+  ['.github/workflows/firebase-production.yml', [legacyFirestoreDatabaseId]],
   ['src/lib/legacyBrandMigration.ts', ["'docswiss_'", "'docplus_'"]],
 ]);
 
