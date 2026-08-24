@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './AppV5';
 import { AccountSyncAgent } from './components/AccountSyncAgent';
+import { AdvancedFreeToolsLauncher } from './components/AdvancedFreeToolsLauncher';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
@@ -70,6 +71,7 @@ ReactDOM.createRoot(root).render(
       <AiRuntimeStatus />
       <NativeAiSettingsLauncher />
       <LocalUtilitiesLauncher />
+      <AdvancedFreeToolsLauncher />
     </AppErrorBoundary>
   </React.StrictMode>
 );
