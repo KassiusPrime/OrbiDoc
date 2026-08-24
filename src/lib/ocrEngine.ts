@@ -1,11 +1,14 @@
 import Tesseract from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import * as pdfWorkerAsset from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 import { isOrbiDocNativeRuntime, nativeAssetUrl } from './nativeRuntime';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+const pdfWorkerUrl = (pdfWorkerAsset as { default?: unknown }).default;
+if (typeof pdfWorkerUrl === 'string' && pdfWorkerUrl) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+}
 
 export interface OcrOptions {
   language?: string;
