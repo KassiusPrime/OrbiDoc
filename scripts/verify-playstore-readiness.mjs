@@ -17,12 +17,15 @@ const privacyPath = path.join(dist, 'privacy.html');
 const deletionPath = path.join(dist, 'delete-account.html');
 const capacitorPath = path.resolve('capacitor.config.json');
 const androidWorkflowPath = path.resolve('.github/workflows/android-native.yml');
+const firebaseWorkflowPath = path.resolve('.github/workflows/firebase-production.yml');
 
 if (!fs.existsSync(manifestPath)) failures.push('dist/manifest.json ausente. Execute o build antes da auditoria Play Store.');
 if (!fs.existsSync(assetlinksPath)) failures.push('dist/.well-known/assetlinks.json ausente. O arquivo deve existir mesmo quando App Links estiverem desativados.');
 if (!fs.existsSync(privacyPath)) failures.push('dist/privacy.html ausente. A distribuição precisa publicar uma política de privacidade acessível.');
 if (!fs.existsSync(deletionPath)) failures.push('dist/delete-account.html ausente. Apps que criam contas precisam publicar um recurso web de exclusão de conta.');
 if (!fs.existsSync(capacitorPath)) failures.push('capacitor.config.json ausente; o pacote Android nativo não pode ser auditado.');
+if (!fs.existsSync(androidWorkflowPath)) failures.push('Workflow Android release ausente.');
+if (!fs.existsSync(firebaseWorkflowPath)) failures.push('Workflow de implantação Firebase production ausente; autenticação/regras não podem ser promovidas de forma reproduzível.');
 
 const capacitor = fs.existsSync(capacitorPath) ? readJson(capacitorPath) : null;
 const nativeAppId = String(capacitor?.appId || '');
@@ -108,6 +111,17 @@ if (fs.existsSync(androidWorkflowPath)) {
   if (!workflow.includes('assembleRelease bundleRelease')) failures.push('Workflow Android não contém geração simultânea de APK release e AAB release.');
   if (!workflow.includes('apksigner') || !workflow.includes('verify --verbose')) failures.push('Workflow Android não valida criptograficamente o APK release assinado.');
   if (!workflow.includes('ANDROID_KEYSTORE_BASE64')) failures.push('Workflow Android não possui entrada segura para a keystore permanente.');
+  if (!workflow.includes('Block unsigned production release')) failures.push('Workflow Android não bloqueia explicitamente release sem keystore permanente.');
+  if (!workflow.includes("env.BUILD_MODE == 'debug'")) failures.push('Workflow Android não separa explicitamente a geração debug da release.');
+  if (!workflow.includes("env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'")) failures.push('Workflow Android não condiciona a release à assinatura permanente configurada.');
+  if (!workflow.includes('ORBIDOC_REQUIRE_PASSWORD_AUTH')) failures.push('Workflow Android release não exige validação estrita do Firebase Email/Password.');
+}
+
+if (fs.existsSync(firebaseWorkflowPath)) {
+  const workflow = fs.readFileSync(firebaseWorkflowPath, 'utf8');
+  for (const token of ['FIREBASE_SERVICE_ACCOUNT_JSON', 'firebase-tools@latest deploy', '--only "auth,firestore:', 'ORBIDOC_REQUIRE_PASSWORD_AUTH: "true"']) {
+    if (!workflow.includes(token)) failures.push(`Workflow Firebase production incompleto: ${token} ausente.`);
+  }
 }
 
 if (failures.length) {
@@ -117,8 +131,9 @@ if (failures.length) {
 }
 
 console.log(`Google Play nativo: package ${packageName}, Capacitor local-first e target mínimo API ${REQUIRED_TARGET_SDK} validados.`);
-console.log('Google Play nativo: o workflow possui APK release + AAB + verificação apksigner quando a keystore permanente estiver configurada.');
+console.log('Google Play nativo: release sem keystore permanente é bloqueada; APK release + AAB exigem assinatura e verificação apksigner.');
+console.log('Firebase production: workflow administrativo e verificação estrita de Email/Password estão presentes.');
 if (appLinksEnabled) console.log('Android App Links: Digital Asset Links e SHA-256 de produção validados.');
 else console.log('Android App Links: desativados. assetlinks.json não é requisito para publicar um AAB Capacitor nativo na Play Store.');
 warnings.forEach((warning) => console.log(`Aviso: ${warning}`));
-console.log('A auditoria estrutural não substitui a keystore privada, Play App Signing, Data Safety, testes da Play Console nem a revisão final da loja.');
+console.log('A auditoria estrutural não substitui a keystore privada, Play App Signing, credencial administrativa Firebase, Data Safety, testes da Play Console nem a revisão final da loja.');
