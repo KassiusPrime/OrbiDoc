@@ -15,6 +15,8 @@ type LocalAccountRecord = {
   createdAt: string;
 };
 
+export type LocalOrbiDocAuthUser = OrbiDocAuthUser & { source: 'local' };
+
 function bytesToBase64(bytes: Uint8Array) {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -49,7 +51,7 @@ function readRecord(): LocalAccountRecord | null {
   }
 }
 
-function toUser(record: LocalAccountRecord): OrbiDocAuthUser {
+function toUser(record: LocalAccountRecord): LocalOrbiDocAuthUser {
   return {
     uid: record.uid,
     email: record.email,
@@ -69,7 +71,7 @@ export function hasLocalOrbiDocAccount() {
   return Boolean(readRecord());
 }
 
-export function getCurrentLocalOrbiDocUser(): OrbiDocAuthUser | null {
+export function getCurrentLocalOrbiDocUser(): LocalOrbiDocAuthUser | null {
   const record = readRecord();
   if (!record || localStorage.getItem(SESSION_KEY) !== record.uid) return null;
   return toUser(record);
@@ -125,7 +127,7 @@ export async function deleteLocalOrbiDocAccount(password: string) {
   announce();
 }
 
-export function subscribeToLocalOrbiDocAccount(callback: (user: OrbiDocAuthUser | null) => void) {
+export function subscribeToLocalOrbiDocAccount(callback: (user: LocalOrbiDocAuthUser | null) => void) {
   const listener = () => callback(getCurrentLocalOrbiDocUser());
   callback(getCurrentLocalOrbiDocUser());
   window.addEventListener(EVENT, listener);
