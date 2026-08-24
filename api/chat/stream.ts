@@ -1,7 +1,6 @@
 import { compactError } from '../_lib/ai.js';
-import { streamChatSafely } from '../_lib/aiSafeStream.js';
+import { streamChatV2 } from '../_lib/aiRuntimeV2.js';
 import { hydrateGatewayRuntimeAuth } from '../_lib/gatewayAuth.js';
-import { streamWebGroundedChat } from '../_lib/webGrounding.js';
 
 function parseBody(body: any) {
   if (typeof body !== 'string') return body || {};
@@ -23,9 +22,7 @@ export default async function handler(req: any, res: any) {
 
   const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
   try {
-    const body = parseBody(req.body);
-    if (body?.webSearch === true) await streamWebGroundedChat(body, write);
-    else await streamChatSafely(body, write);
+    await streamChatV2(parseBody(req.body), write);
   } catch (error) {
     write({ error: compactError(error) });
   } finally {
