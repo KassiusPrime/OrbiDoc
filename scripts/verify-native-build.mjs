@@ -71,8 +71,10 @@ if (!fileSaver.includes('saveNativeBlob') || !fileSaver.includes('downloadNative
 const vite = read('vite.config.ts');
 if (!vite.includes('src/lib/nativeFileSaver.ts')) failures.push('Vite não redireciona file-saver para o adaptador nativo.');
 
-const ocr = read('src/lib/ocrEngine.ts');
-if (!ocr.includes('native-ocr/worker.min.js') || !ocr.includes('native-ocr/lang') || !ocr.includes('native-ocr/core')) failures.push('OCR não está apontando para assets locais no runtime nativo.');
+const ocrFacade = read('src/lib/ocrEngine.ts');
+if (!ocrFacade.includes("import('./ocrEngineImpl')")) failures.push('ocrEngine.ts não carrega a implementação pesada de OCR sob demanda.');
+const ocr = read('src/lib/ocrEngineImpl.ts');
+if (!ocr.includes('native-ocr/worker.min.js') || !ocr.includes('native-ocr/lang') || !ocr.includes('native-ocr/core')) failures.push('Implementação OCR não aponta para assets locais no runtime nativo.');
 
 const nativeAssetScript = read('scripts/prepare-native-offline-assets.mjs');
 for (const token of ['@tesseract.js-data', "['por', 'eng']", 'tesseract.js-core']) {
@@ -110,7 +112,7 @@ if (failures.length) {
 }
 
 console.log('Native Android: shell Capacitor local, sem server.url e sem service worker obrigatório.');
-console.log('Native Android: OCR por+eng configurado para assets empacotados no APK/AAB.');
+console.log('Native Android: OCR por+eng lazy-loaded e configurado para assets empacotados no APK/AAB.');
 console.log('Native Android: IA BYOK protegida pelo Android Keystore e chamadas diretas aos provedores.');
 console.log('Native Android: pesquisa atual usa Google Search no Gemini, Compound Web Search no Groq e Web Tools no OpenRouter.');
 console.log('Native Android: exports encaminhados ao MediaStore em Downloads/OrbiDoc e intents de arquivos configuradas.');
