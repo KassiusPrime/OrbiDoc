@@ -56,7 +56,7 @@ const replacement = String.raw`  private String flattenAiMessages(JSArray messag
     String model = call.getString("model", "");
     JSArray messages = call.getArray("messages");
     Boolean requestedWeb = call.getBoolean("webSearch", false);
-    boolean webSearch = Boolean.TRUE.equals(requestedWeb);
+    boolean webSearch = Boolean.TRUE.equals(requestedWeb) || ("groq".equals(provider) && model.startsWith("groq/compound"));
     if (!allowed(provider) || model.isEmpty() || messages == null) { call.reject("Requisição de IA inválida."); return; }
 
     executor.execute(() -> {
@@ -185,8 +185,9 @@ source = source.replace(methodPattern, replacement);
 
 if (!source.includes('openrouter:web_search')) throw new Error('OpenRouter Web Search não foi injetado.');
 if (!source.includes('groq/compound-mini')) throw new Error('Groq Compound não foi injetado.');
+if (!source.includes('model.startsWith("groq/compound")')) throw new Error('Groq Compound não ativa pesquisa automaticamente.');
 if (!source.includes('generativelanguage.googleapis.com/v1beta/interactions')) throw new Error('Gemini Google Search não foi injetado.');
 if (!source.includes('Boolean requestedWeb = call.getBoolean("webSearch", false)')) throw new Error('Flag webSearch não foi injetada.');
 
 await fs.writeFile(pluginPath, source, 'utf8');
-console.log('Android native AI: real-time web search enabled for Gemini, Groq and OpenRouter.');
+console.log('Android native AI: real-time web search enabled for Gemini, Groq and OpenRouter; Groq Compound is always research-enabled.');
