@@ -191,7 +191,7 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
         </section>
       </div>
 
-      <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-[#F7F9FC] dark:bg-[#080D18]/55 text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed flex items-start gap-2 shrink-0"><Cloud className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#008CA8] dark:text-[#22D3EE]" /><span><strong>Conta não significa upload automático.</strong> O workspace permanece local-first. Google Drive, OneDrive e futura sincronização OrbiDoc são recursos separados.</span></div>
+      <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-[#F7F9FC] dark:bg-[#080D18]/55 text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed flex items-start gap-2 shrink-0"><Cloud className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#008CA8] dark:text-[#22D3EE]" /><span><strong>Conta OrbiDoc mantém o workspace vinculado.</strong> Quando a autenticação em nuvem está ativa, projetos e preferências ficam isolados pelo UID e sincronizam com a sua conta. Google Drive e OneDrive continuam conexões opcionais separadas.</span></div>
     </div>
   );
 
