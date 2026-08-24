@@ -10,12 +10,19 @@ export type NativeAiModel = {
   recommended?: boolean;
 };
 
+type NativeAiCompletion = {
+  text?: string;
+  provider?: string;
+  model?: string;
+  webSearch?: boolean;
+};
+
 type NativePlugin = {
   getAiStatus: () => Promise<{ providers?: Array<{ provider: NativeAiProvider; configured: boolean }> }>;
   setAiKey: (options: { provider: NativeAiProvider; apiKey: string }) => Promise<{ configured: boolean }>;
   clearAiKey: (options: { provider: NativeAiProvider }) => Promise<void>;
   listAiModels: (options: { provider: NativeAiProvider }) => Promise<{ models?: Array<{ id: string; label?: string }> }>;
-  aiComplete: (options: { provider: NativeAiProvider; model: string; messages: Array<{ role: string; content: string }> }) => Promise<{ text?: string; provider?: string; model?: string }>;
+  aiComplete: (options: { provider: NativeAiProvider; model: string; messages: Array<{ role: string; content: string }>; webSearch?: boolean }) => Promise<NativeAiCompletion>;
   saveBase64File: (options: { fileName: string; mimeType: string; dataBase64: string }) => Promise<{ uri?: string; fileName?: string }>;
   downloadUrl: (options: { url: string; fileName?: string; mimeType?: string }) => Promise<{ uri?: string; fileName?: string }>;
   openUri: (options: { uri: string; mimeType?: string }) => Promise<void>;
@@ -87,20 +94,33 @@ export async function getNativeAiCatalog(): Promise<NativeAiModel[]> {
     }
   }));
   const models = groups.flat();
-  if (models.length) {
-    models.forEach((model, index) => { model.recommended = index === 0; });
-  }
+  if (models.length) models.forEach((model, index) => { model.recommended = index === 0; });
   return models;
 }
 
-export async function nativeAiComplete(provider: string, model: string, messages: Array<{ role: string; content: string }>) {
+export async function nativeAiComplete(
+  provider: string,
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  options?: { webSearch?: boolean },
+) {
   const bridge = plugin();
   if (!bridge) throw new Error('A ponte nativa de IA não está disponível.');
   if (!['gemini', 'groq', 'openrouter'].includes(provider)) throw new Error(`Provedor não suportado no modo nativo: ${provider}`);
-  const result = await bridge.aiComplete({ provider: provider as NativeAiProvider, model, messages });
+  const result = await bridge.aiComplete({
+    provider: provider as NativeAiProvider,
+    model,
+    messages,
+    webSearch: Boolean(options?.webSearch),
+  });
   const text = String(result.text || '').trim();
   if (!text) throw new Error('O provedor não retornou conteúdo.');
-  return { text, provider: result.provider || provider, model: result.model || model };
+  return {
+    text,
+    provider: result.provider || provider,
+    model: result.model || model,
+    webSearch: Boolean(result.webSearch ?? options?.webSearch),
+  };
 }
 
 function responseJson(data: unknown, status = 200) {
@@ -127,15 +147,6 @@ async function bodyOf(init?: RequestInit) {
   return {} as any;
 }
 
-function rewriteNativeAiCopy() {
-  const candidates = Array.from(document.querySelectorAll('span'));
-  for (const element of candidates) {
-    const text = element.textContent || '';
-    if (!text.includes('Configure pelo menos uma credencial segura no servidor')) continue;
-    element.innerHTML = '<strong>Nenhum provedor de IA está conectado neste aparelho.</strong> Toque em “Conectar IA” e informe sua própria chave Gemini, Groq ou OpenRouter. A chave fica protegida pelo Android Keystore e as chamadas vão direto ao provedor, sem passar pela Vercel.';
-  }
-}
-
 export function installNativeAiApiBridge() {
   if (!isOrbiDocNativeRuntime() || !plugin()) return false;
   const originalFetch = window.fetch.bind(window);
@@ -153,7 +164,12 @@ export function installNativeAiApiBridge() {
     if (path === '/api/chat' || path === '/api/chat/stream') {
       const body = await bodyOf(init);
       try {
-        const result = await nativeAiComplete(body.provider, body.model, Array.isArray(body.messages) ? body.messages : []);
+        const result = await nativeAiComplete(
+          body.provider,
+          body.model,
+          Array.isArray(body.messages) ? body.messages : [],
+          { webSearch: Boolean(body.webSearch) },
+        );
         const meta = {
           requestedProvider: body.provider,
           requestedModel: body.model,
@@ -161,6 +177,7 @@ export function installNativeAiApiBridge() {
           model: result.model,
           routedModel: result.model,
           fallbackUsed: false,
+          webSearch: result.webSearch,
         };
         if (path.endsWith('/stream')) {
           const sse = `data: ${JSON.stringify({ meta })}\n\ndata: ${JSON.stringify({ chunk: result.text })}\n\ndata: [DONE]\n\n`;
@@ -174,10 +191,6 @@ export function installNativeAiApiBridge() {
 
     return originalFetch(input as any, init);
   }) as typeof window.fetch;
-
-  const observer = new MutationObserver(rewriteNativeAiCopy);
-  observer.observe(document.documentElement, { subtree: true, childList: true });
-  window.setTimeout(rewriteNativeAiCopy, 0);
   return true;
 }
 
