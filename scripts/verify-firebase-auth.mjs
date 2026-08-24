@@ -37,7 +37,17 @@ const providerDisabled = /PASSWORD_LOGIN_DISABLED|OPERATION_NOT_ALLOWED|CONFIGUR
 if (providerDisabled) {
   const message = `Firebase acessível, mas o provedor e-mail/senha está desativado no projeto (${code}).`;
   if (strict) throw new Error(message);
+
   console.warn(`${message} Conta local segura PBKDF2/SHA-256 validada como fallback funcional; nuvem não será simulada.`);
+  if (process.env.GITHUB_ACTIONS === 'true') {
+    console.warn(`::warning title=Firebase Email/Password desativado::${message} Builds debug/local-first continuam válidos, mas release em nuvem não está pronto.`);
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      await fs.appendFile(
+        process.env.GITHUB_STEP_SUMMARY,
+        `\n### ⚠️ Firebase Authentication\n${message}\n\nO fallback local seguro foi validado, porém criação de conta/login em nuvem por e-mail e senha ainda não está pronta para produção.\n`,
+      );
+    }
+  }
   process.exit(0);
 }
 
