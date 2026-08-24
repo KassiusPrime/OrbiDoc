@@ -3,16 +3,22 @@ import path from 'node:path';
 
 const outDir = path.resolve('public/.well-known');
 const outFile = path.join(outDir, 'assetlinks.json');
-const packageName = (process.env.ANDROID_PACKAGE_NAME || '').trim();
+const packageName = (process.env.ANDROID_PACKAGE_NAME || 'app.orbidoc.workspace').trim();
 const fingerprint = (process.env.ANDROID_SHA256_CERT_FINGERPRINT || '').trim().toUpperCase();
+const appLinksEnabled = String(process.env.ANDROID_APP_LINKS_ENABLED || 'false').toLowerCase() === 'true';
 const fingerprintPattern = /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/;
 
 fs.mkdirSync(outDir, { recursive: true });
 
+if (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName)) {
+  console.error('ANDROID_PACKAGE_NAME inválido. Exemplo: app.orbidoc.workspace');
+  process.exit(1);
+}
+
 let payload = [];
-if (packageName && fingerprint) {
-  if (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName)) {
-    console.error('ANDROID_PACKAGE_NAME inválido. Exemplo: app.orbidoc.workspace');
+if (appLinksEnabled) {
+  if (!fingerprint) {
+    console.error('ANDROID_APP_LINKS_ENABLED=true exige ANDROID_SHA256_CERT_FINGERPRINT da chave de assinatura de produção.');
     process.exit(1);
   }
   if (!fingerprintPattern.test(fingerprint)) {
@@ -30,9 +36,9 @@ if (packageName && fingerprint) {
       },
     },
   ];
-  console.log(`Digital Asset Links configurado para ${packageName}.`);
+  console.log(`Android App Links verificados configurados para ${packageName}.`);
 } else {
-  console.warn('Android TWA: ANDROID_PACKAGE_NAME/ANDROID_SHA256_CERT_FINGERPRINT não configurados; assetlinks.json será publicado como []. Chrome WebAPK/PWA continua funcionando, mas TWA não poderá ser verificada até configurar a assinatura.');
+  console.log('Android App Links estão desativados; assetlinks.json será publicado como []. Isso é intencional e não impede APK/AAB Capacitor, Play Store, PWA ou abertura local de arquivos.');
 }
 
 fs.writeFileSync(outFile, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
