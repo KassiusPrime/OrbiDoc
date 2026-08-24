@@ -3,6 +3,8 @@ import {
   IconAlertTriangle as AlertTriangle,
   IconAt as At,
   IconCheck as Check,
+  IconCloud as Cloud,
+  IconDeviceMobile as DeviceMobile,
   IconKey as Key,
   IconLoader2 as Loader,
   IconLock as Lock,
@@ -27,6 +29,15 @@ import {
   subscribeToOrbiDocAuth,
 } from '../services/firebase';
 import {
+  createLocalOrbiDocAccount,
+  deleteLocalOrbiDocAccount,
+  hasLocalOrbiDocAccount,
+  signInLocalOrbiDocAccount,
+  signOutLocalOrbiDocAccount,
+  subscribeToLocalOrbiDocAccount,
+  type LocalOrbiDocAuthUser,
+} from '../services/localAccount';
+import {
   clearOrbiDocAuthCapabilityCache,
   PasswordAuthState,
   probeOrbiDocPasswordAuth,
@@ -39,6 +50,7 @@ interface OrbiDocAuthPanelProps {
 }
 
 type Mode = 'signin' | 'signup';
+type AccountRoute = 'cloud' | 'local';
 type BusyAction = 'signin' | 'signup' | 'reset' | 'verify' | 'logout' | 'delete' | 'probe' | null;
 
 const Field: React.FC<{
@@ -72,7 +84,9 @@ const initialsFor = (user: OrbiDocAuthUser) => {
 };
 
 export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotification = () => {}, onUserChange }) => {
-  const [user, setUser] = useState<OrbiDocAuthUser | null>(null);
+  const [cloudUser, setCloudUser] = useState<OrbiDocAuthUser | null>(null);
+  const [localUser, setLocalUser] = useState<LocalOrbiDocAuthUser | null>(null);
+  const [route, setRoute] = useState<AccountRoute>('cloud');
   const [mode, setMode] = useState<Mode>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -85,30 +99,31 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
   const [inlineError, setInlineError] = useState('');
   const [passwordAuthState, setPasswordAuthState] = useState<PasswordAuthState>('checking');
   const configured = isOrbiDocAuthConfigured();
+  const user = cloudUser || localUser;
+  const isLocal = Boolean(user && (user as LocalOrbiDocAuthUser).source === 'local');
 
-  useEffect(() => subscribeToOrbiDocAuth((next) => {
-    setUser(next);
-    if (!next) {
-      setDeleteOpen(false);
-      setDeletePassword('');
-      setDeletePhrase('');
-    }
-    onUserChange?.(next);
-  }), [onUserChange]);
+  useEffect(() => subscribeToOrbiDocAuth(setCloudUser), []);
+  useEffect(() => subscribeToLocalOrbiDocAccount(setLocalUser), []);
+  useEffect(() => { onUserChange?.(user); }, [user, onUserChange]);
 
   useEffect(() => {
     if (!configured) {
       setPasswordAuthState('unavailable');
+      setRoute('local');
       return;
     }
     let active = true;
-    void probeOrbiDocPasswordAuth().then((state) => { if (active) setPasswordAuthState(state); });
+    void probeOrbiDocPasswordAuth().then((state) => {
+      if (!active) return;
+      setPasswordAuthState(state);
+      if (state !== 'enabled') setRoute('local');
+    });
     return () => { active = false; };
   }, [configured]);
 
-  const displayName = useMemo(() => user?.displayName || user?.email?.split('@')[0] || (user?.isAnonymous ? 'Convidado' : 'Conta OrbiDoc'), [user]);
+  const displayName = useMemo(() => user?.displayName || user?.email?.split('@')[0] || 'Conta OrbiDoc', [user]);
 
-  const run = async (action: Exclude<BusyAction, null>, operation: () => Promise<unknown>, success?: string) => {
+  const run = async (action: Exclude<BusyAction, null>, operation: () => Promise<unknown> | unknown, success?: string) => {
     setBusy(action);
     setInlineError('');
     try {
@@ -116,7 +131,7 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
       if (success) onNotification(success, 'success');
       return true;
     } catch (error) {
-      const message = getFriendlyAuthError(error);
+      const message = error instanceof Error ? error.message : getFriendlyAuthError(error);
       setInlineError(message);
       onNotification(message, 'error');
       return false;
@@ -132,33 +147,51 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
     const state = await probeOrbiDocPasswordAuth();
     setPasswordAuthState(state);
     setBusy(null);
-    if (state === 'enabled') onNotification('Login por e-mail e senha está ativo.', 'success');
-    else if (state === 'disabled') onNotification('O Firebase ainda mantém e-mail/senha desativado.', 'error');
+    if (state === 'enabled') {
+      setRoute('cloud');
+      onNotification('Login em nuvem por e-mail e senha está ativo.', 'success');
+    } else if (state === 'disabled') onNotification('O Firebase ainda mantém e-mail/senha desativado. A conta local continua disponível.', 'error');
   };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (passwordAuthState !== 'enabled') {
-      setInlineError('O provedor e-mail/senha ainda não está ativo no Firebase deste projeto.');
+    if (mode === 'signup' && password !== confirmPassword) {
+      setInlineError('As senhas não coincidem.');
       return;
     }
-    if (mode === 'signup') {
-      if (password !== confirmPassword) {
-        setInlineError('As senhas não coincidem.');
-        return;
+
+    if (route === 'local') {
+      if (mode === 'signup') {
+        await run('signup', () => createLocalOrbiDocAccount(name, email, password), 'Conta local criada e vinculada a este aparelho.');
+      } else {
+        await run('signin', () => signInLocalOrbiDocAccount(email, password), 'Você entrou na conta local deste aparelho.');
       }
-      await run('signup', () => createOrbiDocAccount(name, email, password), 'Conta criada. Enviamos um e-mail de verificação quando o provedor permite.');
       return;
     }
-    await run('signin', () => signInOrbiDocAccount(email, password), 'Você entrou na sua conta OrbiDoc.');
+
+    if (passwordAuthState !== 'enabled') {
+      setInlineError('O Firebase ainda não habilitou e-mail/senha. Use a conta local ou atualize o status.');
+      return;
+    }
+    if (mode === 'signup') await run('signup', () => createOrbiDocAccount(name, email, password), 'Conta em nuvem criada.');
+    else await run('signin', () => signInOrbiDocAccount(email, password), 'Você entrou na sua conta OrbiDoc em nuvem.');
   };
 
   const resetPassword = async () => {
-    if (passwordAuthState !== 'enabled') {
-      setInlineError('A recuperação de senha ficará disponível assim que o provedor e-mail/senha estiver ativo.');
+    if (route === 'local') {
+      setInlineError('Conta local não usa recuperação por e-mail. Se ainda estiver logado, exporte um backup antes de excluir/recriar a conta.');
       return;
     }
-    await run('reset', () => resetOrbiDocPassword(email), 'Se o endereço estiver cadastrado, o Firebase enviará as instruções de recuperação.');
+    if (passwordAuthState !== 'enabled') {
+      setInlineError('A recuperação de senha ficará disponível quando e-mail/senha estiver ativo no Firebase.');
+      return;
+    }
+    await run('reset', () => resetOrbiDocPassword(email), 'Se o endereço estiver cadastrado, o Firebase enviará instruções de recuperação.');
+  };
+
+  const logout = async () => {
+    if (isLocal) await run('logout', signOutLocalOrbiDocAccount, 'Sessão local encerrada. Seus arquivos permaneceram no aparelho.');
+    else await run('logout', signOutOrbiDocAccount, 'Sessão em nuvem encerrada. Seus arquivos locais permaneceram no aparelho.');
   };
 
   const deleteAccount = async () => {
@@ -166,11 +199,9 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
       setInlineError('Digite EXCLUIR para confirmar a exclusão permanente.');
       return;
     }
-    const completed = await run(
-      'delete',
-      () => deleteOrbiDocAccountAndCloudData(deletePassword),
-      'Conta OrbiDoc e dados associados na nuvem foram excluídos. Seus projetos que existem apenas neste dispositivo foram preservados.',
-    );
+    const completed = isLocal
+      ? await run('delete', () => deleteLocalOrbiDocAccount(deletePassword), 'Conta local removida deste aparelho. Os arquivos do workspace não foram apagados.')
+      : await run('delete', () => deleteOrbiDocAccountAndCloudData(deletePassword), 'Conta OrbiDoc e dados associados na nuvem foram excluídos. Projetos locais foram preservados.');
     if (completed) {
       setDeleteOpen(false);
       setDeletePassword('');
@@ -185,76 +216,80 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
           <div className="flex items-start gap-3">
             {user.photoURL ? <img src={user.photoURL} alt="" className="w-11 h-11 rounded-xl object-cover" /> : <div className="w-11 h-11 rounded-xl bg-[#3157F6] text-white flex items-center justify-center text-xs font-black">{initialsFor(user)}</div>}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white"><ShieldCheck className="w-4 h-4 text-[#3157F6] dark:text-[#7AA2FF]" /> Conta OrbiDoc</div>
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white">{isLocal ? <DeviceMobile className="w-4 h-4 text-[#3157F6]" /> : <Cloud className="w-4 h-4 text-[#3157F6]" />} {isLocal ? 'Conta local OrbiDoc' : 'Conta OrbiDoc em nuvem'}</div>
               <div className="mt-1 text-[11px] font-black truncate">{displayName}</div>
-              <div className="text-[9px] text-slate-500 dark:text-slate-400 truncate">{user.email || 'Sessão temporária'}</div>
+              <div className="text-[9px] text-slate-500 dark:text-slate-400 truncate">{user.email}</div>
             </div>
           </div>
 
-          {!user.isAnonymous && (
+          {isLocal ? (
+            <div className="mt-3 rounded-xl px-3 py-2 bg-cyan-50 dark:bg-cyan-950/25 text-cyan-800 dark:text-cyan-200 text-[9px] leading-relaxed"><strong>Vinculada a este aparelho.</strong> A senha é verificada localmente com PBKDF2/SHA-256 + salt aleatório. Esta identidade não sincroniza entre dispositivos nem envia credenciais para um servidor.</div>
+          ) : !user.isAnonymous ? (
             <div className={`mt-3 rounded-xl px-3 py-2 flex items-center gap-2 text-[9px] ${user.emailVerified ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'}`}>
               {user.emailVerified ? <Check className="w-3.5 h-3.5" /> : <MailCheck className="w-3.5 h-3.5" />}
               <span className="font-bold flex-1">{user.emailVerified ? 'E-mail verificado' : 'E-mail ainda não verificado'}</span>
               {!user.emailVerified && <button disabled={busy === 'verify'} onClick={() => void run('verify', resendOrbiDocVerification, 'Novo e-mail de verificação solicitado.')} className="font-black underline disabled:opacity-50">Reenviar</button>}
             </div>
-          )}
+          ) : null}
 
           <div className="mt-3 flex items-center gap-2">
-            <div className="flex-1 text-[9px] leading-relaxed text-slate-500 dark:text-slate-400">A sessão fica vinculada a este dispositivo pelo Firebase até você sair. Seus arquivos continuam locais até uma sincronização explícita.</div>
-            <button disabled={busy === 'logout'} onClick={() => void run('logout', signOutOrbiDocAccount, 'Sessão encerrada. Seus arquivos locais permaneceram neste dispositivo.')} className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[9px] font-black inline-flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"><LogOut className="w-3.5 h-3.5" /> Sair</button>
+            <div className="flex-1 text-[9px] leading-relaxed text-slate-500 dark:text-slate-400">{isLocal ? 'A sessão local permanece ativa neste dispositivo até você sair.' : 'A sessão Firebase permanece neste dispositivo e pode vincular perfil/preferências ao UID.'}</div>
+            <button disabled={busy === 'logout'} onClick={() => void logout()} className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[9px] font-black inline-flex items-center gap-1.5 disabled:opacity-50"><LogOut className="w-3.5 h-3.5" /> Sair</button>
           </div>
         </section>
 
-        {!user.isAnonymous && (
-          <section className="rounded-2xl border border-rose-200 dark:border-rose-900/70 bg-rose-50/40 dark:bg-rose-950/10 p-3.5">
-            {!deleteOpen ? (
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 flex items-center justify-center"><Trash className="w-4 h-4" /></div>
-                <div className="min-w-0 flex-1"><div className="text-[10px] font-black text-rose-700 dark:text-rose-300">Excluir conta e dados da nuvem</div><div className="mt-0.5 text-[8px] leading-relaxed text-slate-500 dark:text-slate-400">Remove permanentemente a identidade OrbiDoc, perfil, preferências, documentos sincronizados e sessões de chat associadas.</div></div>
-                <button onClick={() => { setDeleteOpen(true); setInlineError(''); }} className="h-8 px-2.5 rounded-lg border border-rose-200 dark:border-rose-800 text-[8px] font-black text-rose-600 dark:text-rose-300">Excluir</button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-start gap-2 text-rose-700 dark:text-rose-300"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><div><div className="text-[10px] font-black">Esta ação é permanente</div><div className="mt-1 text-[8px] leading-relaxed text-slate-600 dark:text-slate-400">A conta e os dados associados na nuvem serão apagados. Projetos que existem somente neste dispositivo não são apagados automaticamente.</div></div></div>
-                <Field label="Senha atual" type="password" value={deletePassword} onChange={setDeletePassword} autoComplete="current-password" placeholder="Confirme sua senha" icon={Lock} />
-                <Field label="Digite EXCLUIR" value={deletePhrase} onChange={setDeletePhrase} autoComplete="off" placeholder="EXCLUIR" icon={Trash} />
-                {inlineError && <div className="rounded-xl bg-rose-100/70 dark:bg-rose-950/30 px-3 py-2 text-[9px] font-semibold text-rose-700 dark:text-rose-300">{inlineError}</div>}
-                <div className="grid grid-cols-2 gap-2"><button disabled={busy === 'delete'} onClick={() => { setDeleteOpen(false); setDeletePassword(''); setDeletePhrase(''); setInlineError(''); }} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black disabled:opacity-50">Cancelar</button><button disabled={busy === 'delete' || !deletePassword || deletePhrase.trim().toUpperCase() !== 'EXCLUIR'} onClick={() => void deleteAccount()} className="h-9 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[9px] font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-40">{busy === 'delete' ? <Loader className="w-4 h-4 animate-spin" /> : <Trash className="w-3.5 h-3.5" />} Excluir permanentemente</button></div>
-              </div>
-            )}
-          </section>
-        )}
+        <section className="rounded-2xl border border-rose-200 dark:border-rose-900/70 bg-rose-50/40 dark:bg-rose-950/10 p-3.5">
+          {!deleteOpen ? (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center"><Trash className="w-4 h-4" /></div>
+              <div className="min-w-0 flex-1"><div className="text-[10px] font-black text-rose-700 dark:text-rose-300">{isLocal ? 'Excluir conta local' : 'Excluir conta e dados da nuvem'}</div><div className="mt-0.5 text-[8px] text-slate-500 dark:text-slate-400">{isLocal ? 'Remove a identidade e hash de senha deste aparelho. Não apaga automaticamente os arquivos locais.' : 'Remove a identidade Firebase e os registros de nuvem associados.'}</div></div>
+              <button onClick={() => { setDeleteOpen(true); setInlineError(''); }} className="h-8 px-2.5 rounded-lg border border-rose-200 dark:border-rose-800 text-[8px] font-black text-rose-600">Excluir</button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 text-rose-700 dark:text-rose-300"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><div><div className="text-[10px] font-black">Esta ação é permanente</div><div className="mt-1 text-[8px] text-slate-600 dark:text-slate-400">Os projetos existentes somente no workspace local são preservados.</div></div></div>
+              <Field label={isLocal ? 'Senha local' : 'Senha atual'} type="password" value={deletePassword} onChange={setDeletePassword} autoComplete="current-password" placeholder="Confirme sua senha" icon={Lock} />
+              <Field label="Digite EXCLUIR" value={deletePhrase} onChange={setDeletePhrase} autoComplete="off" placeholder="EXCLUIR" icon={Trash} />
+              {inlineError && <div className="rounded-xl bg-rose-100/70 dark:bg-rose-950/30 px-3 py-2 text-[9px] font-semibold text-rose-700 dark:text-rose-300">{inlineError}</div>}
+              <div className="grid grid-cols-2 gap-2"><button onClick={() => { setDeleteOpen(false); setInlineError(''); }} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-[9px] font-black">Cancelar</button><button disabled={busy === 'delete' || !deletePassword || deletePhrase.trim().toUpperCase() !== 'EXCLUIR'} onClick={() => void deleteAccount()} className="h-9 rounded-xl bg-rose-600 text-white text-[9px] font-black disabled:opacity-40">{busy === 'delete' ? 'Excluindo…' : 'Excluir permanentemente'}</button></div>
+            </div>
+          )}
+        </section>
 
         <WorkspaceBackupControls onNotification={onNotification} />
       </div>
     );
   }
 
-  const providerEnabled = passwordAuthState === 'enabled';
+  const cloudEnabled = configured && passwordAuthState === 'enabled';
+  const localExists = hasLocalOrbiDocAccount();
 
   return (
     <div className="space-y-3">
       <section className="rounded-2xl border border-[#3157F6]/20 dark:border-[#7AA2FF]/20 bg-[#F7F9FC] dark:bg-[#080D18]/60 p-3.5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] dark:bg-[#0D1E5B]/70 flex items-center justify-center"><User className="w-5 h-5 text-[#3157F6] dark:text-[#7AA2FF]" /></div>
-          <div className="min-w-0 flex-1"><div className="text-xs font-black text-slate-900 dark:text-white">Conta OrbiDoc</div><div className="mt-0.5 text-[9px] leading-relaxed text-slate-500 dark:text-slate-400">Conta persistente por Firebase Authentication. O workspace local continua disponível mesmo sem login.</div></div>
+        <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-[#EFF4FF] dark:bg-[#0D1E5B]/70 flex items-center justify-center"><User className="w-5 h-5 text-[#3157F6]" /></div><div className="min-w-0 flex-1"><div className="text-xs font-black">Conta OrbiDoc</div><div className="mt-0.5 text-[9px] leading-relaxed text-slate-500 dark:text-slate-400">Entre em nuvem quando o Firebase permitir ou use uma conta local segura e gratuita neste aparelho.</div></div></div>
+
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 dark:bg-slate-900 p-1">
+          <button type="button" onClick={() => { setRoute('cloud'); setInlineError(''); }} className={`h-9 rounded-lg text-[9px] font-black inline-flex items-center justify-center gap-1.5 ${route === 'cloud' ? 'bg-white dark:bg-slate-800 shadow-sm text-[#3157F6]' : 'text-slate-500'}`}><Cloud className="w-3.5 h-3.5" /> Nuvem</button>
+          <button type="button" onClick={() => { setRoute('local'); setInlineError(''); }} className={`h-9 rounded-lg text-[9px] font-black inline-flex items-center justify-center gap-1.5 ${route === 'local' ? 'bg-white dark:bg-slate-800 shadow-sm text-[#3157F6]' : 'text-slate-500'}`}><DeviceMobile className="w-3.5 h-3.5" /> Local</button>
         </div>
 
-        {!configured ? (
-          <div className="mt-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-[9px] leading-relaxed text-amber-800 dark:text-amber-200">A configuração Firebase desta instalação está incompleta. O modo local continua funcionando normalmente.</div>
-        ) : passwordAuthState === 'checking' ? (
-          <div className="mt-3 rounded-xl bg-slate-100 dark:bg-slate-900 p-3 text-[9px] flex items-center gap-2 text-slate-600 dark:text-slate-300"><Loader className="w-4 h-4 animate-spin" /> Verificando o provedor de autenticação…</div>
-        ) : passwordAuthState === 'disabled' ? (
+        {route === 'cloud' && !cloudEnabled && (
           <div className="mt-3 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/25 p-3 text-amber-800 dark:text-amber-200">
-            <div className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><div className="min-w-0 flex-1"><div className="text-[10px] font-black">E-mail e senha desativados no Firebase</div><p className="mt-1 text-[9px] leading-relaxed">O app está configurado, mas o projeto Firebase devolve PASSWORD_LOGIN_DISABLED. Quando o provedor for habilitado no Console Firebase, este mesmo APK reconhecerá a mudança e liberará Entrar/Criar conta.</p></div></div>
+            <div className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><div className="min-w-0 flex-1"><div className="text-[10px] font-black">{passwordAuthState === 'checking' ? 'Verificando Firebase…' : passwordAuthState === 'disabled' ? 'E-mail/senha desativados no Firebase' : 'Firebase indisponível agora'}</div><p className="mt-1 text-[9px] leading-relaxed">{passwordAuthState === 'disabled' ? 'O backend responde PASSWORD_LOGIN_DISABLED. Isso exige ativação administrativa no Firebase Console. Enquanto isso, a conta local funciona normalmente.' : 'O modo local não depende do Firebase e continua disponível.'}</p></div></div>
             <button disabled={busy === 'probe'} onClick={() => void refreshProviderState()} className="mt-2 h-8 px-3 rounded-lg border border-amber-300 dark:border-amber-800 text-[9px] font-black inline-flex items-center gap-1.5 disabled:opacity-50">{busy === 'probe' ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Refresh className="w-3.5 h-3.5" />} Atualizar status</button>
           </div>
-        ) : (
+        )}
+
+        {route === 'local' && (
+          <div className="mt-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/25 border border-cyan-200 dark:border-cyan-900 p-3 text-[9px] leading-relaxed text-cyan-800 dark:text-cyan-200"><strong>Conta local:</strong> funciona offline, fica vinculada somente a este aparelho e armazena apenas salt + hash PBKDF2/SHA-256. Não é uma conta de nuvem e não sincroniza documentos.</div>
+        )}
+
+        {(route === 'local' || cloudEnabled) && (
           <>
-            {passwordAuthState === 'unavailable' && <div className="mt-3 rounded-xl bg-slate-100 dark:bg-slate-900 p-3 text-[9px] text-slate-600 dark:text-slate-300">Não foi possível verificar o provedor agora. O login requer internet; você pode tentar novamente quando estiver online.</div>}
             <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 dark:bg-slate-900 p-1">
-              <button type="button" onClick={() => { setMode('signin'); setInlineError(''); }} className={`h-8 rounded-lg text-[9px] font-black ${mode === 'signin' ? 'bg-white dark:bg-slate-800 shadow-sm text-[#3157F6] dark:text-[#7AA2FF]' : 'text-slate-500'}`}>Entrar</button>
-              <button type="button" onClick={() => { setMode('signup'); setInlineError(''); }} className={`h-8 rounded-lg text-[9px] font-black ${mode === 'signup' ? 'bg-white dark:bg-slate-800 shadow-sm text-[#3157F6] dark:text-[#7AA2FF]' : 'text-slate-500'}`}>Criar conta</button>
+              <button type="button" onClick={() => { setMode('signin'); setInlineError(''); }} className={`h-8 rounded-lg text-[9px] font-black ${mode === 'signin' ? 'bg-white dark:bg-slate-800 shadow-sm text-[#3157F6]' : 'text-slate-500'}`}>Entrar</button>
+              <button type="button" onClick={() => { setMode('signup'); setInlineError(''); }} className={`h-8 rounded-lg text-[9px] font-black ${mode === 'signup' ? 'bg-white dark:bg-slate-800 shadow-sm text-[#3157F6]' : 'text-slate-500'}`}>{route === 'local' && localExists ? 'Conta já criada' : 'Criar conta'}</button>
             </div>
 
             <form onSubmit={(event) => void submit(event)} className="mt-3 space-y-2.5">
@@ -263,18 +298,13 @@ export const OrbiDocAuthPanel: React.FC<OrbiDocAuthPanelProps> = ({ onNotificati
               <Field label="Senha" type="password" value={password} onChange={setPassword} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} placeholder={mode === 'signup' ? 'Mínimo de 8 caracteres' : 'Sua senha'} icon={Lock} />
               {mode === 'signup' && <Field label="Confirmar senha" type="password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Repita a senha" icon={Key} />}
               {inlineError && <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-[9px] font-semibold text-rose-700 dark:text-rose-300">{inlineError}</div>}
-              <button disabled={Boolean(busy) || !providerEnabled} type="submit" className="w-full h-10 rounded-xl bg-[#3157F6] hover:bg-[#2446D8] text-white text-[10px] font-black inline-flex items-center justify-center gap-2 disabled:opacity-50">
-                {busy === 'signin' || busy === 'signup' ? <Loader className="w-4 h-4 animate-spin" /> : mode === 'signup' ? <UserPlus className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                {mode === 'signup' ? 'Criar conta gratuita' : 'Entrar no OrbiDoc'}
-              </button>
+              <button disabled={Boolean(busy) || (route === 'local' && mode === 'signup' && localExists)} type="submit" className="w-full h-10 rounded-xl bg-[#3157F6] hover:bg-[#2446D8] text-white text-[10px] font-black inline-flex items-center justify-center gap-2 disabled:opacity-50">{busy === 'signin' || busy === 'signup' ? <Loader className="w-4 h-4 animate-spin" /> : mode === 'signup' ? <UserPlus className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}{mode === 'signup' ? (route === 'local' ? 'Criar conta local' : 'Criar conta em nuvem') : (route === 'local' ? 'Entrar neste aparelho' : 'Entrar no OrbiDoc')}</button>
             </form>
-
-            {mode === 'signin' && <button type="button" disabled={busy === 'reset' || !providerEnabled} onClick={() => void resetPassword()} className="mt-2 w-full h-8 text-[9px] font-bold text-[#3157F6] dark:text-[#7AA2FF] hover:underline disabled:opacity-50">Esqueci minha senha</button>}
-            {passwordAuthState === 'unavailable' && <button disabled={busy === 'probe'} onClick={() => void refreshProviderState()} className="mt-1 w-full h-8 text-[9px] font-bold text-slate-500 hover:underline">Tentar verificar novamente</button>}
+            {mode === 'signin' && <button type="button" disabled={busy === 'reset'} onClick={() => void resetPassword()} className="mt-2 w-full h-8 text-[9px] font-bold text-[#3157F6] hover:underline disabled:opacity-50">{route === 'local' ? 'Como funciona a senha local?' : 'Esqueci minha senha'}</button>}
           </>
         )}
 
-        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-start gap-2 text-[9px] leading-relaxed text-slate-500 dark:text-slate-400"><MailCheck className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[#008CA8] dark:text-[#22D3EE]" /><span>Entrar não envia automaticamente seus documentos para a nuvem. Conta, backup/sync e conexões externas continuam separados para evitar perda ou sobrescrita silenciosa.</span></div>
+        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-start gap-2 text-[9px] leading-relaxed text-slate-500 dark:text-slate-400"><MailCheck className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[#008CA8]" /><span>Conta, backup/sync e serviços externos são separados. Entrar nunca envia automaticamente seus projetos locais.</span></div>
       </section>
       <WorkspaceBackupControls onNotification={onNotification} />
     </div>
