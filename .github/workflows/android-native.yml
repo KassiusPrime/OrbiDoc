@@ -43,7 +43,10 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
       - run: bun install --frozen-lockfile
-      - run: |
+      - name: Validate source and cloud authentication contract
+        env:
+          ORBIDOC_REQUIRE_PASSWORD_AUTH: ${{ startsWith(github.ref, 'refs/tags/android-v') || inputs.build_mode == 'release' }}
+        run: |
           bun run lint
           bun run typecheck
           bun run test
@@ -85,31 +88,33 @@ jobs:
           grep -q 'windowSoftInputMode="stateAlwaysHidden|adjustResize"' android/app/src/main/AndroidManifest.xml
           grep -q 'android.intent.action.VIEW' android/app/src/main/AndroidManifest.xml
 
-      - name: Explain release fallback when signing is not configured
+      - name: Block unsigned production release
         if: env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true'
         run: |
           {
-            echo '## OrbiDoc Android'
+            echo '## OrbiDoc Android — release bloqueado'
             echo
-            echo 'Release assinado foi solicitado, mas os Secrets de assinatura ainda não estão configurados.'
-            echo 'O workflow continuará com um APK debug instalável para não interromper a validação.'
+            echo 'Foi solicitado um pacote release, mas a keystore permanente não está configurada.'
+            echo 'O workflow não fará mais fallback silencioso para APK debug quando a intenção é publicar.'
             echo
-            echo 'Para gerar APK release + AAB, configure:'
+            echo 'Configure os GitHub Actions Secrets:'
             echo '- ANDROID_KEYSTORE_BASE64'
             echo '- ANDROID_KEYSTORE_PASSWORD'
             echo '- ANDROID_KEY_ALIAS'
             echo '- ANDROID_KEY_PASSWORD'
             echo
-            echo 'ANDROID_SHA256_CERT_FINGERPRINT só é necessário se Android App Links verificados forem ativados; não é requisito para compilar o AAB Capacitor.'
+            echo 'ANDROID_SHA256_CERT_FINGERPRINT só é necessário para Android App Links verificados.'
           } >> "$GITHUB_STEP_SUMMARY"
+          echo '::error::Release Android exige a keystore permanente e os quatro Secrets de assinatura.'
+          exit 1
 
       - name: Build installable debug APK
-        if: env.BUILD_MODE == 'debug' || (env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true')
+        if: env.BUILD_MODE == 'debug'
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Prepare debug APK
-        if: env.BUILD_MODE == 'debug' || (env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true')
+        if: env.BUILD_MODE == 'debug'
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk OrbiDoc-debug.apk
           sha256sum OrbiDoc-debug.apk > OrbiDoc-debug.apk.sha256
@@ -149,7 +154,7 @@ jobs:
           sha256sum OrbiDoc-release.apk OrbiDoc-release.aab > OrbiDoc-release.sha256
 
       - name: Upload installable debug APK
-        if: env.BUILD_MODE == 'debug' || (env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true')
+        if: env.BUILD_MODE == 'debug'
         uses: actions/upload-artifact@v7
         with:
           name: OrbiDoc-Android-debug
