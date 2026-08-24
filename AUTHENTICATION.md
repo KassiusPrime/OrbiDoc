@@ -2,10 +2,10 @@
 
 O OrbiDoc possui **duas formas de identidade**, sem tornar Google Drive ou Microsoft 365 obrigatórios:
 
-1. **Conta OrbiDoc em nuvem (Firebase Authentication)** — e-mail/senha, UID, verificação de e-mail, recuperação e sincronização seletiva.
+1. **Conta OrbiDoc em nuvem (Firebase Authentication)** — e-mail/senha, UID, verificação de e-mail, recuperação e sincronização do workspace autenticado.
 2. **Conta local OrbiDoc** — funciona offline no aparelho quando o Firebase não está disponível ou quando o usuário prefere não usar nuvem.
 
-O workspace continua local-first nos dois casos. Entrar em uma conta nunca dispara upload automático de documentos.
+O produto permanece local-first: documentos continuam existindo no dispositivo e a conta local nunca finge ser uma sessão Firebase.
 
 ## Estado atual do Firebase
 
@@ -15,17 +15,17 @@ O projeto Firebase está acessível, porém o health-check real retorna atualmen
 PASSWORD_LOGIN_DISABLED
 ```
 
-Isso significa que **Email/Password está desativado administrativamente no projeto Firebase**. O código do app não consegue habilitar esse provedor usando apenas a API key pública do cliente.
+Isso significa que **Email/Password está desativado administrativamente no projeto Firebase**. A API key pública do cliente não possui privilégio para alterar essa configuração.
 
-Para ativar a conta em nuvem:
+O repositório já declara os provedores desejados em `firebase.json` e possui o workflow manual **OrbiDoc Firebase Production**. Depois que o Secret administrativo `FIREBASE_SERVICE_ACCOUNT_JSON` estiver configurado no GitHub, esse workflow:
 
-1. Abra o Firebase Console do projeto correspondente.
-2. Acesse **Authentication > Sign-in method**.
-3. Habilite **Email/Password**.
-4. Salve.
-5. No OrbiDoc, abra **Conta e login > Nuvem > Atualizar status**.
+1. autentica o Firebase CLI fora do frontend;
+2. executa o deploy da configuração Authentication;
+3. publica `firestore.rules` no banco Firestore nomeado realmente usado pelo OrbiDoc;
+4. executa `verify:auth` com `ORBIDOC_REQUIRE_PASSWORD_AUTH=true`;
+5. falha se Email/Password continuar desativado.
 
-Não é necessário reinstalar o APK depois dessa ativação.
+Também é possível habilitar o provedor manualmente no Firebase Console em **Authentication > Sign-in method > Email/Password**. Não é necessário reinstalar o APK após a ativação; o painel pode atualizar o status em tempo de execução.
 
 ## Conta local — fallback funcional
 
@@ -64,13 +64,36 @@ Quando Email/Password estiver ativo, o fluxo oferece:
 - verificação de e-mail;
 - sessão persistente com `browserLocalPersistence`;
 - perfil/preferências associados a `request.auth.uid`;
-- exclusão da identidade e dados associados na nuvem.
+- exclusão da identidade e dos dados associados na nuvem;
+- namespace local separado por UID;
+- adoção do workspace local no primeiro login daquele UID;
+- merge local/nuvem pelo `updatedAt` mais recente;
+- sincronização dos projetos autenticados com debounce.
 
 Google Drive e OneDrive continuam conexões separadas e opcionais.
 
+## Escopo local por conta
+
+Projetos e histórico são guardados em escopos locais separados. Ao trocar de usuário, o OrbiDoc salva o escopo atual e restaura apenas o escopo associado ao novo UID.
+
+No primeiro login em nuvem em um dispositivo, o workspace local existente pode ser adotado por aquela conta para evitar perda de trabalho. Em logins posteriores, o OrbiDoc restaura o namespace daquele UID em vez de misturar projetos de contas diferentes.
+
+## Sincronização do workspace
+
+Depois que uma conta Firebase real entra:
+
+1. o OrbiDoc carrega os documentos remotos pertencentes ao UID;
+2. mescla projetos remotos e locais pelo registro mais recente;
+3. mantém projetos exclusivos do dispositivo;
+4. inicializa o snapshot conhecido de IDs;
+5. envia alterações posteriores com debounce;
+6. só propaga exclusões depois que o snapshot inicial é conhecido, evitando apagar nuvem por causa de uma inicialização vazia.
+
+Se uma gravação Firestore falhar, o projeto local é preservado; o app é local-first e não deve destruir trabalho por falha de sincronização.
+
 ## Configuração Firebase
 
-O repositório contém `firebase-applet-config.json`. Também é possível substituir a configuração através das variáveis públicas do Web App:
+O repositório contém `firebase-applet-config.json` e `.firebaserc`. Também é possível substituir a configuração pública do Web App através de variáveis:
 
 ```bash
 VITE_FIREBASE_API_KEY=
@@ -82,7 +105,7 @@ VITE_FIREBASE_APP_ID=
 VITE_FIREBASE_DATABASE_ID=
 ```
 
-`VITE_FIREBASE_DATABASE_ID` é opcional. Quando as variáveis estão vazias, o app usa `firebase-applet-config.json`.
+A instalação atual usa um banco Firestore nomeado. O `firebase.json` associa explicitamente `firestore.rules` a esse banco para evitar publicar regras apenas no banco `(default)` por engano.
 
 ## Segurança
 
@@ -95,11 +118,11 @@ Nunca coloque no frontend:
 - segredos de servidor;
 - credenciais privilegiadas de Google Cloud/Firebase Admin.
 
-Dados de nuvem devem ser protegidos por regras baseadas em `request.auth.uid`.
+`FIREBASE_SERVICE_ACCOUNT_JSON` deve existir apenas como GitHub Actions Secret (ou ser substituído futuramente por Workload Identity Federation). O workflow de produção é manual e não expõe essa credencial ao bundle do OrbiDoc.
 
 ## Firestore atual
 
-As regras do OrbiDoc usam UID como identidade principal e preservam compatibilidade de leitura/exclusão para registros legados por e-mail.
+As regras usam UID como identidade principal e preservam compatibilidade controlada com registros legados por e-mail.
 
 Coleções preparadas:
 - `users/{uid}`
@@ -108,20 +131,6 @@ Coleções preparadas:
 - `chat_sessions/{sessionId}`
 
 A **conta local não escreve nessas coleções**, pois não possui identidade Firebase e não deve fingir sincronização.
-
-## Backup e sincronização
-
-Conta e sincronização são conceitos separados.
-
-Não sincronizar automaticamente todo o workspace em um único documento Firestore. Designs, apresentações e documentos podem conter imagens/Data URLs grandes.
-
-Estratégia:
-1. **Local-first:** criação/edição continua no dispositivo.
-2. **Firestore:** metadados, preferências, índices e estados leves.
-3. **Storage/Blob:** arquivos e anexos pesados, quando esse backend for implantado.
-4. **Sync seletivo:** usuário escolhe quais projetos vão para nuvem.
-5. **Conflitos:** comparar `updatedAt` e oferecer manter local, manter nuvem ou duplicar.
-6. **Backup exportável:** continua disponível mesmo sem conta.
 
 ## Exclusão
 
@@ -133,8 +142,12 @@ Exige reautenticação + `EXCLUIR`, remove os registros associados na nuvem e ex
 
 ## Validação CI
 
-`bun run verify:auth` faz duas coisas:
+`bun run verify:auth`:
 - testa o endpoint real do Firebase Authentication sem criar usuário;
-- verifica estruturalmente que o fallback local usa PBKDF2/SHA-256, salt aleatório e sessão persistente.
+- verifica que `firebase.json` declara Email/Password;
+- verifica que `firestore.rules` está associado ao banco nomeado usado pelo app;
+- verifica estruturalmente o fallback local PBKDF2/SHA-256, salt aleatório e sessão persistente.
 
-Se o Firebase retornar `PASSWORD_LOGIN_DISABLED`, o CI registra o bloqueio externo, mas confirma que o login local continua funcional. `ORBIDOC_REQUIRE_PASSWORD_AUTH=true` pode ser usado em uma release que queira tratar o provedor Firebase desativado como erro fatal.
+Em CI normal, `PASSWORD_LOGIN_DISABLED` gera warning explícito porque o fallback local continua válido. Em release/produção, `ORBIDOC_REQUIRE_PASSWORD_AUTH=true` transforma esse estado em erro fatal.
+
+Assim, um CI verde de debug não pode mais ser confundido com autenticação de nuvem pronta para produção.
