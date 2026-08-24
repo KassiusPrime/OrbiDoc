@@ -1,0 +1,47 @@
+name: OrbiDoc Firebase Production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orbidoc-firebase-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Require Firebase admin credential
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_JSON" ]; then
+            echo '::error::Configure FIREBASE_SERVICE_ACCOUNT_JSON com uma service account autorizada no projeto Firebase do OrbiDoc.'
+            exit 1
+          fi
+
+      - uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Deploy Email/Password auth and named Firestore rules
+        run: |
+          npx --yes firebase-tools@latest deploy \
+            --project gen-lang-client-0703075207 \
+            --only "auth,firestore:ai-studio-docswiss-116c7e86-02a0-4cef-95a3-4f36aa66518a" \
+            --non-interactive
+
+      - name: Verify cloud password authentication is really enabled
+        env:
+          ORBIDOC_REQUIRE_PASSWORD_AUTH: "true"
+        run: node scripts/verify-firebase-auth.mjs
