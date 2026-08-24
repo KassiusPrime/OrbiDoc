@@ -1,6 +1,6 @@
-import { compactError, runChat } from './_lib/ai.js';
+import { compactError } from './_lib/ai.js';
+import { runChatV2 } from './_lib/aiRuntimeV2.js';
 import { hydrateGatewayRuntimeAuth } from './_lib/gatewayAuth.js';
-import { runWebGroundedChat } from './_lib/webGrounding.js';
 
 function parseBody(body: any) {
   if (typeof body !== 'string') return body || {};
@@ -16,8 +16,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     await hydrateGatewayRuntimeAuth();
-    const body = parseBody(req.body);
-    const result = body?.webSearch === true ? await runWebGroundedChat(body) : await runChat(body);
+    const result = await runChatV2(parseBody(req.body));
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-OrbiDoc-Request-Id', result.requestId);
     res.status(200).json(result);
