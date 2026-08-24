@@ -1,0 +1,156 @@
+/* OrbiDoc layout safety v2
+ *
+ * This layer deliberately comes after platform.css. It coordinates the visual
+ * viewport, safe areas, scrollbars, modal state and the legacy global launchers
+ * without changing editor-specific layout rules.
+ */
+
+html {
+  --orbidoc-visual-width: 100vw;
+  --orbidoc-visual-offset-left: 0px;
+  --orbidoc-visual-right-inset: 0px;
+  --orbidoc-scrollbar-width: 0px;
+  --orbidoc-floating-gap: 12px;
+}
+
+/* Android/iOS full-screen surfaces must follow the actual visual viewport in
+ * both axes. This matters on split-screen, landscape, display cutouts and while
+ * the IME animates. */
+html.orbidoc-platform-mobile .fixed.inset-0.flex.flex-col {
+  top: var(--orbidoc-visual-offset-top, 0px) !important;
+  left: var(--orbidoc-visual-offset-left, 0px) !important;
+  right: auto !important;
+  width: var(--orbidoc-visual-width, 100vw) !important;
+  max-width: var(--orbidoc-visual-width, 100vw) !important;
+}
+
+html.orbidoc-platform-mobile .orbidoc-native-ai-overlay,
+html.orbidoc-platform-mobile .orbidoc-local-tools-overlay,
+html.orbidoc-platform-mobile [role="dialog"][aria-modal="true"].fixed {
+  top: var(--orbidoc-visual-offset-top, 0px) !important;
+  left: var(--orbidoc-visual-offset-left, 0px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: var(--orbidoc-visual-width, 100vw) !important;
+  height: var(--orbidoc-visual-height, 100dvh) !important;
+  max-width: var(--orbidoc-visual-width, 100vw) !important;
+  max-height: var(--orbidoc-visual-height, 100dvh) !important;
+}
+
+/* The BYOK launcher is redundant on native/mobile because Apps already exposes
+ * Configurações de IA and the assistant empty-state can open the same dialog.
+ * Removing the floating key completely prevents collisions with Design, the
+ * bottom hotbar and gesture/navigation bars. */
+button[aria-label="Conectar IA no aparelho"] {
+  display: none !important;
+}
+
+/* Other global launchers remain available on wide desktop windows, but never
+ * compete with the hotbar on phones/tablets. Their desktop offsets include the
+ * real scrollbar width and system safe edge. */
+html.orbidoc-platform-mobile button[aria-label="Abrir ferramentas de mídia e qualidade"],
+html.orbidoc-platform-mobile button[aria-label="Abrir histórico de versões"],
+html.orbidoc-platform-mobile button[aria-label="Abrir Scan e Reader"] {
+  display: none !important;
+}
+
+html:not(.orbidoc-platform-mobile) button[aria-label="Abrir Scan e Reader"] {
+  right: calc(max(16px, var(--orbidoc-safe-right)) + var(--orbidoc-scrollbar-width)) !important;
+  bottom: max(20px, var(--orbidoc-safe-bottom)) !important;
+}
+
+html:not(.orbidoc-platform-mobile) button[aria-label="Abrir histórico de versões"] {
+  right: calc(max(16px, var(--orbidoc-safe-right)) + var(--orbidoc-scrollbar-width) + 152px) !important;
+  bottom: max(20px, var(--orbidoc-safe-bottom)) !important;
+}
+
+html:not(.orbidoc-platform-mobile) button[aria-label="Abrir ferramentas de mídia e qualidade"] {
+  left: max(16px, var(--orbidoc-safe-left)) !important;
+  bottom: max(20px, var(--orbidoc-safe-bottom)) !important;
+}
+
+/* While a modal or software keyboard is active, background launchers must not
+ * remain focusable/clickable above the active surface. */
+html[data-orbidoc-modal='open'] button[aria-label="Abrir ferramentas de mídia e qualidade"],
+html[data-orbidoc-modal='open'] button[aria-label="Abrir histórico de versões"],
+html[data-orbidoc-modal='open'] button[aria-label="Abrir Scan e Reader"],
+html[data-orbidoc-keyboard='open'] button[aria-label="Abrir ferramentas de mídia e qualidade"],
+html[data-orbidoc-keyboard='open'] button[aria-label="Abrir histórico de versões"],
+html[data-orbidoc-keyboard='open'] button[aria-label="Abrir Scan e Reader"] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Fixed notices use the visible viewport instead of centering against a layout
+ * viewport that may extend underneath a cutout, scrollbar or IME. */
+html.orbidoc-platform-mobile .orbidoc-app-root > div > [role="status"],
+html.orbidoc-platform-mobile .orbidoc-app-root > div > [role="alert"] {
+  left: calc(var(--orbidoc-visual-offset-left, 0px) + max(12px, var(--orbidoc-safe-left))) !important;
+  right: auto !important;
+  width: calc(var(--orbidoc-visual-width, 100vw) - max(12px, var(--orbidoc-safe-left)) - max(12px, var(--orbidoc-safe-right))) !important;
+  transform: none !important;
+}
+
+html.orbidoc-platform-mobile .orbidoc-native-download-notice {
+  left: calc(var(--orbidoc-visual-offset-left, 0px) + max(12px, var(--orbidoc-safe-left))) !important;
+  right: auto !important;
+  width: calc(var(--orbidoc-visual-width, 100vw) - max(12px, var(--orbidoc-safe-left)) - max(12px, var(--orbidoc-safe-right))) !important;
+}
+
+/* Hardware keyboards do not consume visual height. Keep the hotbar stable and
+ * reserve focus outlines, but never interpret physical keyboard activity as an
+ * IME inset. */
+html[data-orbidoc-hardware-keyboard='true'][data-orbidoc-keyboard='closed'] .orbidoc-bottom-nav,
+html[data-orbidoc-hardware-keyboard='true'][data-orbidoc-keyboard='closed'] nav[aria-label="Navegação principal"] {
+  transform: none;
+  opacity: 1;
+}
+
+/* When a modal opens, the background hotbar is visually and interactively gone.
+ * This prevents a tap-through at the bottom edge of translucent dialogs. */
+html.orbidoc-platform-mobile[data-orbidoc-modal='open'] .orbidoc-bottom-nav,
+html.orbidoc-platform-mobile[data-orbidoc-modal='open'] nav[aria-label="Navegação principal"] {
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Keep focused controls clear of native bars and the measured bottom nav. */
+html.orbidoc-platform-mobile input,
+html.orbidoc-platform-mobile textarea,
+html.orbidoc-platform-mobile select,
+html.orbidoc-platform-mobile [contenteditable="true"],
+html.orbidoc-platform-mobile [role="textbox"] {
+  scroll-margin-top: calc(var(--orbidoc-safe-top) + 12px);
+  scroll-margin-bottom: calc(var(--orbidoc-safe-bottom) + 12px);
+}
+
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='closed'] input,
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='closed'] textarea,
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='closed'] select,
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='closed'] [contenteditable="true"],
+html.orbidoc-platform-mobile[data-orbidoc-keyboard='closed'] [role="textbox"] {
+  scroll-margin-bottom: calc(var(--orbidoc-bottom-nav-height) + var(--orbidoc-safe-bottom) + 12px);
+}
+
+/* A stable gutter is useful on desktops, but fixed actions account for its
+ * measured width above instead of drawing over it. */
+html.orbidoc-platform-desktop .orbidoc-app-root main,
+html.orbidoc-platform-web .orbidoc-app-root main {
+  scrollbar-gutter: stable;
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  html.orbidoc-platform-mobile .orbidoc-keyboard-safe-panel,
+  html.orbidoc-platform-mobile .orbidoc-account-panel {
+    border-radius: 18px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.orbidoc-platform-mobile .orbidoc-bottom-nav,
+  html.orbidoc-platform-mobile nav[aria-label="Navegação principal"] {
+    transition: none !important;
+  }
+}
