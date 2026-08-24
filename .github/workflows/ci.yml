@@ -30,7 +30,10 @@ jobs:
       - run: bun run build
       - run: bun run verify:pwa
       - run: bun run verify:playstore
-        env: { ANDROID_TARGET_SDK: "36" }
+        env:
+          ANDROID_TARGET_SDK: "36"
+          ANDROID_PACKAGE_NAME: "app.orbidoc.workspace"
+          ANDROID_APP_LINKS_ENABLED: "false"
       - run: bun run verify:native
       - run: bun run verify:mobile
       - run: bun run verify:auth
@@ -52,11 +55,12 @@ jobs:
       - run: npm install --no-save --package-lock=false @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/assets@3 @tesseract.js-data/por@1 @tesseract.js-data/eng@1
       - run: node scripts/prepare-native-offline-assets.mjs
       - run: npx cap add android
-      - name: Configure Android Keystore AI, Downloads, file intents and viewport
+      - name: Configure Android Keystore AI, web grounding, Downloads, file intents and viewport
         run: |
           node scripts/configure-native-android-bridge.mjs
           node scripts/configure-native-android-network.mjs
           node scripts/fix-native-android-generated-java.mjs
+          node scripts/configure-native-ai-web.mjs
           node scripts/configure-native-android-window.mjs
       - run: |
           rm -rf native-assets && mkdir -p native-assets
@@ -71,6 +75,9 @@ jobs:
           test -f android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           grep -q 'OrbiDocNativePlugin' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'fetchUrlPayload' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'openrouter:web_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'groq/compound-mini' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'google_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           grep -q 'WindowCompat.enableEdgeToEdge' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'SOFT_INPUT_ADJUST_RESIZE' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'windowSoftInputMode="stateAlwaysHidden|adjustResize"' android/app/src/main/AndroidManifest.xml
