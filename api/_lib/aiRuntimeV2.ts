@@ -328,7 +328,7 @@ export async function runChatV2(body: any): Promise<ChatResultV2> {
       requestedModel: model,
       provider,
       model: result.model,
-      routedModel: result.routedModel,
+      routedModel: 'routedModel' in result ? result.routedModel : undefined,
       fallbackUsed: false,
       webSearch,
     };
