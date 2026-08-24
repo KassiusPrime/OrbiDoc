@@ -32,12 +32,12 @@ jobs:
       ANDROID_TARGET_SDK: "36"
       ANDROID_APP_LINKS_ENABLED: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with: { bun-version: latest }
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "21" }
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
       - run: bun install --frozen-lockfile
       - run: |
@@ -147,7 +147,7 @@ jobs:
 
       - name: Upload installable debug APK
         if: env.BUILD_MODE == 'debug' || (env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED != 'true')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OrbiDoc-Android-debug
           path: |
@@ -157,7 +157,7 @@ jobs:
 
       - name: Upload signed release packages
         if: env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OrbiDoc-Android-release
           path: |
