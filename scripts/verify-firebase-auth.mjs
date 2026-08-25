@@ -49,15 +49,23 @@ if (response.ok) throw new Error('O health-check de autenticação entrou inespe
 const providerDisabled = /PASSWORD_LOGIN_DISABLED|OPERATION_NOT_ALLOWED|CONFIGURATION_NOT_FOUND/.test(code);
 if (providerDisabled) {
   const message = `Firebase acessível, mas o provedor e-mail/senha está desativado no projeto (${code}).`;
-  if (strict) throw new Error(message);
+  const remediation = [
+    `Projeto: ${config.projectId}`,
+    'Firebase Console → Security → Authentication → Sign-in method → Email/Password → Enable → Save',
+    'ou execute o workflow "OrbiDoc Firebase Production" após configurar FIREBASE_SERVICE_ACCOUNT_JSON',
+    'Guia completo: docs/FIREBASE_AUTH_SETUP.md',
+  ];
+
+  if (strict) throw new Error(`${message}\n${remediation.map((item) => `- ${item}`).join('\n')}`);
 
   console.warn(`${message} Conta local segura PBKDF2/SHA-256 validada como fallback funcional; nuvem não será simulada.`);
+  console.warn(remediation.map((item) => `  - ${item}`).join('\n'));
   if (process.env.GITHUB_ACTIONS === 'true') {
-    console.warn(`::warning title=Firebase Email/Password desativado::${message} Builds debug/local-first continuam válidos, mas release em nuvem não está pronto.`);
+    console.warn(`::warning title=Firebase Email/Password desativado::${message} Consulte docs/FIREBASE_AUTH_SETUP.md para habilitar o provedor.`);
     if (process.env.GITHUB_STEP_SUMMARY) {
       await fs.appendFile(
         process.env.GITHUB_STEP_SUMMARY,
-        `\n### ⚠️ Firebase Authentication\n${message}\n\nO fallback local seguro foi validado, porém criação de conta/login em nuvem por e-mail e senha ainda não está pronta para produção.\n`,
+        `\n### ⚠️ Firebase Authentication\n${message}\n\nO fallback local seguro foi validado, porém criação de conta/login em nuvem por e-mail e senha ainda não está pronta para produção.\n\n**Como corrigir:**\n${remediation.map((item) => `- ${item}`).join('\n')}\n`,
       );
     }
   }
