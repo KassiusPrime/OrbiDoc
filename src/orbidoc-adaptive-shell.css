@@ -8,11 +8,17 @@ html {
   --orbidoc-focus: #3157F6;
 }
 
-/* The application must fit the actual window even on a narrow desktop browser
- * or short landscape window. Device identity must not reintroduce a 560px floor. */
+/* AppV5 historically carried min-h-[560px]. A workspace window can be shorter
+ * than that in landscape, split-screen or desktop tiling, so no window class is
+ * allowed to inherit the floor. */
+html .orbidoc-app-root > div {
+  min-height: 0 !important;
+}
+
+/* Compact/medium additionally follow the measured visual viewport so IME and
+ * browser chrome cannot push the shell outside the visible area. */
 html.orbidoc-window-compact .orbidoc-app-root > div,
 html.orbidoc-window-medium .orbidoc-app-root > div {
-  min-height: 0 !important;
   max-height: var(--orbidoc-visual-height, 100dvh) !important;
   height: var(--orbidoc-visual-height, 100dvh) !important;
   overflow: hidden;
