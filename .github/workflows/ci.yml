@@ -19,31 +19,82 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: node scripts/check-orbidoc-brand.mjs
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+      - run: bun run verify:pwa
+      - run: bun run verify:playstore
+        env:
+          ANDROID_TARGET_SDK: "36"
+          ANDROID_PACKAGE_NAME: "app.orbidoc.workspace"
+          ANDROID_APP_LINKS_ENABLED: "false"
+      - run: bun run verify:native
+      - run: bun run verify:mobile
+      - run: bun run verify:auth
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+  native-android-apk:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "21" }
+      - uses: android-actions/setup-android@v4
         with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: OrbiDoc brand audit
-        run: node scripts/check-orbidoc-brand.mjs
-
-      - name: Lint source syntax
-        run: bun run lint
-
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Tests
-        run: bun run test
-
-      - name: Production build
-        run: bun run build
-
-      - name: Verify PWA WebAPK and TWA prerequisites
-        run: bun run verify:pwa
+          packages: ''
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: npm install --no-save --package-lock=false @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/assets@3 @tesseract.js-data/por@1 @tesseract.js-data/eng@1
+      - run: node scripts/prepare-native-offline-assets.mjs
+      - run: npx cap add android
+      - name: Configure Android Keystore AI, web grounding, Downloads, file intents and viewport
+        run: |
+          node scripts/configure-native-android-bridge.mjs
+          node scripts/configure-native-android-network.mjs
+          node scripts/fix-native-android-generated-java.mjs
+          node scripts/configure-native-ai-web.mjs
+          node scripts/configure-native-android-window.mjs
+      - run: |
+          rm -rf native-assets && mkdir -p native-assets
+          cp public/brand/orbidoc-app-icon.svg native-assets/logo.svg
+          cp public/brand/orbidoc-app-icon.svg native-assets/logo-dark.svg
+          npx @capacitor/assets generate --android --assetPath native-assets --iconBackgroundColor "#3157F6" --iconBackgroundColorDark "#080D18" --splashBackgroundColor "#F7F9FC" --splashBackgroundColorDark "#080D18"
+      - run: npx cap sync android
+      - run: |
+          bun run verify:native
+          bun run verify:mobile
+          test -f android/app/src/main/assets/public/index.html
+          test -f android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'OrbiDocNativePlugin' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
+          grep -q 'fetchUrlPayload' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'openrouter:web_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'groq/compound-mini' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'google_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'WindowCompat.enableEdgeToEdge' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
+          grep -q 'SOFT_INPUT_ADJUST_RESIZE' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
+          grep -q 'windowSoftInputMode="stateAlwaysHidden|adjustResize"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.action.VIEW' android/app/src/main/AndroidManifest.xml
+      - working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+      - run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk OrbiDoc-debug.apk
+          sha256sum OrbiDoc-debug.apk > OrbiDoc-debug.apk.sha256
+      - uses: actions/upload-artifact@v7
+        with:
+          name: OrbiDoc-Android-debug-${{ github.sha }}
+          path: |
+            OrbiDoc-debug.apk
+            OrbiDoc-debug.apk.sha256
+          retention-days: 14
+          if-no-files-found: error

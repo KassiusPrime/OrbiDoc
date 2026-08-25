@@ -1,4 +1,5 @@
-import { compactError, runChat } from './_lib/ai.js';
+import { compactError } from './_lib/ai.js';
+import { runChatV2 } from './_lib/aiRuntimeV2.js';
 import { hydrateGatewayRuntimeAuth } from './_lib/gatewayAuth.js';
 
 function parseBody(body: any) {
@@ -15,7 +16,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     await hydrateGatewayRuntimeAuth();
-    const result = await runChat(parseBody(req.body));
+    const result = await runChatV2(parseBody(req.body));
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-OrbiDoc-Request-Id', result.requestId);
     res.status(200).json(result);

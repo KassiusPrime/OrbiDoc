@@ -1,0 +1,67 @@
+import fs from 'node:fs/promises';
+
+const read = (path) => fs.readFile(path, 'utf8');
+const [main, platform, overlaySafety, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, installHub, nativeAi, localTools, fabMenu, experienceShell] = await Promise.all([
+  read('src/main.tsx'),
+  read('src/platform.css'),
+  read('src/orbidoc-overlay-safety.css'),
+  read('src/components/NativeViewportAgent.tsx'),
+  read('scripts/configure-native-android-window.mjs'),
+  read('.github/workflows/android-native.yml'),
+  read('.github/workflows/ci.yml'),
+  read('src/components/BrowserGuideModal.tsx'),
+  read('src/components/NativeAiSettingsLauncher.tsx'),
+  read('src/components/LocalUtilitiesLauncher.tsx'),
+  read('src/components/FabMenuSheet.tsx'),
+  read('src/components/OrbiDocExperienceShell.tsx'),
+]);
+
+const assertions = [
+  [main.includes('NativeViewportAgent'), 'NativeViewportAgent não está montado no app.'],
+  [main.includes('LocalUtilitiesLauncher'), 'Ferramentas locais gratuitas não estão montadas.'],
+  [main.includes("./orbidoc-overlay-safety.css"), 'Regras globais de overlays fullscreen não são carregadas.'],
+  [platform.includes('--orbidoc-visual-height'), 'CSS não usa a altura visual dinâmica.'],
+  [platform.includes("data-orbidoc-keyboard='open'"), 'CSS não possui estado específico para teclado virtual.'],
+  [platform.includes('safe-area-inset-top'), 'Safe area superior não está configurada.'],
+  [platform.includes('safe-area-inset-bottom'), 'Safe area inferior não está configurada.'],
+  [platform.includes('orbidoc-install-overlay'), 'Hub de instalação não recebeu safe areas próprias.'],
+  [platform.includes('orbidoc-native-ai-overlay'), 'Configurações nativas de IA não receberam safe areas próprias.'],
+  [platform.includes('orbidoc-native-download-notice'), 'Avisos de download não respeitam hotbar/gesture area.'],
+  [platform.includes('[class~="min-h-[560px]"]'), 'Piso de 560px do Assistente não é neutralizado no mobile.'],
+  [platform.includes('[class~="h-[calc(100dvh-7.5rem)]"]'), 'Assistente não está vinculado ao visualViewport no mobile.'],
+  [platform.includes('orbidoc-fab-footer'), 'Criação rápida não reserva a barra de gesto inferior.'],
+  [platform.includes('orbidoc-onboarding-footer'), 'Onboarding não reserva a barra de gesto inferior.'],
+  [platform.includes('orbidoc-launch-screen'), 'Splash não recebeu safe areas do sistema.'],
+  [overlaySafety.includes('.fixed.inset-0.flex.flex-col'), 'Workspaces fullscreen não seguem a altura visual real.'],
+  [overlaySafety.includes('var(--orbidoc-visual-height'), 'Camada fullscreen não usa visualViewport.'],
+  [overlaySafety.includes('> footer:last-child'), 'Rodapés fullscreen não reservam a barra de gestos.'],
+  [overlaySafety.includes('> [role="status"]') && overlaySafety.includes('var(--orbidoc-safe-top)'), 'Avisos fullscreen não respeitam a status bar/cutout.'],
+  [overlaySafety.includes('orientation: landscape'), 'Workspaces fullscreen não têm proteção para paisagem baixa.'],
+  [viewportAgent.includes('window.visualViewport'), 'visualViewport não está sendo observado.'],
+  [viewportAgent.includes('scrollIntoView'), 'Campos focados não são revelados após abertura do teclado.'],
+  [windowScript.includes('WindowCompat.enableEdgeToEdge'), 'Android não ativa edge-to-edge explicitamente.'],
+  [windowScript.includes('SOFT_INPUT_ADJUST_RESIZE'), 'Android não usa adjustResize para o teclado.'],
+  [nativeWorkflow.includes('configure-native-android-window.mjs'), 'Workflow release não aplica configuração de janela Android.'],
+  [ciWorkflow.includes('configure-native-android-window.mjs'), 'CI APK não aplica configuração de janela Android.'],
+  [installHub.includes('isOrbiDocNativeRuntime'), 'Hub de instalação não distingue APK nativo de PWA.'],
+  [installHub.includes('orbidoc-keyboard-safe-panel'), 'Hub de instalação pode ultrapassar o viewport/teclado.'],
+  [!installHub.includes('Gere o AAB com PWABuilder/Bubblewrap'), 'Hub ainda instrui PWABuilder/Bubblewrap como pacote Android principal.'],
+  [!installHub.includes('Play Store / TWA'), 'Hub ainda apresenta TWA como caminho principal da Play Store.'],
+  [nativeAi.includes('orbidoc-keyboard-safe-panel'), 'Modal de chave de IA não está protegido contra teclado.'],
+  [nativeAi.includes("document.body.style.overflow = 'hidden'"), 'Modal de IA não bloqueia o scroll do fundo.'],
+  [nativeAi.includes('autoCapitalize="off"') && nativeAi.includes('spellCheck={false}'), 'Campo de API key pode sofrer autocorreção/capitalização.'],
+  [localTools.includes('utf8ToBase64') && localTools.includes('base64ToUtf8'), 'Ferramentas locais não incluem Base64 UTF-8 offline.'],
+  [localTools.includes('crypto.randomUUID()'), 'Ferramentas locais não incluem UUID offline.'],
+  [localTools.includes('sha256File') && localTools.includes('file.arrayBuffer()'), 'Ferramentas locais não calculam SHA-256 de arquivo no dispositivo.'],
+  [localTools.includes('Integridade de arquivo') && localTools.includes('200 * 1024 * 1024'), 'Verificador de arquivo não possui UI ou limite de memória.'],
+  [fabMenu.includes('orbidoc-fab-footer'), 'Bottom sheet de criação rápida não identifica o footer seguro.'],
+  [fabMenu.includes("document.body.style.overflow = 'hidden'"), 'Bottom sheet de criação rápida não bloqueia scroll do fundo.'],
+  [experienceShell.includes('isOrbiDocNativeRuntime'), 'Splash/onboarding não reconhecem runtime Android nativo.'],
+  [experienceShell.includes('orbidoc-keyboard-safe-panel'), 'Onboarding não usa painel limitado ao viewport visível.'],
+  [experienceShell.includes('orbidoc-onboarding-footer'), 'Onboarding não identifica o footer protegido por safe area.'],
+  [experienceShell.includes('overflow-y-auto overscroll-contain'), 'Conteúdo do onboarding não é rolável em telas baixas/paisagem.'],
+];
+
+const failures = assertions.filter(([ok]) => !ok).map(([, message]) => message);
+if (failures.length) throw new Error(`Auditoria mobile falhou:\n- ${failures.join('\n- ')}`);
+console.log('Mobile UI audit OK: viewport, keyboard, system bars, fullscreen workspaces, install/AI panels, onboarding, quick-create and free local tools are wired.');

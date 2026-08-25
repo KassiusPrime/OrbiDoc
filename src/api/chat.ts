@@ -1,4 +1,4 @@
-const CLIENT_AI_TIMEOUT_MS = 45000;
+const CLIENT_AI_TIMEOUT_MS = 70000;
 const CHAT_API_ENDPOINT = '/api/chat';
 const CHAT_STREAM_ENDPOINT = '/api/chat/stream';
 
@@ -16,6 +16,7 @@ export interface AiRuntimeMeta {
   routedModel?: string;
   fallbackUsed?: boolean;
   fallbackReason?: string;
+  webSearch?: boolean;
 }
 
 const RUNTIME_EVENT = 'orbidoc:ai-runtime';
@@ -33,7 +34,7 @@ function publishRuntime(meta?: AiRuntimeMeta) {
   window.dispatchEvent(new CustomEvent<AiRuntimeMeta>(RUNTIME_EVENT, { detail: meta }));
 }
 
-function publishFailure(error: unknown, provider: string, model: string) {
+function publishFailure(error: unknown, provider: string, model: string, webSearch?: boolean) {
   const message = error instanceof Error ? error.message : String(error || 'Falha na IA');
   publishRuntime({
     requestedProvider: provider,
@@ -42,6 +43,7 @@ function publishFailure(error: unknown, provider: string, model: string) {
     model,
     fallbackUsed: false,
     fallbackReason: message,
+    webSearch,
   });
 }
 
@@ -50,7 +52,8 @@ export async function sendToVercel(
   model: string,
   messages: AiMessage[],
   systemPrompt?: string,
-  files?: any[]
+  files?: any[],
+  webSearch = false,
 ) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), CLIENT_AI_TIMEOUT_MS);
@@ -59,7 +62,7 @@ export async function sendToVercel(
     const response = await fetch(CHAT_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, model, messages, systemPrompt, files }),
+      body: JSON.stringify({ provider, model, messages, systemPrompt, files, webSearch }),
       signal: controller.signal,
     });
 
@@ -67,7 +70,7 @@ export async function sendToVercel(
     const data = parseApiResponse(text);
     if (!response.ok) {
       const error = new Error(data.error || `Erro no servidor: ${response.status}`);
-      publishFailure(error, provider, model);
+      publishFailure(error, provider, model, webSearch);
       throw error;
     }
 
@@ -80,13 +83,14 @@ export async function sendToVercel(
       routedModel: data.routedModel,
       fallbackUsed: Boolean(data.fallbackUsed),
       fallbackReason: data.fallbackReason,
+      webSearch: Boolean(data.webSearch ?? webSearch),
     });
 
     return data.answer || data.text || '';
   } catch (error: any) {
     if (error?.name === 'AbortError') {
-      const timeoutError = new Error('Tempo limite ao aguardar a IA. Tente uma mensagem menor ou outro modelo.');
-      publishFailure(timeoutError, provider, model);
+      const timeoutError = new Error('Tempo limite ao aguardar a IA. Tente novamente ou desative a pesquisa na internet.');
+      publishFailure(timeoutError, provider, model, webSearch);
       throw timeoutError;
     }
     throw error;
@@ -104,7 +108,8 @@ export async function sendToVercelStream(
     systemPrompt?: string;
     files?: any[];
     signal?: AbortSignal;
-  }
+    webSearch?: boolean;
+  },
 ) {
   const timeoutController = new AbortController();
   const timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_AI_TIMEOUT_MS);
@@ -121,6 +126,7 @@ export async function sendToVercelStream(
         messages,
         systemPrompt: options?.systemPrompt,
         files: options?.files,
+        webSearch: Boolean(options?.webSearch),
       }),
       signal: timeoutController.signal,
     });
@@ -129,7 +135,7 @@ export async function sendToVercelStream(
       const text = await response.text();
       const data = parseApiResponse(text);
       const error = new Error(data.error || `Erro no servidor (${response.status})`);
-      publishFailure(error, provider, model);
+      publishFailure(error, provider, model, options?.webSearch);
       throw error;
     }
     if (!response.body) throw new Error('Resposta sem corpo de dados.');
@@ -154,7 +160,7 @@ export async function sendToVercelStream(
 
       if (parsed.error) {
         const error = new Error(String(parsed.error));
-        publishFailure(error, provider, model);
+        publishFailure(error, provider, model, options?.webSearch);
         throw error;
       }
       if (parsed.meta) publishRuntime(parsed.meta as AiRuntimeMeta);
@@ -179,7 +185,7 @@ export async function sendToVercelStream(
     if (error?.name === 'AbortError') {
       if (options?.signal?.aborted) throw error;
       const timeoutError = new Error('Tempo limite durante a resposta em streaming da IA.');
-      publishFailure(timeoutError, provider, model);
+      publishFailure(timeoutError, provider, model, options?.webSearch);
       throw timeoutError;
     }
     throw error;

@@ -44,6 +44,14 @@ export const AiRuntimeStatus: React.FC = () => {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, []);
+
   const enabledCount = useMemo(() => models.filter((model) => model.enabled).length, [models]);
   const actualModel = meta?.routedModel || meta?.model;
   const actualProvider = meta?.provider;
@@ -52,27 +60,34 @@ export const AiRuntimeStatus: React.FC = () => {
   if (!meta && models.length === 0) return null;
 
   return (
-    <div className="fixed right-3 bottom-[76px] md:bottom-4 z-[70] pointer-events-none max-w-[calc(100vw-24px)]">
-      <div className="pointer-events-auto rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-xl overflow-hidden min-w-[220px] max-w-sm">
+    <div
+      className="orbidoc-ai-runtime fixed z-[70] pointer-events-none"
+      data-expanded={expanded ? 'true' : 'false'}
+    >
+      <div className="orbidoc-ai-runtime-card pointer-events-auto rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-xl overflow-hidden">
         <button
           onClick={() => setExpanded((value) => !value)}
-          className="w-full px-3 py-2.5 flex items-center gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/70"
+          className="orbidoc-ai-runtime-trigger w-full min-h-12 px-3 py-2 flex items-center gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/70"
           aria-expanded={expanded}
+          aria-label={expanded ? 'Recolher status da IA' : 'Abrir status da IA'}
+          title="Status da IA"
         >
-          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${hasFailure ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/50' : meta?.fallbackUsed ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/50' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50'}`}>
+          <div className={`orbidoc-ai-runtime-icon w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${hasFailure ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/50' : meta?.fallbackUsed ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/50' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50'}`}>
             {hasFailure ? <AlertTriangle className="w-4 h-4" /> : <Robot className="w-4 h-4" />}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="orbidoc-ai-runtime-copy min-w-0 flex-1">
             <div className="text-[10px] uppercase tracking-wide font-black text-slate-400">IA em execução</div>
             <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
               {actualModel ? `${actualProvider || 'IA'} · ${actualModel}` : `${enabledCount} provedor(es) disponível(is)`}
             </div>
           </div>
-          {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          <span className="orbidoc-ai-runtime-chevron shrink-0">
+            {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </span>
         </button>
 
         {expanded && (
-          <div className="border-t border-slate-100 dark:border-slate-800 p-3 space-y-3 text-[11px]">
+          <div className="orbidoc-ai-runtime-details border-t border-slate-100 dark:border-slate-800 p-3 space-y-3 text-[11px] max-h-[min(52dvh,420px)] overflow-y-auto overscroll-contain">
             {meta && (
               <div className="space-y-1.5">
                 <div className="flex justify-between gap-3"><span className="text-slate-500">Solicitado</span><span className="font-bold text-slate-700 dark:text-slate-200 text-right">{meta.requestedProvider || '—'} · {meta.requestedModel || 'automático'}</span></div>

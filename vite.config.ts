@@ -16,7 +16,10 @@ export default defineConfig({
     allowedHosts: true,
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      "file-saver": path.resolve(__dirname, "./src/lib/nativeFileSaver.ts"),
+    },
   },
   worker: { format: "es" },
   build: {
@@ -42,7 +45,6 @@ export default defineConfig({
           if (moduleId.includes("/jspdf/") || moduleId.includes("/html2canvas/")) return "vendor-pdf";
           if (moduleId.includes("/pptxgenjs/")) return "vendor-pptx";
           if (moduleId.includes("/xlsx/")) return "vendor-xlsx";
-          if (moduleId.includes("/file-saver/")) return "vendor-file-saver";
 
           if (moduleId.includes("/tesseract.js/") || moduleId.includes("/pdfjs-dist/")) return "vendor-ocr";
           if (moduleId.includes("/firebase/") || moduleId.includes("/@firebase/")) return "vendor-firebase";
@@ -64,6 +66,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
+      manifestFilename: "manifest.json",
       includeAssets: [
         "brand/orbidoc-symbol-light.svg",
         "brand/orbidoc-symbol-dark.svg",
@@ -84,8 +87,6 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//],
-        // The ImageMagick WASM binary is intentionally excluded from precache:
-        // it is ~16 MB and is only needed when an advanced image format is used.
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,mjs}"],
         runtimeCaching: [
           {
@@ -167,7 +168,7 @@ export default defineConfig({
         id: "/",
         name: "OrbiDoc",
         short_name: "OrbiDoc",
-        description: "Workspace para documentos, planilhas, apresentações, PDF, OCR, conversão de arquivos e IA.",
+        description: "Workspace local-first para documentos, planilhas, apresentações, design, PDF, scanner, OCR e conversão de arquivos.",
         lang: "pt-BR",
         dir: "ltr",
         theme_color: "#3157F6",
@@ -178,7 +179,7 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         prefer_related_applications: false,
-        categories: ["productivity", "business", "utilities"],
+        categories: ["productivity", "business", "education", "utilities"],
         icons: [
           { src: "/brand/orbidoc-app-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
           { src: "/logo-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#3157F6" />
+  <meta name="robots" content="index,follow" />
+  <title>Excluir conta · OrbiDoc</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#0B1220;background:#F7F9FC;line-height:1.55}*{box-sizing:border-box}body{margin:0}.top{height:5px;background:linear-gradient(90deg,#3157F6,#22D3EE,#6D5EF7)}main{max-width:760px;margin:0 auto;padding:42px 20px 72px}.brand{display:flex;align-items:center;gap:12px;font-weight:900;font-size:20px}.mark{width:38px;height:38px;border-radius:13px;background:#3157F6;color:#fff;display:grid;place-items:center;font-weight:900}.card{margin-top:24px;background:#fff;border:1px solid #E2E8F0;border-radius:26px;padding:clamp(22px,5vw,42px);box-shadow:0 18px 50px rgba(11,18,32,.06)}h1{font-size:clamp(28px,5vw,42px);line-height:1.08;margin:0}p{font-size:14px;color:#475569}.warning{margin:20px 0;padding:14px 16px;border-radius:16px;background:#FFF1F2;border:1px solid #FECDD3;color:#9F1239;font-size:13px;font-weight:700}label{display:block;margin-top:14px;font-size:11px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:.08em}input{margin-top:6px;width:100%;height:46px;padding:0 13px;border-radius:13px;border:1px solid #CBD5E1;background:#F8FAFC;color:#0B1220;font:inherit;outline:none}input:focus{border-color:#3157F6;box-shadow:0 0 0 3px rgba(49,87,246,.1)}button{margin-top:18px;width:100%;height:46px;border:0;border-radius:13px;background:#E11D48;color:#fff;font:inherit;font-weight:900;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.status{display:none;margin-top:14px;padding:12px 14px;border-radius:13px;font-size:12px;font-weight:700}.status.show{display:block}.status.error{background:#FFF1F2;color:#9F1239}.status.success{background:#ECFDF5;color:#047857}.foot{margin-top:18px;font-size:12px;color:#64748B}.foot a{color:#3157F6;font-weight:800;text-decoration:none}@media(prefers-color-scheme:dark){:root{color:#F8FAFC;background:#080D18}.card{background:#101827;border-color:#243149}.mark{background:#7AA2FF;color:#080D18}p,.foot,label{color:#AAB6C8}input{background:#080D18;border-color:#334155;color:#F8FAFC}.warning{background:#3B0A17;border-color:#881337;color:#FECDD3}.status.error{background:#3B0A17;color:#FECDD3}.status.success{background:#052E26;color:#A7F3D0}}
+  </style>
+</head>
+<body>
+  <div class="top"></div>
+  <main>
+    <div class="brand"><div class="mark">O</div><span>OrbiDoc</span></div>
+    <section class="card">
+      <h1>Excluir sua conta OrbiDoc</h1>
+      <p>Esta página permite iniciar e concluir a exclusão da conta diretamente pela web, sem precisar instalar o aplicativo.</p>
+      <div class="warning">A exclusão é permanente. Ela remove sua identidade OrbiDoc e os dados associados atualmente armazenados na nuvem: perfil, preferências, documentos sincronizados e sessões de chat. Arquivos que existem somente em um dispositivo local não podem ser apagados remotamente.</div>
+
+      <form id="delete-form">
+        <label for="email">E-mail da conta</label>
+        <input id="email" type="email" autocomplete="email" required placeholder="voce@exemplo.com" />
+        <label for="password">Senha atual</label>
+        <input id="password" type="password" autocomplete="current-password" required placeholder="Sua senha" />
+        <label for="phrase">Digite EXCLUIR para confirmar</label>
+        <input id="phrase" type="text" autocomplete="off" required placeholder="EXCLUIR" />
+        <button id="delete-button" type="submit">Excluir conta permanentemente</button>
+      </form>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <div class="foot">Quer apenas sair da conta? Volte ao <a href="/">OrbiDoc</a>. Consulte também a <a href="/privacy.html">Política de Privacidade</a>.</div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword, deleteUser } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+    import { getFirestore, collection, query, where, getDocs, writeBatch, doc, getDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+
+    const firebaseConfig = __ORBIDOC_FIREBASE_CONFIG__;
+    const databaseId = __ORBIDOC_FIRESTORE_DATABASE_ID__;
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
+
+    const form = document.getElementById('delete-form');
+    const button = document.getElementById('delete-button');
+    const status = document.getElementById('status');
+    const show = (message, kind) => { status.textContent = message; status.className = `status show ${kind}`; };
+
+    async function ownedReferences(collectionName, uid, email) {
+      const refs = new Map();
+      const current = await getDocs(query(collection(db, collectionName), where('userId', '==', uid)));
+      current.docs.forEach((snapshot) => refs.set(snapshot.ref.path, snapshot.ref));
+      const legacy = await getDocs(query(collection(db, collectionName), where('userEmail', '==', email)));
+      legacy.docs.forEach((snapshot) => refs.set(snapshot.ref.path, snapshot.ref));
+      return [...refs.values()];
+    }
+
+    async function deleteReferences(refs) {
+      for (let offset = 0; offset < refs.length; offset += 400) {
+        const batch = writeBatch(db);
+        refs.slice(offset, offset + 400).forEach((reference) => batch.delete(reference));
+        await batch.commit();
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
+      const phrase = document.getElementById('phrase').value.trim().toUpperCase();
+      if (phrase !== 'EXCLUIR') { show('Digite EXCLUIR exatamente para confirmar.', 'error'); return; }
+      button.disabled = true;
+      button.textContent = 'Excluindo…';
+      status.className = 'status';
+      try {
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        const user = credential.user;
+        const [documents, chatSessions] = await Promise.all([
+          ownedReferences('documents', user.uid, email),
+          ownedReferences('chat_sessions', user.uid, email)
+        ]);
+        await deleteReferences([...documents, ...chatSessions]);
+
+        const profileRef = doc(db, 'users', user.uid);
+        const settingsRef = doc(db, 'user_settings', user.uid);
+        const legacySettingsRef = doc(db, 'user_settings', email.replace(/[^a-zA-Z0-9]/g, '_'));
+        const [profile, settings, legacySettings] = await Promise.all([getDoc(profileRef), getDoc(settingsRef), getDoc(legacySettingsRef)]);
+        const deletions = [];
+        if (profile.exists()) deletions.push(deleteDoc(profileRef));
+        if (settings.exists()) deletions.push(deleteDoc(settingsRef));
+        if (legacySettings.exists() && legacySettings.data().userEmail === email) deletions.push(deleteDoc(legacySettingsRef));
+        await Promise.all(deletions);
+        await deleteUser(user);
+        form.reset();
+        form.hidden = true;
+        show('Sua conta OrbiDoc e os dados associados na nuvem foram excluídos permanentemente.', 'success');
+      } catch (error) {
+        const code = String(error?.code || '');
+        const message = code.includes('invalid-credential') || code.includes('wrong-password') ? 'E-mail ou senha incorretos.' : code.includes('too-many-requests') ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' : 'Não foi possível concluir a exclusão. Verifique os dados da conta e tente novamente.';
+        show(message, 'error');
+        button.disabled = false;
+        button.textContent = 'Excluir conta permanentemente';
+      }
+    });
+  </script>
+</body>
+</html>

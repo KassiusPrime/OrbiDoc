@@ -1,0 +1,76 @@
+:root {
+  --orbi-surface-muted: #EEF3FA;
+  --orbi-fg-muted: #536176;
+  --orbi-border: #D9E2F0;
+  --orbi-radius-sm: 8px;
+  --orbi-radius-md: 12px;
+  --orbi-radius-lg: 18px;
+  --orbi-shadow-sm: 0 1px 2px rgba(8,13,24,.06);
+  --orbi-shadow-md: 0 8px 24px rgba(8,13,24,.08);
+  --orbi-shadow-lg: 0 20px 60px rgba(8,13,24,.12);
+}
+.dark {
+  --orbi-surface-muted: #162238;
+  --orbi-fg-muted: #9CACBF;
+  --orbi-border: #2A3852;
+  --orbi-shadow-sm: 0 1px 2px rgba(0,0,0,.35);
+  --orbi-shadow-md: 0 10px 28px rgba(0,0,0,.32);
+  --orbi-shadow-lg: 0 24px 72px rgba(0,0,0,.42);
+}
+.orbidoc-ai-studio,
+.orbidoc-media-shell,
+.orbidoc-files-shell { letter-spacing: -0.006em; }
+.orbidoc-product-tabs { scrollbar-width: none; -ms-overflow-style: none; }
+.orbidoc-product-tabs::-webkit-scrollbar { display: none; }
+.orbidoc-ai-studio > section,
+.orbidoc-media-studio > section,
+.orbidoc-files-studio > section { box-shadow: var(--orbi-shadow-sm); }
+.orbidoc-ai-studio button,
+.orbidoc-media-studio button,
+.orbidoc-files-studio button,
+.orbidoc-studio-powerbar button { touch-action: manipulation; }
+.orbidoc-ai-studio input,
+.orbidoc-ai-studio textarea,
+.orbidoc-ai-studio select,
+.orbidoc-media-studio input,
+.orbidoc-media-studio select,
+.orbidoc-files-studio input,
+.orbidoc-files-studio select { accent-color: #3157F6; }
+.orbidoc-studio-powerbar { border: 1px solid var(--orbi-border); box-shadow: var(--orbi-shadow-sm); }
+
+html:not(.orbidoc-platform-mobile) .orbidoc-image-resize-trigger {
+  right: calc(max(16px, var(--orbidoc-safe-right)) + var(--orbidoc-scrollbar-width) + 304px) !important;
+  bottom: max(20px, var(--orbidoc-safe-bottom)) !important;
+}
+html.orbidoc-platform-mobile .orbidoc-image-resize-trigger {
+  right: max(12px, var(--orbidoc-safe-right)) !important;
+  bottom: calc(var(--orbidoc-bottom-nav-height, 68px) + var(--orbidoc-safe-bottom) + 12px) !important;
+  width: 44px;
+  height: 44px;
+  padding-inline: 0;
+  justify-content: center;
+  border-radius: 14px;
+}
+html[data-orbidoc-modal='open'] .orbidoc-image-resize-trigger,
+html[data-orbidoc-keyboard='open'] .orbidoc-image-resize-trigger {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+@media (max-width: 640px) {
+  .orbidoc-ai-studio > section:first-child { border-radius: 18px; }
+  .orbidoc-ai-studio .orbidoc-product-tabs,
+  .orbidoc-media-shell .orbidoc-product-tabs,
+  .orbidoc-files-shell .orbidoc-product-tabs { width: 100%; }
+  .orbidoc-ai-studio .orbidoc-product-tabs > button,
+  .orbidoc-media-shell .orbidoc-product-tabs > button,
+  .orbidoc-files-shell .orbidoc-product-tabs > button { flex: 1 0 auto; }
+  .orbidoc-studio-powerbar { border-radius: 14px; }
+}
+@media (hover: hover) {
+  .orbidoc-ai-studio button:hover,
+  .orbidoc-media-studio button:hover,
+  .orbidoc-files-studio button:hover,
+  .orbidoc-studio-powerbar button:hover { transition-duration: 120ms; }
+}

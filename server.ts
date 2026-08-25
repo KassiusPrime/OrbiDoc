@@ -1,16 +1,15 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import { compactError, getHealth } from './api/_lib/ai.js';
 import {
-  compactError,
-  getHealth,
-  getModelCatalog,
-  getProviderStatus,
-  runChat,
-} from './api/_lib/ai.js';
-import { streamChatSafely } from './api/_lib/aiSafeStream.js';
+  getModelCatalogV2,
+  getProviderStatusV2,
+  runChatV2,
+  streamChatV2,
+} from './api/_lib/aiRuntimeV2.js';
 import { hydrateGatewayRuntimeAuth } from './api/_lib/gatewayAuth.js';
-import { editImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
+import { editImageResilient, enhanceImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_REQUESTS = 120;
@@ -62,15 +61,19 @@ async function startServer() {
     }
   });
 
-  app.get('/api/ai/models', (_req, res) => {
+  app.get('/api/ai/models', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ models: getModelCatalog() });
+    try {
+      res.json({ models: await getModelCatalogV2(), strictRouting: true });
+    } catch (error) {
+      res.status(502).json({ error: compactError(error), models: [] });
+    }
   });
 
   app.get('/api/ai/status', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      res.json(await getProviderStatus());
+      res.json(await getProviderStatusV2());
     } catch (error) {
       res.status(502).json({ error: compactError(error) });
     }
@@ -78,7 +81,7 @@ async function startServer() {
 
   app.get('/api/health', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json(getHealth());
+    res.json({ ...getHealth(), aiRouting: 'strict-v2', research: 'groq-compound+gemini-search+openrouter-web' });
   });
 
   app.post('/api/chat/stream', rateLimit(RATE_MAX_REQUESTS), async (req, res) => {
@@ -89,7 +92,7 @@ async function startServer() {
 
     const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
     try {
-      await streamChatSafely(req.body || {}, write);
+      await streamChatV2(req.body || {}, write);
     } catch (error) {
       write({ error: compactError(error) });
     } finally {
@@ -100,7 +103,7 @@ async function startServer() {
 
   const chatHandler = async (req: express.Request, res: express.Response) => {
     try {
-      const result = await runChat(req.body || {});
+      const result = await runChatV2(req.body || {});
       res.setHeader('Cache-Control', 'no-store');
       res.setHeader('X-OrbiDoc-Request-Id', result.requestId);
       res.json(result);
@@ -125,6 +128,15 @@ async function startServer() {
     try {
       res.setHeader('Cache-Control', 'no-store');
       res.json(await editImageResilient(req.body || {}));
+    } catch (error) {
+      res.status(502).json({ error: compactError(error) });
+    }
+  });
+
+  app.post('/api/enhance-image', rateLimit(IMAGE_RATE_MAX_REQUESTS), async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(await enhanceImageResilient(req.body || {}));
     } catch (error) {
       res.status(502).json({ error: compactError(error) });
     }

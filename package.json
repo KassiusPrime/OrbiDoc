@@ -5,12 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "node scripts/generate-brand-assets.mjs && node scripts/generate-assetlinks.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "node scripts/generate-brand-assets.mjs && node scripts/generate-assetlinks.mjs && vite build && node scripts/configure-public-account-deletion.mjs && node scripts/augment-pwa-manifest.mjs && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "verify:pwa": "node scripts/verify-pwa-build.mjs",
+    "verify:playstore": "node scripts/verify-playstore-readiness.mjs",
+    "verify:native": "node scripts/verify-native-build.mjs",
+    "verify:mobile": "node scripts/verify-mobile-ui.mjs",
+    "verify:auth": "node scripts/verify-firebase-auth.mjs",
     "lint": "node scripts/lint-source.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "check": "bun run lint && bun run typecheck && bun run test && bun run build && bun run verify:pwa",
+    "check": "bun run lint && bun run typecheck && bun run test && bun run build && bun run verify:pwa && bun run verify:playstore && bun run verify:native && bun run verify:mobile && bun run verify:auth",
     "start": "node dist/server.cjs"
   },
   "dependencies": {

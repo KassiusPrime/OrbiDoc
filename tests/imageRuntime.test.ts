@@ -26,11 +26,11 @@ function installGatewayMock(expectedImage: string) {
     assert.equal(headers.get('authorization'), 'Bearer test-gateway-key');
     const body = JSON.parse(String(init?.body || '{}'));
     assert.deepEqual(body.modalities, ['image']);
-    assert.equal(body.model, 'google/gemini-3.1-flash-image-preview');
+    assert.equal(body.model, 'google/gemini-3.1-flash-image');
 
     return new Response(JSON.stringify({
       id: 'chatcmpl-image-test',
-      model: 'google/gemini-3.1-flash-image-preview',
+      model: 'google/gemini-3.1-flash-image',
       choices: [{
         message: {
           role: 'assistant',
@@ -53,6 +53,7 @@ describe('OrbiDoc image runtime', () => {
     const result = await generateImageResilient({ prompt: 'Crie uma órbita minimalista.' });
     assert.equal(result.imageUrl, expectedImage);
     assert.equal(result.provider, 'gateway');
+    assert.equal(result.model, 'google/gemini-3.1-flash-image');
     assert.equal(result.fallbackUsed, false);
   });
 
@@ -67,5 +68,6 @@ describe('OrbiDoc image runtime', () => {
 
     assert.equal(result.imageUrl, expectedImage);
     assert.equal(result.provider, 'gateway');
+    assert.equal(result.model, 'google/gemini-3.1-flash-image');
   });
 });

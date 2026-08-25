@@ -1,3 +1,5 @@
+import { processFileOcr } from './ocrEngine';
+
 export type ConvertibleFormat =
   | 'pdf'
   | 'docx'
@@ -277,7 +279,6 @@ async function pdfToImageArchive(file: File, target: 'png' | 'jpg' | 'webp' | 'a
 }
 
 async function runOcr(file: File, options: ConversionOptions) {
-  const { processFileOcr } = await import('./ocrEngine');
   const text = await processFileOcr(file, { language: options.ocrLanguage || 'por+eng', enhanceContrast: true, forceOcrPdf: Boolean(options.forceOcrPdf) });
   return text.trim();
 }

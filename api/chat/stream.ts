@@ -1,5 +1,5 @@
 import { compactError } from '../_lib/ai.js';
-import { streamChatSafely } from '../_lib/aiSafeStream.js';
+import { streamChatV2 } from '../_lib/aiRuntimeV2.js';
 import { hydrateGatewayRuntimeAuth } from '../_lib/gatewayAuth.js';
 
 function parseBody(body: any) {
@@ -22,7 +22,7 @@ export default async function handler(req: any, res: any) {
 
   const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
   try {
-    await streamChatSafely(parseBody(req.body), write);
+    await streamChatV2(parseBody(req.body), write);
   } catch (error) {
     write({ error: compactError(error) });
   } finally {
