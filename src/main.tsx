@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './AppV5';
 import { AccountSyncAgent } from './components/AccountSyncAgent';
+import { AdminConsoleLauncher } from './components/AdminConsoleLauncher';
 import { AdvancedFreeToolsLauncher } from './components/AdvancedFreeToolsLauncher';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
@@ -77,6 +78,7 @@ ReactDOM.createRoot(root).render(
           <QuickScanReaderLauncher />
           <AiRuntimeStatus />
           <NativeAiSettingsLauncher />
+          <AdminConsoleLauncher />
           <LocalUtilitiesLauncher />
           <AdvancedFreeToolsLauncher />
           <ImageResizeLauncher />
