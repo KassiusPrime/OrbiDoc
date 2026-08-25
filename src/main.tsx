@@ -6,6 +6,7 @@ import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AdvancedFreeToolsLauncher } from './components/AdvancedFreeToolsLauncher';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
+import { ImageResizeLauncher } from './components/ImageResizeLauncher';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
 import { NativeAiSettingsLauncher } from './components/NativeAiSettingsLauncher';
@@ -27,6 +28,7 @@ import './orbidoc-native-ui.css';
 import './platform.css';
 import './orbidoc-overlay-safety.css';
 import './orbidoc-layout-safety-v2.css';
+import './orbidoc-product-polish.css';
 import './scan-reader.css';
 
 migrateLegacyBrandStorage();
@@ -35,15 +37,10 @@ if (nativeRuntime) {
   installNativeAiApiBridge();
   installNativeFileOpenBridge();
 }
-// Install after the native bridge so this layer can enrich both web requests and
-// Capacitor-local /api/chat interception with real-time search intent.
 installAiInternetAgent();
 applyOrbiDocPlatformProfile();
 mountPwaInstallStateAgent();
 
-// Capacitor embeds dist/ inside the APK/AAB and serves it locally. Registering the
-// PWA service worker there would add a second cache/boot layer with no benefit and
-// could make a native build depend on stale web assets. Web/PWA keeps auto-update.
 if (!nativeRuntime) {
   registerSW({
     immediate: true,
@@ -72,6 +69,7 @@ ReactDOM.createRoot(root).render(
       <NativeAiSettingsLauncher />
       <LocalUtilitiesLauncher />
       <AdvancedFreeToolsLauncher />
+      <ImageResizeLauncher />
     </AppErrorBoundary>
   </React.StrictMode>
 );
