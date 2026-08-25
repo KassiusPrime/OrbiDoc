@@ -15,6 +15,7 @@ import { NativeViewportAgent } from './components/NativeViewportAgent';
 import { OrbiDocAuthActionPage } from './components/OrbiDocAuthActionPage';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
+import { PricingLauncher } from './components/PricingLauncher';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
@@ -79,6 +80,7 @@ ReactDOM.createRoot(root).render(
           <AiRuntimeStatus />
           <NativeAiSettingsLauncher />
           <AdminConsoleLauncher />
+          <PricingLauncher />
           <LocalUtilitiesLauncher />
           <AdvancedFreeToolsLauncher />
           <ImageResizeLauncher />
