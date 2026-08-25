@@ -3,6 +3,7 @@ import { DesignEditorStudio } from './DesignEditorStudio';
 import { createStudioElement } from '../lib/officeStudio';
 import { StudioPowerBar } from './StudioPowerBar';
 import { DesignProPanel } from './DesignProPanel';
+import { DesignAdvancedPanel } from './DesignAdvancedPanel';
 
 export const DesignEditor: React.FC<React.ComponentProps<typeof DesignEditorStudio>> = (props) => {
   const importedImageRef = useRef<string | null | undefined>(undefined);
@@ -42,9 +43,11 @@ export const DesignEditor: React.FC<React.ComponentProps<typeof DesignEditorStud
     if (hydratedProject !== props.project) props.onProjectChange(hydratedProject);
   }, [hydratedProject, props.project, props.onProjectChange]);
 
+  const refresh = () => setRevision((value) => value + 1);
   return <div>
     <StudioPowerBar project={hydratedProject} kind="canva" showNotification={props.showNotification} />
-    <DesignProPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={() => setRevision((value) => value + 1)} showNotification={props.showNotification} />
+    <DesignProPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={refresh} showNotification={props.showNotification} />
+    <DesignAdvancedPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={refresh} showNotification={props.showNotification} />
     <DesignEditorStudio key={`${hydratedProject.id}:${revision}`} {...props} project={hydratedProject} />
   </div>;
 };
