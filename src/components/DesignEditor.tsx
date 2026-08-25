@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DesignEditorStudio } from './DesignEditorStudio';
 import { createStudioElement } from '../lib/officeStudio';
 import { StudioPowerBar } from './StudioPowerBar';
+import { DesignProPanel } from './DesignProPanel';
 
 export const DesignEditor: React.FC<React.ComponentProps<typeof DesignEditorStudio>> = (props) => {
   const importedImageRef = useRef<string | null | undefined>(undefined);
+  const [revision, setRevision] = useState(0);
   if (importedImageRef.current === undefined) {
     try {
       importedImageRef.current = sessionStorage.getItem('orbidoc_design_import_image');
@@ -34,11 +36,15 @@ export const DesignEditor: React.FC<React.ComponentProps<typeof DesignEditorStud
       previewSnippet: 'Imagem importada do Estúdio de Imagens.',
       updatedAt: new Date().toISOString(),
     };
-  }, [props.project.id]);
+  }, [props.project]);
 
   useEffect(() => {
     if (hydratedProject !== props.project) props.onProjectChange(hydratedProject);
   }, [hydratedProject, props.project, props.onProjectChange]);
 
-  return <div><StudioPowerBar project={hydratedProject} kind="canva" showNotification={props.showNotification} /><DesignEditorStudio {...props} project={hydratedProject} /></div>;
+  return <div>
+    <StudioPowerBar project={hydratedProject} kind="canva" showNotification={props.showNotification} />
+    <DesignProPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={() => setRevision((value) => value + 1)} showNotification={props.showNotification} />
+    <DesignEditorStudio key={`${hydratedProject.id}:${revision}`} {...props} project={hydratedProject} />
+  </div>;
 };
