@@ -6,6 +6,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function entitlementPath(uid) {
+      return /databases/$(database)/documents/entitlements/$(uid);
+    }
+
+    function isOwner() {
+      return signedIn()
+        && exists(entitlementPath(request.auth.uid))
+        && get(entitlementPath(request.auth.uid)).data.role == 'owner';
+    }
+
     function ownsByUid(data) {
       return signedIn() && data.userId == request.auth.uid;
     }
@@ -26,8 +36,23 @@ service cloud.firestore {
         && data.userEmail == request.auth.token.email;
     }
 
+    match /entitlements/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isOwner());
+      allow create, update, delete: if isOwner();
+    }
+
+    match /admin_config/{configId} {
+      allow read, write: if isOwner();
+    }
+
+    match /admin_audit/{auditId} {
+      allow read, create: if isOwner();
+      allow update, delete: if false;
+    }
+
     match /users/{userId} {
-      allow read, create, update, delete: if signedIn() && request.auth.uid == userId;
+      allow read: if signedIn() && (request.auth.uid == userId || isOwner());
+      allow create, update, delete: if signedIn() && request.auth.uid == userId;
     }
 
     match /documents/{documentId} {
