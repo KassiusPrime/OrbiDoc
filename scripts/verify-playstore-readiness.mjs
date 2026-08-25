@@ -18,6 +18,7 @@ const deletionPath = path.join(dist, 'delete-account.html');
 const capacitorPath = path.resolve('capacitor.config.json');
 const androidWorkflowPath = path.resolve('.github/workflows/android-native.yml');
 const firebaseWorkflowPath = path.resolve('.github/workflows/firebase-production.yml');
+const firebaseConfigPath = path.resolve('firebase-applet-config.json');
 
 if (!fs.existsSync(manifestPath)) failures.push('dist/manifest.json ausente. Execute o build antes da auditoria Play Store.');
 if (!fs.existsSync(assetlinksPath)) failures.push('dist/.well-known/assetlinks.json ausente. O arquivo deve existir mesmo quando App Links estiverem desativados.');
@@ -28,6 +29,7 @@ if (!fs.existsSync(androidWorkflowPath)) failures.push('Workflow Android release
 if (!fs.existsSync(firebaseWorkflowPath)) failures.push('Workflow de implantação Firebase production ausente; autenticação/regras não podem ser promovidas de forma reproduzível.');
 
 const capacitor = fs.existsSync(capacitorPath) ? readJson(capacitorPath) : null;
+const firebaseConfig = fs.existsSync(firebaseConfigPath) ? readJson(firebaseConfigPath) : null;
 const nativeAppId = String(capacitor?.appId || '');
 if (capacitor) {
   if (nativeAppId !== 'app.orbidoc.workspace') failures.push(`Capacitor appId precisa ser app.orbidoc.workspace (atual: ${nativeAppId || 'vazio'}).`);
@@ -119,8 +121,16 @@ if (fs.existsSync(androidWorkflowPath)) {
 
 if (fs.existsSync(firebaseWorkflowPath)) {
   const workflow = fs.readFileSync(firebaseWorkflowPath, 'utf8');
-  for (const token of ['FIREBASE_SERVICE_ACCOUNT_JSON', 'firebase-tools@latest deploy', '--only "auth,firestore:', 'ORBIDOC_REQUIRE_PASSWORD_AUTH: "true"']) {
+  for (const token of ['FIREBASE_SERVICE_ACCOUNT_JSON', 'firebase-tools@latest deploy', '--only auth', 'ORBIDOC_REQUIRE_PASSWORD_AUTH: "true"']) {
     if (!workflow.includes(token)) failures.push(`Workflow Firebase production incompleto: ${token} ausente.`);
+  }
+  const authDeploy = workflow.indexOf('--only auth');
+  const strictVerify = workflow.indexOf('ORBIDOC_REQUIRE_PASSWORD_AUTH: "true"');
+  const firestoreTarget = firebaseConfig?.firestoreDatabaseId ? `firestore:${firebaseConfig.firestoreDatabaseId}` : 'firestore:';
+  const firestoreDeploy = workflow.indexOf(firestoreTarget);
+  if (firestoreDeploy < 0) failures.push(`Workflow Firebase production não publica regras do Firestore esperado (${firestoreTarget}).`);
+  if (!(authDeploy >= 0 && strictVerify > authDeploy && firestoreDeploy > strictVerify)) {
+    failures.push('Workflow Firebase production precisa executar Auth → verificação estrita → regras Firestore nessa ordem.');
   }
 }
 
@@ -132,7 +142,7 @@ if (failures.length) {
 
 console.log(`Google Play nativo: package ${packageName}, Capacitor local-first e target mínimo API ${REQUIRED_TARGET_SDK} validados.`);
 console.log('Google Play nativo: release sem keystore permanente é bloqueada; APK release + AAB exigem assinatura e verificação apksigner.');
-console.log('Firebase production: workflow administrativo e verificação estrita de Email/Password estão presentes.');
+console.log('Firebase production: workflow administrativo valida a ordem Auth → health-check estrito → regras Firestore.');
 if (appLinksEnabled) console.log('Android App Links: Digital Asset Links e SHA-256 de produção validados.');
 else console.log('Android App Links: desativados. assetlinks.json não é requisito para publicar um AAB Capacitor nativo na Play Store.');
 warnings.forEach((warning) => console.log(`Aviso: ${warning}`));
