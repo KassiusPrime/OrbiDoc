@@ -121,11 +121,17 @@ export function getFriendlyAuthError(error: unknown): string {
     'auth/user-not-found': 'Conta não encontrada.',
     'auth/wrong-password': 'E-mail ou senha incorretos.',
     'auth/weak-password': 'Use uma senha mais forte e compatível com a política de segurança.',
-    'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+    'auth/too-many-requests': 'Muitas tentativas ou envios em pouco tempo. Aguarde alguns minutos e tente novamente.',
+    'auth/quota-exceeded': 'O limite de e-mails do Firebase foi atingido. Revise a cota de Authentication ou tente novamente após a renovação da cota.',
     'auth/network-request-failed': 'Não foi possível acessar o serviço de autenticação. Verifique sua conexão.',
     'auth/operation-not-allowed': 'O login por e-mail ainda não foi habilitado no Firebase deste projeto.',
     'auth/admin-restricted-operation': 'Este método de login não está habilitado no Firebase deste projeto.',
     'auth/requires-recent-login': 'Por segurança, entre novamente na conta antes de excluí-la.',
+    'auth/invalid-continue-uri': 'A URL de retorno configurada para o e-mail de autenticação é inválida.',
+    'auth/missing-continue-uri': 'O Firebase exige uma URL de retorno para concluir esta ação de e-mail.',
+    'auth/unauthorized-continue-uri': 'O domínio da URL de retorno não está autorizado no Firebase Authentication.',
+    'auth/unauthorized-domain': 'O domínio atual do OrbiDoc não está autorizado no Firebase Authentication.',
+    'auth/internal-error': 'O Firebase encontrou um erro interno ao processar a autenticação. Tente novamente e revise o template de e-mail se persistir.',
   };
   return messages[code] || (error instanceof Error ? error.message : 'Não foi possível concluir a autenticação.');
 }
@@ -161,14 +167,23 @@ export async function createOrbiDocAccount(name: string, email: string, password
   if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) throw new Error('Digite um endereço de e-mail válido.');
   await enforceCloudPasswordPolicy(password);
   await ensurePersistence();
+
+  let credential;
   try {
-    const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+    credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
     await updateProfile(credential.user, { displayName: cleanName });
-    await sendEmailVerification(credential.user).catch(() => undefined);
-    return mapAuthUser(auth.currentUser)!;
   } catch (error) {
     throw new Error(getFriendlyAuthError(error));
   }
+
+  try {
+    await sendEmailVerification(credential.user);
+  } catch (error) {
+    const reason = getFriendlyAuthError(error);
+    throw new Error(`Conta em nuvem criada, mas o Firebase não conseguiu enviar o e-mail de verificação: ${reason} Use “Reenviar” na conta para tentar novamente.`);
+  }
+
+  return mapAuthUser(auth.currentUser)!;
 }
 
 export async function signInOrbiDocAccount(email: string, password: string): Promise<OrbiDocAuthUser> {
@@ -211,7 +226,7 @@ export async function resendOrbiDocVerification() {
   try {
     await sendEmailVerification(auth.currentUser);
   } catch (error) {
-    throw new Error(getFriendlyAuthError(error));
+    throw new Error(`Não foi possível reenviar o e-mail de verificação: ${getFriendlyAuthError(error)}`);
   }
 }
 
