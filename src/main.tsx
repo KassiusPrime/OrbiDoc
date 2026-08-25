@@ -11,6 +11,7 @@ import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
 import { NativeAiSettingsLauncher } from './components/NativeAiSettingsLauncher';
 import { NativeViewportAgent } from './components/NativeViewportAgent';
+import { OrbiDocAuthActionPage } from './components/OrbiDocAuthActionPage';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
@@ -34,6 +35,9 @@ import './scan-reader.css';
 
 migrateLegacyBrandStorage();
 const nativeRuntime = applyOrbiDocNativeRuntimeProfile();
+const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/';
+const emailActionPage = !nativeRuntime && normalizedPath === '/auth/action';
+
 if (nativeRuntime) {
   installNativeAiApiBridge();
   installNativeFileOpenBridge();
@@ -57,21 +61,27 @@ if (!root) throw new Error('Elemento raiz do OrbiDoc não foi encontrado.');
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <AppErrorBoundary>
-      <OrbiDocExperienceShell>
-        <App />
-      </OrbiDocExperienceShell>
-      <OrbiDocLoginScreen />
-      <NativeViewportAgent />
-      <AccountSyncAgent />
-      <SystemFileOpenAgent />
-      <MediaToolsLauncher />
-      <VersionHistoryLauncher />
-      <QuickScanReaderLauncher />
-      <AiRuntimeStatus />
-      <NativeAiSettingsLauncher />
-      <LocalUtilitiesLauncher />
-      <AdvancedFreeToolsLauncher />
-      <ImageResizeLauncher />
+      {emailActionPage ? (
+        <OrbiDocAuthActionPage />
+      ) : (
+        <>
+          <OrbiDocExperienceShell>
+            <App />
+          </OrbiDocExperienceShell>
+          <OrbiDocLoginScreen />
+          <NativeViewportAgent />
+          <AccountSyncAgent />
+          <SystemFileOpenAgent />
+          <MediaToolsLauncher />
+          <VersionHistoryLauncher />
+          <QuickScanReaderLauncher />
+          <AiRuntimeStatus />
+          <NativeAiSettingsLauncher />
+          <LocalUtilitiesLauncher />
+          <AdvancedFreeToolsLauncher />
+          <ImageResizeLauncher />
+        </>
+      )}
     </AppErrorBoundary>
   </React.StrictMode>
 );
