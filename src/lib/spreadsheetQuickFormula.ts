@@ -1,6 +1,6 @@
 import { cellKey, parseA1, parseRange, type ProSheet } from './spreadsheetPro';
 
-export type QuickFormula = 'SUM' | 'AVERAGE' | 'MIN' | 'MAX' | 'COUNT';
+export type QuickFormula = 'SUM' | 'COUNT';
 
 export function insertQuickFormula(sheet: ProSheet, range: string, target: string, operation: QuickFormula) {
   const bounds = parseRange(range);
@@ -15,11 +15,7 @@ export function insertQuickFormula(sheet: ProSheet, range: string, target: strin
       if (Number.isFinite(number)) values.push(number);
     }
   }
-  const result = operation === 'COUNT' ? values.length
-    : operation === 'SUM' ? values.reduce((sum, value) => sum + value, 0)
-      : operation === 'MIN' ? (values.length ? Math.min(...values) : 0)
-        : operation === 'MAX' ? (values.length ? Math.max(...values) : 0)
-          : (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
+  const result = operation === 'COUNT' ? values.length : values.reduce((sum, value) => sum + value, 0);
   const next: ProSheet = { ...sheet, cells: { ...sheet.cells } };
   const key = cellKey(destination.row, destination.column);
   next.cells[key] = { ...(sheet.cells[key] || {}), value: String(Number(result.toFixed(8))), formula: `=${operation}(${range.toUpperCase()})` };
