@@ -12,6 +12,7 @@ import { MediaToolsLauncher } from './components/MediaToolsLauncher';
 import { NativeAiSettingsLauncher } from './components/NativeAiSettingsLauncher';
 import { NativeViewportAgent } from './components/NativeViewportAgent';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
+import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
@@ -59,6 +60,7 @@ ReactDOM.createRoot(root).render(
       <OrbiDocExperienceShell>
         <App />
       </OrbiDocExperienceShell>
+      <OrbiDocLoginScreen />
       <NativeViewportAgent />
       <AccountSyncAgent />
       <SystemFileOpenAgent />
