@@ -22,6 +22,17 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT_JSON" ]; then
+            {
+              echo '## Firebase Production bloqueado'
+              echo
+              echo 'Configure o secret FIREBASE_SERVICE_ACCOUNT_JSON com uma service account do projeto gen-lang-client-0703075207.'
+              echo
+              echo 'Permissões recomendadas:'
+              echo '- roles/firebaseauth.admin'
+              echo '- roles/firebaserules.admin'
+              echo
+              echo 'Consulte docs/FIREBASE_AUTH_SETUP.md.'
+            } >> "$GITHUB_STEP_SUMMARY"
             echo '::error::Configure FIREBASE_SERVICE_ACCOUNT_JSON com uma service account autorizada no projeto Firebase do OrbiDoc.'
             exit 1
           fi
@@ -34,14 +45,32 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Deploy Email/Password auth and named Firestore rules
+      - name: Deploy Email/Password Authentication first
         run: |
           npx --yes firebase-tools@latest deploy \
             --project gen-lang-client-0703075207 \
-            --only "auth,firestore:ai-studio-docswiss-116c7e86-02a0-4cef-95a3-4f36aa66518a" \
+            --only auth \
             --non-interactive
 
       - name: Verify cloud password authentication is really enabled
         env:
           ORBIDOC_REQUIRE_PASSWORD_AUTH: "true"
         run: node scripts/verify-firebase-auth.mjs
+
+      - name: Deploy named Firestore security rules after Auth is healthy
+        run: |
+          npx --yes firebase-tools@latest deploy \
+            --project gen-lang-client-0703075207 \
+            --only "firestore:ai-studio-docswiss-116c7e86-02a0-4cef-95a3-4f36aa66518a" \
+            --non-interactive
+
+      - name: Firebase production summary
+        run: |
+          {
+            echo '## ✅ OrbiDoc Firebase Production'
+            echo
+            echo '- Email/Password Authentication: habilitado e validado'
+            echo '- Projeto: gen-lang-client-0703075207'
+            echo '- Firestore rules: publicadas no banco nomeado do OrbiDoc'
+            echo '- Fallback local: preservado e independente'
+          } >> "$GITHUB_STEP_SUMMARY"
