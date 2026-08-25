@@ -73,9 +73,11 @@ test('keyboard shortcuts and focus remain safe inside editors', async () => {
   assert.match(adaptive, /scroll-margin-block/);
 });
 
-test('medium rail stays available when a software keyboard opens', async () => {
+test('medium rail handles keyboard and modal state without hidden interaction', async () => {
   const adaptive = await read('src/orbidoc-adaptive-shell.css');
-  assert.match(adaptive, /orbidoc-window-medium\[data-orbidoc-keyboard='open'\] \.orbidoc-bottom-nav/);
-  assert.match(adaptive, /transform: none !important/);
+  assert.match(adaptive, /orbidoc-window-medium\[data-orbidoc-keyboard='open'\]\[data-orbidoc-modal='closed'\] \.orbidoc-bottom-nav/);
+  assert.match(adaptive, /orbidoc-window-medium\[data-orbidoc-modal='open'\] \.orbidoc-bottom-nav/);
+  assert.match(adaptive, /translateX\(-120%\)/);
+  assert.match(adaptive, /pointer-events: none !important/);
   assert.match(adaptive, /pointer-events: auto !important/);
 });
