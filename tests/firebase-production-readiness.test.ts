@@ -17,9 +17,10 @@ test('Firebase signup validates the live password policy before account creation
 
 test('Firebase production workflow deploys and verifies auth before Firestore rules', () => {
   const workflow = read('.github/workflows/firebase-production.yml');
+  const config = JSON.parse(read('firebase-applet-config.json')) as { firestoreDatabaseId: string };
   const authDeploy = workflow.indexOf('--only auth');
   const strictVerify = workflow.indexOf('ORBIDOC_REQUIRE_PASSWORD_AUTH');
-  const firestoreDeploy = workflow.indexOf('--only "firestore:ai-studio-docswiss-116c7e86-02a0-4cef-95a3-4f36aa66518a"');
+  const firestoreDeploy = workflow.indexOf(`firestore:${config.firestoreDatabaseId}`);
   assert.ok(authDeploy >= 0);
   assert.ok(strictVerify > authDeploy);
   assert.ok(firestoreDeploy > strictVerify);
