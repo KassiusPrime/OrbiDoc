@@ -48,7 +48,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 }) => (
   <nav
     aria-label="Navegação principal"
-    className="orbidoc-bottom-nav min-[600px]:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/96 dark:bg-[#101827]/96 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-8px_24px_rgba(15,23,42,0.07)] px-1.5 pt-1.5 pb-[max(0.45rem,env(safe-area-inset-bottom))]"
+    className="orbidoc-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/96 dark:bg-[#101827]/96 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-8px_24px_rgba(15,23,42,0.07)] px-1.5 pt-1.5 pb-[max(0.45rem,env(safe-area-inset-bottom))]"
   >
     <div className="max-w-lg mx-auto grid grid-cols-5 items-stretch justify-items-stretch gap-0.5">
       {TABS.map((tab) => {
