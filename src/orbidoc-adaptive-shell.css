@@ -77,10 +77,19 @@ html.orbidoc-window-compact .orbidoc-bottom-nav {
     scroll-padding-bottom: 1rem !important;
   }
 
-  /* A software keyboard occupies the bottom, not the left rail. */
-  html.orbidoc-window-medium[data-orbidoc-keyboard='open'] .orbidoc-bottom-nav,
-  html.orbidoc-window-medium[data-orbidoc-modal='closed'] .orbidoc-bottom-nav {
+  /* A software keyboard occupies the bottom, not the left rail. Keep the rail
+   * available only when there is no active modal that should own interaction. */
+  html.orbidoc-window-medium[data-orbidoc-keyboard='open'][data-orbidoc-modal='closed'] .orbidoc-bottom-nav,
+  html.orbidoc-window-medium[data-orbidoc-keyboard='closed'][data-orbidoc-modal='closed'] .orbidoc-bottom-nav {
     transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  html.orbidoc-window-medium[data-orbidoc-modal='open'] .orbidoc-bottom-nav {
+    transform: translateX(-120%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 }
 
