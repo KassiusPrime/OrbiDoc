@@ -195,7 +195,7 @@ const evaluateFunction = (name: string, argsSource: string, context: EvalContext
     const criterion = evaluateExpression(args[1] || '', context);
     const sumValues = args[2] ? resolveRange(args[2], context) : criteriaValues;
     if (!sumValues || sumValues.length !== criteriaValues.length) return '#REF!';
-    return criteriaValues.reduce((sum, value, index) => {
+    return criteriaValues.reduce<number>((sum, value, index) => {
       if (!matchesCriteria(value, criterion)) return sum;
       const numeric = asNumber(sumValues[index]);
       return Number.isFinite(numeric) ? sum + numeric : sum;
