@@ -157,7 +157,7 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
           <div className="flex-1 min-w-0">
             <OrbiDocLogo size="sm" />
             <div className="mt-3 flex items-center gap-1.5 text-xs font-black text-[#0B1220] dark:text-white"><ShieldCheck className="w-4 h-4 text-[#3157F6] dark:text-[#7AA2FF]" /> Conta e conexões</div>
-            <div className="mt-1 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">A conta OrbiDoc usa e-mail e senha. Google e Microsoft ficam opcionais apenas para conectar serviços externos.</div>
+            <div className="mt-1 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">A conta OrbiDoc pode usar Google ou e-mail/senha. Google Drive e Microsoft continuam conexões externas opcionais e separadas.</div>
           </div>
           <button onClick={() => setOpen(false)} className="w-8 h-8 shrink-0 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500" aria-label="Fechar conta e conexões"><X className="w-4 h-4" /></button>
         </div>
