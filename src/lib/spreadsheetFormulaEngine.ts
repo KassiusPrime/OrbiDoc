@@ -162,8 +162,11 @@ const matchesCriteria = (value: FormulaValue, criterion: FormulaValue) => {
   if (operator) {
     const raw = operator[2].trim();
     const numeric = asNumber(raw);
-    const right: FormulaValue = Number.isFinite(numeric) ? numeric : raw;
-    return compareValues(value, right, operator[1]);
+    if (Number.isFinite(numeric)) {
+      const left = asNumber(value);
+      return Number.isFinite(left) && compareValues(left, numeric, operator[1]);
+    }
+    return compareValues(value, raw, operator[1]);
   }
   if (source.includes('*') || source.includes('?')) return wildcardMatch(value, source);
   return compareValues(value, source, '=');
