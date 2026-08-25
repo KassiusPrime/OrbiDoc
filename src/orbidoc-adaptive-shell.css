@@ -1,0 +1,171 @@
+/* OrbiDoc Elite adaptive shell
+ * Loaded last so window-size layout wins over device/UA-specific legacy rules.
+ * Layout decisions follow compact / medium / expanded window classes.
+ */
+
+html {
+  --orbidoc-rail-width: 76px;
+  --orbidoc-focus: #3157F6;
+}
+
+/* The application must fit the actual window even on a narrow desktop browser
+ * or short landscape window. Device identity must not reintroduce a 560px floor. */
+html.orbidoc-window-compact .orbidoc-app-root > div,
+html.orbidoc-window-medium .orbidoc-app-root > div {
+  min-height: 0 !important;
+  max-height: var(--orbidoc-visual-height, 100dvh) !important;
+  height: var(--orbidoc-visual-height, 100dvh) !important;
+  overflow: hidden;
+}
+
+/* Compact: bottom navigation owns the bottom safe edge. */
+html.orbidoc-window-compact .orbidoc-bottom-nav {
+  display: block;
+}
+
+/* Medium: the exact same React navigation becomes a rail. This preserves all
+ * handlers/state and avoids a second navigation implementation on tablets,
+ * foldables, split-screen and resized desktop windows. */
+@media (min-width: 600px) and (max-width: 1023px) {
+  html.orbidoc-window-medium .orbidoc-app-root > div {
+    padding-left: var(--orbidoc-rail-width);
+  }
+
+  html.orbidoc-window-medium .orbidoc-bottom-nav {
+    display: flex !important;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: var(--orbidoc-rail-width);
+    min-height: 0 !important;
+    height: var(--orbidoc-visual-height, 100dvh);
+    padding: max(12px, var(--orbidoc-safe-top)) 8px max(12px, var(--orbidoc-safe-bottom)) !important;
+    border-top: 0;
+    border-right: 1px solid rgb(226 232 240 / .9);
+    box-shadow: 8px 0 24px rgb(15 23 42 / .05);
+    align-items: center;
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  html.dark.orbidoc-window-medium .orbidoc-bottom-nav {
+    border-right-color: rgb(30 41 59 / .95);
+  }
+
+  html.orbidoc-window-medium .orbidoc-bottom-nav > div {
+    width: 100%;
+    max-width: none;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, minmax(58px, auto));
+    gap: 8px;
+    align-content: center;
+    align-items: stretch;
+  }
+
+  html.orbidoc-window-medium .orbidoc-bottom-nav button {
+    width: 100%;
+    min-width: 0;
+    min-height: 58px;
+    padding-inline: 4px;
+  }
+
+  html.orbidoc-window-medium .orbidoc-app-root > div > div.flex-1 > main {
+    padding-bottom: 1.25rem !important;
+    scroll-padding-bottom: 1rem !important;
+  }
+
+  /* A software keyboard occupies the bottom, not the left rail. */
+  html.orbidoc-window-medium[data-orbidoc-keyboard='open'] .orbidoc-bottom-nav,
+  html.orbidoc-window-medium[data-orbidoc-modal='closed'] .orbidoc-bottom-nav {
+    transform: none !important;
+  }
+}
+
+/* Expanded uses the existing full sidebar. */
+@media (min-width: 1024px) {
+  html.orbidoc-window-expanded .orbidoc-bottom-nav {
+    display: none !important;
+  }
+}
+
+/* Legacy one-off floating launchers are controllers now, not navigation. They
+ * remain mounted for keyboard/event compatibility but no longer occupy pixels. */
+button[aria-label='Abrir ferramentas de mídia e qualidade'],
+button[aria-label='Abrir histórico de versões'],
+button[aria-label='Abrir Scan e Reader'],
+button[aria-label='Abrir redimensionador de imagens'],
+button[aria-label='Conectar IA no aparelho'] {
+  display: none !important;
+}
+
+/* One desktop command center replaces the launcher cluster. Compact/medium
+ * already expose the same utilities through Criar. */
+.orbidoc-tools-hub-trigger {
+  right: calc(max(16px, var(--orbidoc-safe-right)) + var(--orbidoc-scrollbar-width, 0px));
+  bottom: max(20px, var(--orbidoc-safe-bottom));
+}
+
+html:not(.orbidoc-window-expanded) .orbidoc-tools-hub-trigger {
+  display: none !important;
+}
+
+html[data-orbidoc-modal='open'] .orbidoc-tools-hub-trigger,
+html[data-orbidoc-keyboard='open'] .orbidoc-tools-hub-trigger {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* WCAG-friendly visible focus across every product surface. Component-specific
+ * rings can still override this, but keyboard focus is never invisible. */
+:where(button, [role='button'], a[href], input, textarea, select, [contenteditable='true'], [tabindex]):focus-visible {
+  outline: 2px solid var(--orbidoc-focus) !important;
+  outline-offset: 2px !important;
+}
+
+.dark :where(button, [role='button'], a[href], input, textarea, select, [contenteditable='true'], [tabindex]):focus-visible {
+  outline-color: #7AA2FF !important;
+}
+
+:where(button, [role='button']) {
+  touch-action: manipulation;
+}
+
+/* Small onboarding dots keep their visual size, but their hit target is large
+ * enough for touch and keyboard operation. */
+.orbidoc-onboarding-overlay button[aria-label^='Ir para etapa'] {
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 10px !important;
+  background-clip: content-box !important;
+}
+
+/* Prevent focused controls from being hidden by sticky chrome. */
+:where(input, textarea, select, [contenteditable='true'], [role='textbox']) {
+  scroll-margin-block: 16px;
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .orbidoc-bottom-nav {
+    font-size: 10px;
+  }
+
+  html.orbidoc-window-medium .orbidoc-bottom-nav > div {
+    grid-template-rows: repeat(5, minmax(48px, auto));
+    gap: 2px;
+  }
+
+  html.orbidoc-window-medium .orbidoc-bottom-nav button {
+    min-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbidoc-bottom-nav,
+  .orbidoc-tools-hub-trigger {
+    transition: none !important;
+  }
+}
