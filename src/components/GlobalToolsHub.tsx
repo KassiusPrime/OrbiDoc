@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconArrowsMaximize,
   IconDownload,
@@ -37,14 +37,26 @@ const openMediaTab = (label: 'Baixar por link' | 'Aprimorar imagem') => {
 export const GlobalToolsHub: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const restoreTriggerFocus = () => window.requestAnimationFrame(() => triggerRef.current?.focus());
 
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        setOpen((value) => !value);
+        setOpen((value) => {
+          const next = !value;
+          if (!next) restoreTriggerFocus();
+          return next;
+        });
       }
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen((value) => {
+          if (value) restoreTriggerFocus();
+          return false;
+        });
+      }
     };
     window.addEventListener('keydown', keyboard);
     return () => window.removeEventListener('keydown', keyboard);
@@ -116,28 +128,38 @@ export const GlobalToolsHub: React.FC = () => {
     },
   ], []);
 
+  const closeHub = () => {
+    setOpen(false);
+    restoreTriggerFocus();
+  };
+
   const run = (operation: () => void) => {
     setNotice('');
-    try {
-      setOpen(false);
-      window.setTimeout(operation, 40);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Não foi possível abrir a ferramenta.');
-    }
+    setOpen(false);
+    window.setTimeout(() => {
+      try {
+        operation();
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : 'Não foi possível abrir a ferramenta.');
+        setOpen(true);
+      }
+    }, 40);
   };
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         className="orbidoc-tools-hub-trigger hidden lg:inline-flex fixed z-[73] h-11 px-4 rounded-2xl bg-white/96 dark:bg-[#101827]/96 border border-slate-200 dark:border-slate-700 shadow-lg text-[10px] font-black text-slate-700 dark:text-slate-100 items-center gap-2 hover:border-[#3157F6]/40"
         aria-label="Abrir central de ferramentas"
+        aria-expanded={open}
         title="Central de Ferramentas · Ctrl/Cmd+K"
       >
         <IconSparkles className="w-4.5 h-4.5 text-[#3157F6] dark:text-[#7AA2FF]" />
         Ferramentas
-        <kbd className="ml-1 rounded-md border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 text-[8px] font-bold text-slate-400">⌘K</kbd>
+        <kbd className="ml-1 rounded-md border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 text-[8px] font-bold text-slate-400">Ctrl K</kbd>
       </button>
 
       {open && (
@@ -146,7 +168,7 @@ export const GlobalToolsHub: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="orbidoc-tools-hub-title"
-          onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}
+          onMouseDown={(event) => { if (event.target === event.currentTarget) closeHub(); }}
         >
           <section className="orbidoc-keyboard-safe-panel w-full max-w-3xl max-h-[min(88dvh,760px)] overflow-hidden rounded-[28px] border border-slate-200 dark:border-slate-800 bg-[#F7F9FC] dark:bg-[#080D18] shadow-2xl flex flex-col">
             <header className="shrink-0 px-4 sm:px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] flex items-center gap-3">
@@ -157,7 +179,7 @@ export const GlobalToolsHub: React.FC = () => {
                 <h2 id="orbidoc-tools-hub-title" className="text-sm font-black">Central de Ferramentas</h2>
                 <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">Um único ponto para utilidades globais. Ctrl/Cmd+K abre ou fecha esta central.</p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Fechar central de ferramentas">
+              <button type="button" autoFocus onClick={closeHub} className="w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Fechar central de ferramentas">
                 <IconX className="w-4 h-4" />
               </button>
             </header>
