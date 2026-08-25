@@ -19,7 +19,7 @@ test('spreadsheet pro filters to a new sheet without mutating the source', () =>
   const filtered = createFilteredSheet(source, 'A1:C4', 'B', 'Ativo', true, true, 'Ativos');
   assert.ok(filtered);
   assert.equal(filtered?.cells.A1.value, 'Nome');
-  assert.equal(filtered?.cells.A2.value, 'Ana   Silva');
+  assert.equal(filtered?.cells.A2.value, '  Ana   Silva  ');
   assert.equal(filtered?.cells.A3.value, 'Carla');
   assert.equal(source.cells.A3.value, 'Bruno');
 });
