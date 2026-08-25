@@ -43,3 +43,24 @@ export function conditionalFormat(sheet: ProSheet, range: string, rule: Conditio
   for (const key of keys(bounds)) { const cell = next.cells[key] || { value: '' }; const raw = text(cell); const n = Number(raw.replace(',', '.')); const target = 'value' in rule ? String(rule.value) : ''; const ok = rule.kind === 'greater' ? Number.isFinite(n) && n > rule.value : rule.kind === 'less' ? Number.isFinite(n) && n < rule.value : rule.kind === 'equal' ? raw.toLocaleLowerCase('pt-BR') === target.toLocaleLowerCase('pt-BR') : rule.kind === 'contains' ? raw.toLocaleLowerCase('pt-BR').includes(target.toLocaleLowerCase('pt-BR')) : raw.length > 0; if (ok) { next.cells[key] = { ...cell, bgColor: '#DCFCE7', textColor: '#166534' }; matched += 1; } }
   return { sheet: next, matched };
 }
+
+export function createFilteredSheet(sheet: ProSheet, range: string, columnLetter: string, query: string, exact = false, includeHeader = true, name = 'Filtro') {
+  const bounds = parseRange(range); const column = parseA1(`${columnLetter.replace(/\d/g, '')}1`)?.column;
+  if (!bounds || column === undefined || column < bounds.startColumn || column > bounds.endColumn) return null;
+  const needle = query.trim().toLocaleLowerCase('pt-BR'); const sourceRows: number[] = [];
+  for (let row = bounds.startRow; row <= bounds.endRow; row += 1) { if (includeHeader && row === bounds.startRow) { sourceRows.push(row); continue; } const value = text(sheet.cells[cellKey(row, column)]).toLocaleLowerCase('pt-BR'); if (!needle || (exact ? value === needle : value.includes(needle))) sourceRows.push(row); }
+  const cells: Record<string, ProCell> = {};
+  sourceRows.forEach((sourceRow, targetRow) => { for (let sourceColumn = bounds.startColumn; sourceColumn <= bounds.endColumn; sourceColumn += 1) { const source = sheet.cells[cellKey(sourceRow, sourceColumn)]; if (source) cells[cellKey(targetRow, sourceColumn - bounds.startColumn)] = { ...source }; } });
+  return { id: crypto.randomUUID(), name: name.trim().slice(0, 31) || 'Filtro', rows: Math.max(80, sourceRows.length + 12), cols: Math.max(20, bounds.endColumn - bounds.startColumn + 1), cells, columnWidths: {} } satisfies ProSheet;
+}
+
+export function sortRange(sheet: ProSheet, range: string, columnLetter: string, direction: 'asc' | 'desc', includeHeader = true) {
+  const bounds = parseRange(range); const column = parseA1(`${columnLetter.replace(/\d/g, '')}1`)?.column;
+  if (!bounds || column === undefined || column < bounds.startColumn || column > bounds.endColumn) return sheet;
+  const firstDataRow = bounds.startRow + (includeHeader ? 1 : 0); if (firstDataRow > bounds.endRow) return sheet;
+  const order = Array.from({ length: bounds.endRow - firstDataRow + 1 }, (_, index) => firstDataRow + index);
+  order.sort((a, b) => { const av = text(sheet.cells[cellKey(a, column)]); const bv = text(sheet.cells[cellKey(b, column)]); const an = Number(av.replace(',', '.')); const bn = Number(bv.replace(',', '.')); const comparison = Number.isFinite(an) && Number.isFinite(bn) ? an - bn : av.localeCompare(bv, 'pt-BR', { numeric: true, sensitivity: 'base' }); return direction === 'asc' ? comparison : -comparison; });
+  const next = clone(sheet); const snapshot = clone(sheet).cells;
+  order.forEach((sourceRow, offset) => { const targetRow = firstDataRow + offset; for (let col = bounds.startColumn; col <= bounds.endColumn; col += 1) { const source = snapshot[cellKey(sourceRow, col)]; const target = cellKey(targetRow, col); if (source) next.cells[target] = { ...source }; else delete next.cells[target]; } });
+  return next;
+}
