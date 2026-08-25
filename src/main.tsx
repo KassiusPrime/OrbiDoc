@@ -6,6 +6,7 @@ import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AdvancedFreeToolsLauncher } from './components/AdvancedFreeToolsLauncher';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AiRuntimeStatus } from './components/AiRuntimeStatus';
+import { GlobalToolsHub } from './components/GlobalToolsHub';
 import { ImageResizeLauncher } from './components/ImageResizeLauncher';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
@@ -31,6 +32,7 @@ import './orbidoc-overlay-safety.css';
 import './orbidoc-layout-safety-v2.css';
 import './orbidoc-product-polish.css';
 import './scan-reader.css';
+import './orbidoc-adaptive-shell.css';
 
 migrateLegacyBrandStorage();
 const nativeRuntime = applyOrbiDocNativeRuntimeProfile();
@@ -69,6 +71,7 @@ ReactDOM.createRoot(root).render(
       <QuickScanReaderLauncher />
       <AiRuntimeStatus />
       <NativeAiSettingsLauncher />
+      <GlobalToolsHub />
       <LocalUtilitiesLauncher />
       <AdvancedFreeToolsLauncher />
       <ImageResizeLauncher />
