@@ -4,8 +4,8 @@ import {
   IconCloudCheck as CloudCheck,
   IconDeviceLaptop as DeviceLaptop,
   IconLock as Lock,
-  IconOrbit as Orbit,
   IconShieldCheck as ShieldCheck,
+  IconSparkles as Sparkles,
   IconX as X,
 } from '@tabler/icons-react';
 import { getCurrentOrbiDocUser, type OrbiDocAuthUser, subscribeToOrbiDocAuth } from '../services/firebase';
@@ -54,7 +54,7 @@ export const OrbiDocLoginScreen: React.FC = () => {
           <div className="relative">
             <OrbiDocLogo size="lg" />
             <div className="mt-16 max-w-xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#3157F6]/15 bg-[#3157F6]/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#3157F6] dark:text-[#7AA2FF]"><Orbit className="w-3.5 h-3.5" /> Orbital Document</div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#3157F6]/15 bg-[#3157F6]/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#3157F6] dark:text-[#7AA2FF]"><Sparkles className="w-3.5 h-3.5" /> Orbital Document</div>
               <h1 id="orbidoc-login-title" className="mt-5 text-4xl xl:text-5xl font-black tracking-[-0.05em] leading-[1.04]">Seu workspace, em qualquer dispositivo.</h1>
               <p className="mt-4 max-w-lg text-sm xl:text-base leading-relaxed text-slate-500 dark:text-slate-400">Entre para vincular o workspace ao seu UID e sincronizar projetos e preferências. O OrbiDoc continua local-first: login nunca é obrigatório para criar e editar arquivos.</p>
             </div>
