@@ -6,7 +6,7 @@ export type FormulaValue = string | number | boolean;
 const CELL_RE = /^([A-Z]+)(\d+)$/i;
 const REF_RE = /^(?:(?:'([^']+)'|([A-Za-z0-9_À-ÿ.-]+))!)?([A-Z]+\d+)$/i;
 const RANGE_RE = /^(?:(?:'([^']+)'|([A-Za-z0-9_À-ÿ.-]+))!)?([A-Z]+\d+):([A-Z]+\d+)$/i;
-const ERROR_RE = /^#(?:CIRC!|REF!|DIV\/0!|FÓRMULA\?|ERRO!)$/;
+const ERROR_RE = /^#(?:CIRC!|REF!|DIV\/0!|N\/D|FÓRMULA\?|ERRO!)$/;
 
 export const formulaColumnName = (index: number) => {
   let n = Math.max(0, index) + 1;
@@ -150,6 +150,26 @@ const compareValues = (left: FormulaValue, right: FormulaValue, op: string) => {
   return a <= b;
 };
 
+const wildcardMatch = (value: FormulaValue, pattern: string) => {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+  return new RegExp(`^${escaped}$`, 'i').test(String(value));
+};
+
+const matchesCriteria = (value: FormulaValue, criterion: FormulaValue) => {
+  if (typeof criterion !== 'string') return compareValues(value, criterion, '=');
+  const source = criterion.trim();
+  const operator = source.match(/^(>=|<=|<>|!=|=|>|<)(.*)$/s);
+  if (operator) {
+    const raw = operator[2].trim();
+    const numeric = asNumber(raw);
+    const right: FormulaValue = Number.isFinite(numeric) ? numeric : raw;
+    return compareValues(value, right, operator[1]);
+  }
+  if (source.includes('*') || source.includes('?')) return wildcardMatch(value, source);
+  return compareValues(value, source, '=');
+};
+
+const isErrorValue = (value: FormulaValue) => typeof value === 'string' && ERROR_RE.test(value);
 const flattenArguments = (args: string[], context: EvalContext) => args.flatMap((arg) => resolveRange(arg, context) ?? [evaluateExpression(arg, context)]);
 
 const evaluateFunction = (name: string, argsSource: string, context: EvalContext): FormulaValue => {
@@ -163,6 +183,36 @@ const evaluateFunction = (name: string, argsSource: string, context: EvalContext
   if (nameUpper === 'MAX') { const values = numericValues(); return values.length ? Math.max(...values) : 0; }
   if (['COUNT', 'CONTAR'].includes(nameUpper)) return numericValues().length;
   if (nameUpper === 'COUNTA') return flat().filter((value) => String(value).trim() !== '').length;
+  if (['COUNTIF', 'CONT.SE'].includes(nameUpper)) {
+    const values = resolveRange(args[0] || '', context);
+    if (!values) return '#REF!';
+    const criterion = evaluateExpression(args[1] || '', context);
+    return values.filter((value) => matchesCriteria(value, criterion)).length;
+  }
+  if (['SUMIF', 'SOMASE'].includes(nameUpper)) {
+    const criteriaValues = resolveRange(args[0] || '', context);
+    if (!criteriaValues) return '#REF!';
+    const criterion = evaluateExpression(args[1] || '', context);
+    const sumValues = args[2] ? resolveRange(args[2], context) : criteriaValues;
+    if (!sumValues || sumValues.length !== criteriaValues.length) return '#REF!';
+    return criteriaValues.reduce((sum, value, index) => {
+      if (!matchesCriteria(value, criterion)) return sum;
+      const numeric = asNumber(sumValues[index]);
+      return Number.isFinite(numeric) ? sum + numeric : sum;
+    }, 0);
+  }
+  if (['XLOOKUP', 'PROCX'].includes(nameUpper)) {
+    const lookup = evaluateExpression(args[0] || '', context);
+    const lookupValues = resolveRange(args[1] || '', context);
+    const returnValues = resolveRange(args[2] || '', context);
+    if (!lookupValues || !returnValues || lookupValues.length !== returnValues.length) return '#REF!';
+    const index = lookupValues.findIndex((value) => compareValues(value, lookup, '='));
+    return index >= 0 ? returnValues[index] : args[3] ? evaluateExpression(args[3], context) : '#N/D';
+  }
+  if (['IFERROR', 'SEERRO'].includes(nameUpper)) {
+    const value = evaluateExpression(args[0] || '', context);
+    return isErrorValue(value) ? evaluateExpression(args[1] || '', context) : value;
+  }
   if (['IF', 'SE'].includes(nameUpper)) return asBoolean(evaluateExpression(args[0] || '', context)) ? evaluateExpression(args[1] || '', context) : evaluateExpression(args[2] || '', context);
   if (['AND', 'E'].includes(nameUpper)) return args.every((arg) => asBoolean(evaluateExpression(arg, context)));
   if (['OR', 'OU'].includes(nameUpper)) return args.some((arg) => asBoolean(evaluateExpression(arg, context)));
