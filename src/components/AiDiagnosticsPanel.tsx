@@ -39,6 +39,19 @@ const providerLabel = (provider: string) => ({
   gateway: 'Vercel AI Gateway',
 } as Record<string, string>)[provider] || provider;
 const modelKey = (model: Pick<AiModelOption, 'provider' | 'id'>) => `${model.provider}:${model.id}`;
+const fallbackStatusFromCatalog = (catalog: AiModelOption[]): StatusPayload => Object.fromEntries(PROVIDERS.map((provider) => {
+  const models = catalog.filter((model) => model.provider === provider);
+  const active = models.length > 0;
+  return [provider, {
+    configured: active,
+    reachable: active,
+    modelCount: models.length,
+    strictRouting: true,
+    webSearch: provider !== 'gateway' ? active : models.some((model) => /^openai\//i.test(model.id)),
+    researchModel: provider === 'groq' && models.some((model) => model.id === 'groq/compound') ? 'groq/compound' : undefined,
+    reason: active ? 'catalog-fallback' : 'not-configured',
+  }];
+}));
 
 export const AiDiagnosticsPanel: React.FC<{
   catalog: AiModelOption[];
@@ -59,9 +72,11 @@ export const AiDiagnosticsPanel: React.FC<{
       if (!response.ok) throw new Error(data.error || `Diagnóstico indisponível (${response.status}).`);
       setStatus(data || {});
     } catch (error: any) {
-      showNotification(error?.message || 'Falha ao consultar os provedores.', 'error');
+      const fallback = fallbackStatusFromCatalog(catalog);
+      setStatus(fallback);
+      if (!catalog.length) showNotification(error?.message || 'Falha ao consultar os provedores.', 'error');
     } finally { setStatusBusy(false); }
-  }, [showNotification]);
+  }, [catalog, showNotification]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -125,7 +140,7 @@ export const AiDiagnosticsPanel: React.FC<{
         <div className="flex-1">
           <div className="inline-flex items-center gap-2 text-xs font-black text-[#3157F6] dark:text-[#7AA2FF]"><Activity className="w-4 h-4" /> Diagnóstico de IA</div>
           <h2 className="mt-1 text-xl font-black">Estado real dos provedores</h2>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">A consulta de estado não gasta geração. O botão “Testar” envia uma única mensagem mínima ao provedor escolhido para confirmar roteamento e latência.</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">A consulta de estado não gasta geração. O botão “Testar” envia uma única mensagem mínima ao provedor escolhido para confirmar roteamento e latência. No APK, quando o endpoint Web não existe, o painel usa o catálogo nativo e o teste direto continua disponível.</p>
         </div>
         <button onClick={() => void refresh()} disabled={statusBusy} className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black inline-flex items-center justify-center gap-2 disabled:opacity-40"><Refresh className={`w-4 h-4 ${statusBusy ? 'animate-spin' : ''}`} /> Atualizar estado</button>
       </div>
