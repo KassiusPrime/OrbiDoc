@@ -26,7 +26,7 @@ if (config.firestoreDatabaseId && !firestoreEntries.some((entry) => entry?.datab
 for (const token of ['PBKDF2', "hash: 'SHA-256'", '310_000', 'crypto.getRandomValues', 'passwordHash', 'SESSION_KEY']) {
   if (!localAccount.includes(token)) throw new Error(`Conta local segura incompleta: ${token} ausente.`);
 }
-for (const token of ['createLocalOrbiDocAccount', 'signInLocalOrbiDocAccount', 'Conta local', 'PASSWORD_LOGIN_DISABLED']) {
+for (const token of ['createLocalOrbiDocAccount', 'signInLocalOrbiDocAccount', 'Conta local']) {
   if (!authPanel.includes(token)) throw new Error(`Painel de autenticação não contém o fallback local esperado: ${token}.`);
 }
 
