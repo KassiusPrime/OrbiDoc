@@ -14,6 +14,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
+  validatePassword,
   type User,
 } from 'firebase/auth';
 import {
@@ -119,7 +120,7 @@ export function getFriendlyAuthError(error: unknown): string {
     'auth/user-disabled': 'Esta conta foi desativada.',
     'auth/user-not-found': 'Conta não encontrada.',
     'auth/wrong-password': 'E-mail ou senha incorretos.',
-    'auth/weak-password': 'Use uma senha mais forte.',
+    'auth/weak-password': 'Use uma senha mais forte e compatível com a política de segurança.',
     'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
     'auth/network-request-failed': 'Não foi possível acessar o serviço de autenticação. Verifique sua conexão.',
     'auth/operation-not-allowed': 'O login por e-mail ainda não foi habilitado no Firebase deste projeto.',
@@ -129,12 +130,36 @@ export function getFriendlyAuthError(error: unknown): string {
   return messages[code] || (error instanceof Error ? error.message : 'Não foi possível concluir a autenticação.');
 }
 
+async function enforceCloudPasswordPolicy(password: string) {
+  if (password.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.');
+  if (!isOrbiDocAuthConfigured()) return;
+
+  try {
+    const status = await validatePassword(auth, password);
+    if (status.isValid) return;
+
+    const missing: string[] = [];
+    if (status.meetsMinPasswordLength === false) missing.push('comprimento mínimo');
+    if (status.meetsMaxPasswordLength === false) missing.push('comprimento máximo');
+    if (status.containsLowercaseLetter === false) missing.push('letra minúscula');
+    if (status.containsUppercaseLetter === false) missing.push('letra maiúscula');
+    if (status.containsNumericCharacter === false) missing.push('número');
+    if (status.containsNonAlphanumericCharacter === false) missing.push('caractere especial');
+
+    throw new Error(`A senha não atende à política do Firebase${missing.length ? `: falta ${missing.join(', ')}` : ''}.`);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('A senha não atende à política do Firebase')) throw error;
+    // Se a consulta da política falhar por rede/configuração, a criação de conta ainda será
+    // submetida ao backend Firebase, que aplica a política de forma autoritativa.
+  }
+}
+
 export async function createOrbiDocAccount(name: string, email: string, password: string): Promise<OrbiDocAuthUser> {
   const cleanName = name.trim();
   const cleanEmail = email.trim().toLowerCase();
   if (cleanName.length < 2) throw new Error('Informe seu nome com pelo menos 2 caracteres.');
   if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) throw new Error('Digite um endereço de e-mail válido.');
-  if (password.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.');
+  await enforceCloudPasswordPolicy(password);
   await ensurePersistence();
   try {
     const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
