@@ -1,148 +1,198 @@
-# OrbiDoc — habilitar Firebase Authentication em produção
+# OrbiDoc — Firebase Authentication em produção
 
-Este projeto usa o Firebase **`gen-lang-client-0703075207`**. O cliente web já está configurado para esse projeto e `firebase.json` já declara:
+Este projeto usa o Firebase **`gen-lang-client-0703075207`**. O cliente web já está conectado a esse projeto e o login **Email/Password está ativo** quando `bun run verify:auth` retorna um erro normal de credencial inexistente (`INVALID_LOGIN_CREDENTIALS`, `EMAIL_NOT_FOUND` ou equivalente), em vez de `PASSWORD_LOGIN_DISABLED`.
 
-```json
-{
-  "auth": {
-    "providers": {
-      "anonymous": true,
-      "emailPassword": true
-    }
-  }
-}
-```
+O OrbiDoc oferece três caminhos de identidade separados:
 
-O erro `PASSWORD_LOGIN_DISABLED` significa que o backend Firebase está acessível, mas o provedor **Email/Password ainda está desativado administrativamente** no projeto. Alterar apenas o código do OrbiDoc não remove esse bloqueio.
+- **Google → Firebase Authentication**: conta OrbiDoc em nuvem;
+- **Email/Password → Firebase Authentication**: conta OrbiDoc em nuvem;
+- **Conta local**: PBKDF2/SHA-256 no dispositivo, sem Firebase e sem sincronização entre aparelhos.
 
-## Caminho A — habilitação manual no Firebase Console
+A conexão com **Google Drive** continua sendo uma autorização separada. Entrar no OrbiDoc com Google não concede acesso automático ao Drive.
 
-1. Abra o Firebase Console e selecione o projeto `gen-lang-client-0703075207`.
+## Email/Password
+
+### Habilitação manual
+
+1. Abra o Firebase Console e selecione `gen-lang-client-0703075207`.
 2. Vá para **Security → Authentication**.
-3. Abra a guia **Sign-in method**.
+3. Abra **Sign-in method**.
 4. Em **Native providers**, abra **Email/Password**.
-5. Ative **Email/Password**.
-6. Deixe **Email link (passwordless sign-in)** desligado, a menos que o produto passe a usar login por link.
+5. Ative **Email/Password** e clique em **Save**.
+6. Deixe **Email link (passwordless sign-in)** desligado enquanto o produto não usar login por link.
+7. No OrbiDoc, abra **Conta OrbiDoc → Nuvem → Atualizar status**.
+
+O estado saudável é uma resposta como `INVALID_LOGIN_CREDENTIALS`: significa que o provedor está ativo e recusou corretamente a conta fictícia usada pelo health-check.
+
+## Login com Google — sem acesso automático ao Drive
+
+O código do OrbiDoc usa `GoogleAuthProvider` + `signInWithPopup()` do Firebase Web SDK. Esse login solicita apenas a identidade Google necessária ao Firebase; o serviço `googleAuthDrive.ts`, que pede `drive.file`, permanece independente.
+
+Para habilitar o provedor:
+
+1. Firebase Console → projeto `gen-lang-client-0703075207`.
+2. **Security → Authentication → Sign-in method**.
+3. Abra **Google**.
+4. Ative **Enable**.
+5. Defina o nome público do projeto como **OrbiDoc**.
+6. Selecione um **Project support email** que você controle.
 7. Clique em **Save**.
-8. Volte ao OrbiDoc, abra **Conta OrbiDoc → Nuvem** e pressione **Atualizar status**.
-9. O estado esperado muda de `PASSWORD_LOGIN_DISABLED` para um erro normal de credencial inexistente (`INVALID_LOGIN_CREDENTIALS`, `EMAIL_NOT_FOUND` ou equivalente). Isso confirma que o provedor responde.
 
-### Domínios autorizados
+Não coloque o endereço de suporte pessoal dentro do código-fonte. O Firebase mantém esse valor na configuração administrativa do projeto.
 
-Em **Security → Authentication → Settings → Authorized domains**, confira o domínio permanente usado pelo OrbiDoc.
+### Web/PWA
 
-Para a configuração atual, use o hostname permanente configurado para produção, por exemplo:
+A implementação Web/PWA usa popup Firebase. Os hostnames reais do aplicativo precisam constar em **Security → Authentication → Settings → Authorized domains**.
+
+Use atualmente:
+
+- `orbidoc-cassianokaique9-3072s-projects.vercel.app`
+- `orbidoc-git-main-cassianokaique9-3072s-projects.vercel.app`
+
+Não adicione `https://`, caminhos, nem o endereço do painel `vercel.com/...`.
+
+Se um domínio próprio for conectado depois, adicione também esse hostname.
+
+### Android nativo
+
+O APK Capacitor não deve fingir que um popup web equivale ao Google Sign-In nativo. Para habilitar Google no APK de produção ainda é necessário:
+
+1. registrar o aplicativo Android `app.orbidoc.workspace` no mesmo projeto Firebase;
+2. registrar as impressões **SHA-1** e, preferencialmente, **SHA-256** da chave usada para assinar o app;
+3. baixar/configurar `google-services.json` para esse aplicativo Android;
+4. integrar/validar o fluxo Google nativo;
+5. repetir o teste com a keystore de release, não apenas a debug.
+
+Enquanto essa etapa não estiver concluída, o OrbiDoc informa explicitamente que Google Sign-In está disponível na Web/PWA e mantém e-mail/senha funcionando no APK.
+
+## Domínios autorizados
+
+Em **Security → Authentication → Settings → Authorized domains**, mantenha apenas hosts necessários ao produto.
+
+Produção atual:
 
 - `orbidoc-cassianokaique9-3072s-projects.vercel.app`
 
-Se você posteriormente conectar um domínio próprio, adicione também esse hostname. Não adicione esquemas (`https://`) nem caminhos.
+Branch principal/preview estável:
 
-`localhost` só deve ser adicionado quando você realmente precisar testar Authentication localmente. Projetos Firebase recentes não o incluem automaticamente, e ele não deve permanecer autorizado sem necessidade em produção.
+- `orbidoc-git-main-cassianokaique9-3072s-projects.vercel.app`
 
-## Caminho B — habilitação pelo GitHub Actions
+`localhost` só deve ser autorizado quando testes locais de Authentication realmente forem necessários.
 
-O repositório possui o workflow **OrbiDoc Firebase Production**. Ele implanta a configuração de Authentication como código e valida que Email/Password realmente passou a responder.
+## E-mail de verificação não chegou
+
+O OrbiDoc usa `sendEmailVerification()` do Firebase e agora **não ignora falhas de envio**. Se o Firebase rejeitar o envio, a interface mostra o erro e mantém o botão **Reenviar**.
+
+Se a chamada for aceita mas a mensagem não aparecer:
+
+1. confirme que a conta foi criada em **Security → Authentication → Users**;
+2. confira se o endereço digitado está correto;
+3. abra **Spam**, **Todos os e-mails** e filtros/regras da caixa de entrada;
+4. no OrbiDoc, abra a conta e pressione **Reenviar** uma vez;
+5. evite clicar repetidamente para não atingir proteção contra abuso/cota;
+6. em **Security → Authentication → Templates**, confira o template **Email address verification**;
+7. confirme que o template está habilitado e que remetente/nome do projeto fazem sentido;
+8. teste também **Esqueci minha senha** para separar um problema geral de entrega de e-mail de um problema específico do template de verificação.
+
+Erros tratados explicitamente pelo app incluem:
+
+- `auth/too-many-requests`;
+- `auth/quota-exceeded`;
+- `auth/unauthorized-domain`;
+- `auth/unauthorized-continue-uri`;
+- `auth/internal-error`.
+
+O Firebase pode aceitar a requisição de envio sem fornecer ao cliente uma confirmação de entrega na caixa postal. Por isso, o teste funcional final continua sendo conferir a mensagem no destinatário.
+
+## Habilitação administrativa pelo GitHub Actions
+
+O repositório possui o workflow **OrbiDoc Firebase Production** para implantar a configuração de Authentication e regras do Firestore.
 
 ### 1. Criar uma service account dedicada
 
-No Google Cloud Console, abra o projeto `gen-lang-client-0703075207` e crie uma conta de serviço dedicada, por exemplo:
+No Google Cloud Console do projeto `gen-lang-client-0703075207`, crie uma conta de serviço dedicada, por exemplo:
 
 `orbidoc-firebase-deployer`
 
-Evite reutilizar uma chave pessoal ou uma conta de serviço de outro sistema.
-
 ### 2. Conceder permissões
 
-Para o fluxo atual:
-
 - **Firebase Authentication Admin** — `roles/firebaseauth.admin`
-- **Firebase Rules Admin** — `roles/firebaserules.admin` — somente porque o workflow também publica as regras do Firestore.
+- **Firebase Rules Admin** — `roles/firebaserules.admin`
 
-Se a conta for usada apenas para ativar Authentication, `roles/firebaseauth.admin` é a permissão principal necessária para modificar a configuração do Firebase Authentication.
+A segunda função só é necessária porque o workflow também publica as regras do Firestore.
 
-### 3. Gerar a chave JSON
+### 3. Gerar e guardar a chave JSON
 
-Na conta de serviço:
-
-1. Abra **Keys**.
-2. Escolha **Add key → Create new key**.
-3. Selecione **JSON**.
-4. Baixe o arquivo uma única vez e guarde-o com segurança.
-
-Não faça commit desse JSON e não cole o conteúdo em `.env`.
+1. **Keys → Add key → Create new key → JSON**.
+2. Guarde o arquivo com segurança.
+3. Nunca faça commit do JSON e nunca o exponha no frontend/APK.
 
 ### 4. Salvar no GitHub
 
-No repositório GitHub:
+Repositório → **Settings → Secrets and variables → Actions → New repository secret**:
 
-1. Abra **Settings → Secrets and variables → Actions**.
-2. Clique em **New repository secret**.
-3. Nome: `FIREBASE_SERVICE_ACCOUNT_JSON`.
-4. Valor: cole o conteúdo JSON completo da chave da conta de serviço.
-5. Salve.
+- Nome: `FIREBASE_SERVICE_ACCOUNT_JSON`
+- Valor: JSON completo da conta de serviço.
 
 ### 5. Executar o workflow
 
-1. Abra **Actions**.
-2. Selecione **OrbiDoc Firebase Production**.
-3. Clique em **Run workflow** na branch de desenvolvimento atual.
-4. O workflow executará, nessa ordem:
-   - deploy da configuração `auth`;
-   - verificação estrita de Email/Password;
-   - deploy das regras do banco Firestore nomeado.
-5. O job só termina verde se a autenticação por senha realmente estiver operacional.
+**Actions → OrbiDoc Firebase Production → Run workflow**.
+
+A ordem é:
+
+1. deploy da configuração `auth`;
+2. health-check estrito de Email/Password;
+3. deploy das regras do banco Firestore nomeado.
 
 ## Política de senha recomendada
 
-O OrbiDoc já exige no cliente pelo menos 8 caracteres. No Firebase Console, em **Security → Authentication → Settings → Password policy**, configure uma política compatível.
-
-Configuração sugerida para o estado atual do produto:
+Em **Security → Authentication → Settings → Password policy**:
 
 - mínimo: **8 caracteres**;
-- máximo: manter o padrão do Firebase;
-- exigir letra minúscula: recomendado;
-- exigir letra maiúscula: recomendado;
-- exigir número: recomendado;
+- minúscula: recomendado;
+- maiúscula: recomendado;
+- número: recomendado;
 - caractere especial: opcional no primeiro rollout;
-- modo: **Require** para contas novas quando a política estiver estabilizada.
+- modo: **Require** quando a política estiver estabilizada.
 
-O cliente OrbiDoc consulta a política Firebase no cadastro e informa os requisitos não atendidos. Assim, se a política ficar mais rígida depois, a interface não depende apenas de um número fixo de caracteres.
+O OrbiDoc consulta a política Firebase com `validatePassword()` antes da criação da conta.
 
 ## Verificação local/CI
-
-Depois de habilitar o provedor, execute:
 
 ```bash
 bun run verify:auth
 ```
 
-Para exigir que o comando falhe se Email/Password não estiver ativo:
+Modo estrito:
 
 ```bash
 ORBIDOC_REQUIRE_PASSWORD_AUTH=true bun run verify:auth
 ```
 
-O health-check não cria uma conta real. Ele tenta autenticar um endereço inexistente e interpreta a resposta do Firebase:
+Interpretação:
 
-- `PASSWORD_LOGIN_DISABLED` / `OPERATION_NOT_ALLOWED` → provedor ainda desativado;
-- `INVALID_LOGIN_CREDENTIALS` / `EMAIL_NOT_FOUND` / `INVALID_PASSWORD` → provedor ativo e respondendo normalmente.
+- `PASSWORD_LOGIN_DISABLED` / `OPERATION_NOT_ALLOWED` → Email/Password desativado;
+- `INVALID_LOGIN_CREDENTIALS` / `EMAIL_NOT_FOUND` / `INVALID_PASSWORD` → Email/Password ativo.
 
-## Depois que ficar verde
+## Teste funcional final
 
-Faça um teste funcional controlado:
-
-1. crie uma conta OrbiDoc com um e-mail seu de teste;
-2. confirme o recebimento do e-mail de verificação;
+1. crie uma conta OrbiDoc por e-mail;
+2. confirme o recebimento/verificação;
 3. saia e entre novamente;
 4. teste **Esqueci minha senha**;
-5. crie ou altere um projeto e confirme sincronização no Firestore;
-6. teste logout e nova autenticação em outro navegador/dispositivo;
-7. exclua a conta de teste e confirme remoção dos dados de nuvem associados.
+5. habilite Google no Firebase e teste **Continuar com Google** na Web/PWA;
+6. confirme que entrar com Google não pede permissão de Drive;
+7. conecte Google Drive separadamente apenas se quiser e confirme que esse consentimento é distinto;
+8. altere um projeto e confirme sincronização no Firestore;
+9. teste logout e nova autenticação em outro navegador;
+10. teste exclusão de conta, inclusive reautenticação Google para contas Google-only.
 
 ## Não fazer
 
-- não tornar as regras do Firestore públicas para “resolver” autenticação;
-- não colocar uma service-account key no frontend, APK ou Vercel client bundle;
+- não tornar regras do Firestore públicas para contornar autenticação;
+- não colocar service-account key no frontend, APK ou bundle Vercel;
 - não versionar `FIREBASE_SERVICE_ACCOUNT_JSON`;
-- não desativar a validação do CI para esconder `PASSWORD_LOGIN_DISABLED`;
-- não usar uma conta local OrbiDoc como se fosse uma sessão Firebase — o fallback local é propositalmente separado.
+- não usar o OAuth de Google Drive como se fosse automaticamente o login Firebase;
+- não pedir escopo `drive.file` apenas para autenticar a conta OrbiDoc;
+- não cadastrar `vercel.com/<time>/<project>` como Authorized domain; esse endereço é painel administrativo, não o app;
+- não tratar conta local como sessão Firebase.
