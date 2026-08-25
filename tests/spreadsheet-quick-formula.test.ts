@@ -14,7 +14,7 @@ test('quick spreadsheet formulas calculate a value and keep the formula editable
   assert.equal(result?.sheet.cells.C5.formula, '=SUM(B2:B4)');
 });
 
-test('quick spreadsheet average ignores non numeric cells like the main evaluator', () => {
+test('quick spreadsheet average ignores non numeric cells', () => {
   const sheet = source();
   sheet.cells.B5 = { value: 'texto' };
   const result = insertQuickFormula(sheet, 'B2:B5', 'D1', 'AVERAGE');
