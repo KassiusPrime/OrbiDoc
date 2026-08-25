@@ -14,10 +14,12 @@ test('quick spreadsheet sum calculates a value and keeps the formula editable', 
   assert.equal(result?.sheet.cells.C5.formula, '=SUM(B2:B4)');
 });
 
-test('quick spreadsheet count ignores non numeric cells', () => {
+test('quick spreadsheet aggregate functions ignore non numeric cells consistently', () => {
   const sheet = source();
   sheet.cells.B5 = { value: 'texto' };
-  const result = insertQuickFormula(sheet, 'B2:B5', 'D1', 'COUNT');
-  assert.equal(result?.value, 3);
-  assert.equal(result?.sheet.cells.D1.formula, '=COUNT(B2:B5)');
+  sheet.cells.B6 = { value: '' };
+  assert.equal(insertQuickFormula(sheet, 'B2:B6', 'D1', 'COUNT')?.value, 3);
+  assert.equal(insertQuickFormula(sheet, 'B2:B6', 'D2', 'AVERAGE')?.value, 20);
+  assert.equal(insertQuickFormula(sheet, 'B2:B6', 'D3', 'MIN')?.value, 10);
+  assert.equal(insertQuickFormula(sheet, 'B2:B6', 'D4', 'MAX')?.value, 30);
 });
