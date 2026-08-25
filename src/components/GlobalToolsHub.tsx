@@ -3,6 +3,7 @@ import {
   IconArrowsMaximize,
   IconDownload,
   IconHistory,
+  IconKey,
   IconPhoto,
   IconScan,
   IconShieldLock,
@@ -11,6 +12,7 @@ import {
   IconUser,
   IconX,
 } from '@tabler/icons-react';
+import { isOrbiDocNativeRuntime } from '../lib/nativeRuntime';
 
 const clickLauncher = (ariaLabel: string) => {
   const button = document.querySelector<HTMLButtonElement>(`button[aria-label="${ariaLabel}"]`);
@@ -38,6 +40,7 @@ export const GlobalToolsHub: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const native = isOrbiDocNativeRuntime();
 
   const restoreTriggerFocus = () => window.requestAnimationFrame(() => triggerRef.current?.focus());
 
@@ -119,6 +122,13 @@ export const GlobalToolsHub: React.FC = () => {
       icon: IconShieldLock,
       run: () => window.dispatchEvent(new Event('orbidoc:open-advanced-tools')),
     },
+    ...(native ? [{
+      id: 'native-ai',
+      title: 'Conectar IA',
+      detail: 'Gemini, Groq ou OpenRouter protegidos pelo Android Keystore',
+      icon: IconKey,
+      run: () => window.dispatchEvent(new Event('orbidoc:open-ai-settings')),
+    }] : []),
     {
       id: 'account',
       title: 'Conta e conexões',
@@ -126,7 +136,7 @@ export const GlobalToolsHub: React.FC = () => {
       icon: IconUser,
       run: () => clickLauncher('Conta OrbiDoc e conexões externas'),
     },
-  ], []);
+  ], [native]);
 
   const closeHub = () => {
     setOpen(false);
