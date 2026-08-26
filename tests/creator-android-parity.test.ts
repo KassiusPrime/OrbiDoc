@@ -69,6 +69,17 @@ test('document creator exposes touch-safe professional insert commands', async (
   assert.match(panel, /onPointerDown=\{keepEditorSelection\}/);
 });
 
+test('presentation creator imports editable PPTX text structure and notes', async () => {
+  const panel = await read('src/components/PresentationProPanel.tsx');
+  assert.match(panel, /import JSZip from 'jszip'/);
+  assert.match(panel, /importPptxStructure/);
+  assert.match(panel, /ppt\/slides\/slide/);
+  assert.match(panel, /notesSlides/);
+  assert.match(panel, /DOMParser/);
+  assert.match(panel, /Texto e notas foram preservados/);
+  assert.match(panel, /accept="\.pptx/);
+});
+
 test('existing professional creator capabilities stay mounted after the UI consolidation', async () => {
   const [document, spreadsheet, presentation, design] = await Promise.all([
     read('src/components/DocumentEditor.tsx'),
