@@ -21,7 +21,7 @@ export const SpreadsheetEditor: React.FC<React.ComponentProps<typeof Spreadsheet
     setRevision((value) => value + 1);
   }, [props.onProjectChange]);
 
-  return <div>
+  return <div className="orbidoc-creator-shell" data-orbidoc-creator="excel">
     <StudioPowerBar project={props.project} kind="excel" showNotification={props.showNotification} />
     <SpreadsheetProPanel project={props.project} onProjectChange={persistWithFormulaEngine} onApplied={() => setRevision((value) => value + 1)} showNotification={props.showNotification} />
     <SpreadsheetEditorStudio key={`${props.project.id}:${revision}`} {...props} onProjectChange={persistWithFormulaEngine} />
