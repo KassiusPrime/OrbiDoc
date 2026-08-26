@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { IconAccessible as Accessible, IconCalendar as Calendar, IconCaseUpper as CaseUpper, IconMessage as Message, IconNotes as Notes, IconPageBreak as PageBreak, IconSection as Section, IconSubscript as Subscript, IconSuperscript as Superscript } from '@tabler/icons-react';
+import { IconAccessible as Accessible, IconCalendar as Calendar, IconLetterCase as CaseUpper, IconMessage as Message, IconNotes as Notes, IconPageBreak as PageBreak, IconSection as Section, IconSubscript as Subscript, IconSuperscript as Superscript } from '@tabler/icons-react';
 
 type Props = { showNotification?: (message: string, type?: 'success' | 'error') => void };
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
