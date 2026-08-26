@@ -49,7 +49,10 @@ export const NativeFileSaveAgent: React.FC = () => {
             throw new Error(`Falha ao preparar o arquivo (${response.status}).`);
           }
           const blob = await response.blob();
-          await saveNativeBlob(blob, fileName);
+          const result = await saveNativeBlob(blob, fileName);
+          window.dispatchEvent(new CustomEvent('orbidoc:native-export-openable', {
+            detail: { ...result, fileName, mimeType: blob.type || 'application/octet-stream' },
+          }));
         } catch (error) {
           console.error('Falha ao salvar exportação pelo MediaStore; usando fallback do WebView.', error);
           browserFallback(anchor);
