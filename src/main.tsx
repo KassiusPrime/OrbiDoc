@@ -11,6 +11,7 @@ import { ImageResizeLauncher } from './components/ImageResizeLauncher';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
 import { NativeAiSettingsLauncher } from './components/NativeAiSettingsLauncher';
+import { NativeFileSaveAgent } from './components/NativeFileSaveAgent';
 import { NativeViewportAgent } from './components/NativeViewportAgent';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
@@ -33,6 +34,7 @@ import './orbidoc-layout-safety-v2.css';
 import './orbidoc-product-polish.css';
 import './scan-reader.css';
 import './orbidoc-adaptive-shell.css';
+import './orbidoc-creator-ui.css';
 
 migrateLegacyBrandStorage();
 const nativeRuntime = applyOrbiDocNativeRuntimeProfile();
@@ -64,6 +66,7 @@ ReactDOM.createRoot(root).render(
       </OrbiDocExperienceShell>
       <OrbiDocLoginScreen />
       <NativeViewportAgent />
+      <NativeFileSaveAgent />
       <AccountSyncAgent />
       <SystemFileOpenAgent />
       <MediaToolsLauncher />
