@@ -73,7 +73,7 @@ test('presentation creator imports editable PPTX text structure and notes', asyn
   const panel = await read('src/components/PresentationProPanel.tsx');
   assert.match(panel, /import JSZip from 'jszip'/);
   assert.match(panel, /importPptxStructure/);
-  assert.match(panel, /ppt\/slides\/slide/);
+  assert.ok(panel.includes('ppt\\/slides\\/slide'), 'PPTX importer must scan ppt/slides/slide*.xml entries');
   assert.match(panel, /notesSlides/);
   assert.match(panel, /DOMParser/);
   assert.match(panel, /Texto e notas foram preservados/);
