@@ -58,6 +58,17 @@ test('creator menus and touch targets work without hover-only input', async () =
   assert.match(powerBar, /No Android, toque nos menus/);
 });
 
+test('document creator exposes touch-safe professional insert commands', async () => {
+  const panel = await read('src/components/DocumentProPanel.tsx');
+  assert.match(panel, /insertPageBreak/);
+  assert.match(panel, /orbidoc-page-break/);
+  assert.match(panel, /superscript/);
+  assert.match(panel, /subscript/);
+  assert.match(panel, /insertDateTime/);
+  assert.match(panel, /transformSelection/);
+  assert.match(panel, /onPointerDown=\{keepEditorSelection\}/);
+});
+
 test('existing professional creator capabilities stay mounted after the UI consolidation', async () => {
   const [document, spreadsheet, presentation, design] = await Promise.all([
     read('src/components/DocumentEditor.tsx'),
