@@ -5,10 +5,11 @@ import test from 'node:test';
 const read = (path: string) => fs.readFile(path, 'utf8');
 
 test('native creator exports are routed through the existing Android MediaStore bridge', async () => {
-  const [main, agent, bridge] = await Promise.all([
+  const [main, agent, bridge, nativeNotice] = await Promise.all([
     read('src/main.tsx'),
     read('src/components/NativeFileSaveAgent.tsx'),
     read('src/lib/nativeAndroidBridge.ts'),
+    read('src/components/NativeAiSettingsLauncher.tsx'),
   ]);
 
   assert.match(main, /NativeFileSaveAgent/);
@@ -18,8 +19,11 @@ test('native creator exports are routed through the existing Android MediaStore 
   assert.match(agent, /startsWith\('data:'\)/);
   assert.match(agent, /document\.addEventListener\('click', handleDownload, true\)/);
   assert.match(agent, /browserFallback/);
+  assert.match(agent, /orbidoc:native-export-openable/);
   assert.match(bridge, /saveBase64File/);
   assert.match(bridge, /orbidoc:native-download/);
+  assert.match(nativeNotice, /openNativeUri/);
+  assert.match(nativeNotice, /Abrir arquivo exportado/);
 });
 
 test('all four creators opt into the same scoped adaptive UI system', async () => {
@@ -51,6 +55,7 @@ test('creator menus and touch targets work without hover-only input', async () =
   assert.doesNotMatch(css, /\.orbidoc-creator-shell input[^\{]*\{[^}]*min-height: 44px/s, 'inputs de célula não devem ser inflados globalmente');
   assert.match(powerBar, /Downloads\/OrbiDoc/);
   assert.match(powerBar, /Android MediaStore/);
+  assert.match(powerBar, /No Android, toque nos menus/);
 });
 
 test('existing professional creator capabilities stay mounted after the UI consolidation', async () => {
