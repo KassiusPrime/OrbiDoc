@@ -7,7 +7,7 @@ const read = (path: string) => fs.readFile(path, 'utf8');
 test('window-size classes drive adaptive navigation instead of device identity', async () => {
   const [profile, bottomNav, adaptive] = await Promise.all([
     read('src/lib/platformProfile.ts'),
-    read('src/components/BottomNavBar.tsx'),
+    read('src/components/HostBottomNav.tsx'),
     read('src/orbidoc-adaptive-shell.css'),
   ]);
 
@@ -17,8 +17,9 @@ test('window-size classes drive adaptive navigation instead of device identity',
   assert.match(profile, /orbidocWindowClass/);
   assert.match(profile, /orbidoc-window-\$\{windowClass\}/);
   assert.match(bottomNav, /orbidoc-bottom-nav/);
-  assert.doesNotMatch(bottomNav, /-top-3/);
   assert.match(bottomNav, /min-h-\[54px\]/);
+  assert.match(bottomNav, /Serviços/);
+  assert.match(bottomNav, /Ajustes/);
   assert.match(adaptive, /min-width: 600px/);
   assert.match(adaptive, /max-width: 1023px/);
   assert.match(adaptive, /--orbidoc-rail-width/);
@@ -33,30 +34,31 @@ test('short landscape windows do not inherit the legacy 560px application floor'
   assert.match(adaptive, /--orbidoc-visual-height/);
 });
 
-test('global utilities are consolidated instead of stacking floating launchers', async () => {
-  const [main, adaptive, hub, fab] = await Promise.all([
+test('global utilities are controllers instead of stacked floating navigation', async () => {
+  const [main, adaptive, app] = await Promise.all([
     read('src/main.tsx'),
     read('src/orbidoc-adaptive-shell.css'),
-    read('src/components/GlobalToolsHub.tsx'),
-    read('src/components/FabMenuSheet.tsx'),
+    read('src/AppV6.tsx'),
   ]);
 
-  assert.match(main, /GlobalToolsHub/);
+  assert.match(main, /App from '\.\/AppV6'/);
+  assert.doesNotMatch(main, /GlobalToolsHub/);
+  assert.doesNotMatch(main, /AiRuntimeStatus/);
+  assert.match(main, /Controllers remain mounted/);
   assert.match(main, /orbidoc-adaptive-shell\.css/);
   for (const label of [
     'Abrir ferramentas de mídia e qualidade',
     'Abrir histórico de versões',
     'Abrir Scan e Reader',
     'Abrir redimensionador de imagens',
-  ]) assert.ok(adaptive.includes(`button[aria-label='${label}']`), `launcher ainda não consolidado: ${label}`);
+  ]) assert.ok(adaptive.includes(`button[aria-label='${label}']`), `launcher controller ainda ocupa pixels: ${label}`);
 
-  assert.match(hub, /Central de Ferramentas/);
-  assert.match(hub, /Ctrl\/Cmd\+K/);
-  assert.match(hub, /orbidoc:open-image-resizer/);
-  assert.match(hub, /orbidoc:open-local-tools/);
-  assert.match(hub, /orbidoc:open-advanced-tools/);
-  assert.match(fab, /Redimensionar/);
-  assert.match(fab, /Laboratório offline/);
+  assert.match(app, /Apps OrbiDoc/);
+  assert.match(app, /Utilitários contextuais/);
+  assert.match(app, /Ctrl K/);
+  assert.match(app, /orbidoc:open-image-resizer/);
+  assert.match(app, /orbidoc:open-local-tools/);
+  assert.match(app, /orbidoc:open-advanced-tools/);
 });
 
 test('keyboard shortcuts and focus remain safe inside editors', async () => {
