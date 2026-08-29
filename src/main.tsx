@@ -1,12 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
-import App from './AppV5';
+import App from './AppV6';
 import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AdvancedFreeToolsLauncher } from './components/AdvancedFreeToolsLauncher';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
-import { AiRuntimeStatus } from './components/AiRuntimeStatus';
-import { GlobalToolsHub } from './components/GlobalToolsHub';
 import { ImageResizeLauncher } from './components/ImageResizeLauncher';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
@@ -69,12 +67,14 @@ ReactDOM.createRoot(root).render(
       <NativeFileSaveAgent />
       <AccountSyncAgent />
       <SystemFileOpenAgent />
+
+      {/* Controllers remain mounted for event/keyboard compatibility. Their legacy
+          floating triggers are hidden by the adaptive shell and surfaced only from
+          Apps/Settings when contextually useful. */}
       <MediaToolsLauncher />
       <VersionHistoryLauncher />
       <QuickScanReaderLauncher />
-      <AiRuntimeStatus />
       <NativeAiSettingsLauncher />
-      <GlobalToolsHub />
       <LocalUtilitiesLauncher />
       <AdvancedFreeToolsLauncher />
       <ImageResizeLauncher />
