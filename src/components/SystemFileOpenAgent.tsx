@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { IconChevronLeft as Back, IconFile as FileIcon, IconX as X } from '@tabler/icons-react';
 import { OrbiDocLogo } from './OrbiDocLogo';
 import { readArchiveEntry, readDocumentFile, releaseReaderDocument, type ReaderDocument } from '../lib/documentReader';
+import { ORBIDOC_OPEN_FILE_EVENT, type OrbiDocOpenFileDetail } from '../lib/systemFileOpen';
 
 type LaunchFileHandle = { getFile: () => Promise<File> };
 type LaunchParamsLike = { files?: LaunchFileHandle[] };
@@ -9,9 +10,19 @@ type LaunchQueueLike = { setConsumer: (consumer: (params: LaunchParamsLike) => v
 
 const launchQueue = () => (window as unknown as { launchQueue?: LaunchQueueLike }).launchQueue;
 
+const SOURCE_LABELS: Record<NonNullable<OrbiDocOpenFileDetail['source']>, string> = {
+  local: 'Arquivo local',
+  'google-drive': 'Google Drive',
+  onedrive: 'OneDrive',
+  github: 'GitHub',
+  share: 'Compartilhado com OrbiDoc',
+  system: 'Sistema',
+};
+
 export const SystemFileOpenAgent: React.FC = () => {
   const documentRef = useRef<ReaderDocument | null>(null);
   const [document, setDocument] = useState<ReaderDocument | null>(null);
+  const [source, setSource] = useState<OrbiDocOpenFileDetail['source']>('system');
   const [archivePath, setArchivePath] = useState('');
   const [archiveContent, setArchiveContent] = useState<{ kind: 'text' | 'image' | 'binary'; text?: string; html?: string; dataUrl?: string } | null>(null);
   const [error, setError] = useState('');
@@ -24,21 +35,38 @@ export const SystemFileOpenAgent: React.FC = () => {
     setArchiveContent(null);
   };
 
+  const openFile = async (file: File, nextSource: OrbiDocOpenFileDetail['source'] = 'system') => {
+    try {
+      setError('');
+      setSource(nextSource);
+      replaceDocument(await readDocumentFile(file));
+    } catch (reason) {
+      setSource(nextSource);
+      setError(reason instanceof Error ? reason.message : 'Não foi possível abrir o arquivo recebido pelo OrbiDoc.');
+    }
+  };
+
   useEffect(() => {
     const queue = launchQueue();
-    if (!queue) return;
-    queue.setConsumer(async (params) => {
-      const handle = params.files?.[0];
-      if (!handle) return;
-      try {
-        setError('');
-        const file = await handle.getFile();
-        replaceDocument(await readDocumentFile(file));
-      } catch (reason) {
-        setError(reason instanceof Error ? reason.message : 'Não foi possível abrir o arquivo recebido pelo sistema.');
-      }
-    });
-    return () => {};
+    if (queue) {
+      queue.setConsumer(async (params) => {
+        const handle = params.files?.[0];
+        if (!handle) return;
+        try {
+          await openFile(await handle.getFile(), 'system');
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : 'Não foi possível abrir o arquivo recebido pelo sistema.');
+        }
+      });
+    }
+
+    const handleInternalOpen = (event: Event) => {
+      const detail = (event as CustomEvent<OrbiDocOpenFileDetail>).detail;
+      if (!detail?.file) return;
+      void openFile(detail.file, detail.source || 'local');
+    };
+    window.addEventListener(ORBIDOC_OPEN_FILE_EVENT, handleInternalOpen as EventListener);
+    return () => window.removeEventListener(ORBIDOC_OPEN_FILE_EVENT, handleInternalOpen as EventListener);
   }, []);
 
   useEffect(() => () => {
@@ -82,13 +110,13 @@ export const SystemFileOpenAgent: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[130] bg-[#F7F9FC] dark:bg-[#080D18] flex flex-col">
+    <div className="fixed inset-0 z-[130] bg-[#F6F8FC] dark:bg-[#080D18] flex flex-col">
       <header className="h-14 shrink-0 px-3 sm:px-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] flex items-center gap-3">
         <OrbiDocLogo size="sm" />
         <div className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
         <div className="min-w-0 flex-1">
           <div className="text-xs font-black truncate">{document?.title || 'Abrir com OrbiDoc'}</div>
-          <div className="text-[9px] text-slate-400 truncate">{document ? `${document.name} · ${document.extension.toUpperCase()}` : 'Arquivo recebido pelo sistema'}</div>
+          <div className="text-[9px] text-slate-400 truncate">{document ? `${SOURCE_LABELS[source || 'system']} · ${document.name} · ${document.extension.toUpperCase()}` : SOURCE_LABELS[source || 'system']}</div>
         </div>
         <button onClick={close} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Fechar arquivo"><X className="w-4 h-4" /></button>
       </header>
@@ -107,7 +135,7 @@ export const SystemFileOpenAgent: React.FC = () => {
         <main className="min-w-0 min-h-0 overflow-auto bg-white dark:bg-[#0E1118]">{renderContent()}</main>
       </div>
       <footer className="h-10 shrink-0 px-3 sm:px-5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] flex items-center gap-2 text-[9px] text-slate-400">
-        <Back className="w-3.5 h-3.5" /><span>Fechar retorna ao workspace. O arquivo é lido localmente e não é enviado automaticamente.</span>
+        <Back className="w-3.5 h-3.5" /><span>Fechar retorna ao workspace. O arquivo é lido no OrbiDoc e não é enviado para outro serviço automaticamente.</span>
       </footer>
     </div>
   );
