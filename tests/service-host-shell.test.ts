@@ -69,5 +69,5 @@ test('appearance and external account authorization live in Settings', async () 
   assert.match(settings, /OrbiDocAuthPanel/);
   assert.match(settings, /loginWithGooglePopup/);
   assert.match(settings, /loginWithMicrosoftPopup/);
-  assert.match(settings, /Conta OrbiDoc continua separada/);
+  assert.match(settings, /A conta OrbiDoc continua separada/);
 });
