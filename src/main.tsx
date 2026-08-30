@@ -16,6 +16,7 @@ import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
+import { WorkspaceFileSessionAgent } from './components/WorkspaceFileSessionAgent';
 import { installAiInternetAgent } from './lib/aiInternet';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
 import { installNativeAiApiBridge, installNativeFileOpenBridge } from './lib/nativeAndroidBridge';
@@ -66,6 +67,7 @@ ReactDOM.createRoot(root).render(
       <NativeViewportAgent />
       <NativeFileSaveAgent />
       <AccountSyncAgent />
+      <WorkspaceFileSessionAgent />
       <SystemFileOpenAgent />
 
       {/* Controllers remain mounted for event/keyboard compatibility. Their legacy
