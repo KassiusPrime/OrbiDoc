@@ -1,3 +1,5 @@
+import { bindOrbiDocFileOrigin } from '../lib/systemFileOpen';
+
 export type GitHubEntry = {
   name: string;
   path: string;
@@ -87,5 +89,15 @@ export async function downloadGitHubEntry(target: GitHubRepositoryTarget, entry:
   });
   if (!response.ok) throw new Error(`Falha ao abrir ${entry.name} pelo GitHub (${response.status}).`);
   const blob = await response.blob();
-  return new File([blob], entry.name, { type: blob.type || guessMime(entry.name), lastModified: Date.now() });
+  const file = new File([blob], entry.name, { type: blob.type || guessMime(entry.name), lastModified: Date.now() });
+  return bindOrbiDocFileOrigin(file, {
+    source: 'github',
+    providerId: entry.path,
+    providerName: entry.name,
+    mimeType: file.type,
+    originalExtension: entry.name.split('.').pop()?.toLowerCase() || '',
+    etag: entry.sha ? `sha:${entry.sha}` : undefined,
+    readOnly: true,
+    repository: { owner: target.owner, repo: target.repo, path: entry.path, ref: target.ref },
+  });
 }
