@@ -94,6 +94,26 @@ export interface MicrosoftUserProfile {
   expiresAt?: number;
 }
 
+export type OrbiDocFileSource = 'local' | 'google-drive' | 'onedrive' | 'github' | 'share' | 'system';
+
+export interface OrbiDocFileOrigin {
+  source: OrbiDocFileSource;
+  providerId?: string;
+  providerName?: string;
+  mimeType?: string;
+  originalExtension?: string;
+  modifiedTime?: string;
+  etag?: string;
+  readOnly?: boolean;
+  openedAt?: string;
+  repository?: {
+    owner: string;
+    repo: string;
+    path: string;
+    ref?: string;
+  };
+}
+
 export interface SavedProject {
   id: string;
   title: string;
@@ -107,6 +127,7 @@ export interface SavedProject {
   thumbnailColor?: string;
   tags?: string[];
   content?: any;
+  origin?: OrbiDocFileOrigin;
 }
 
 export interface DriveFile {
@@ -174,4 +195,3 @@ export interface ExcelCell {
   rowSpan?: number;
   isMergedChild?: boolean;
 }
-
