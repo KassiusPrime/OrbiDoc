@@ -49,7 +49,8 @@ test('one canonical office importer preserves editable document spreadsheet and 
   assert.match(importer, /mammoth\.convertToHtml/);
   assert.match(importer, /XLSX\.read/);
   assert.match(importer, /cellFormula: true/);
-  assert.match(importer, /ppt\/slides\/slide/);
+  assert.match(importer, /Object\.keys\(zip\.files\)/);
+  assert.match(importer, /slideNumber/);
   assert.match(importer, /notesSlides/);
   assert.match(importer, /origin: normalizeOrigin/);
 });
