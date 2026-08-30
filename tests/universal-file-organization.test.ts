@@ -26,7 +26,7 @@ test('format reference is honest about codec gaps instead of advertising fake pa
   const source = await read('src/lib/fileCapabilityRegistry.ts');
   assert.match(source, /ZIP está implementado hoje/);
   assert.match(source, /7z\/RAR\/TAR/);
-  assert.match(source, /não serem anunciados como completos/);
+  assert.match(source, /antes de serem anunciados como completos/);
   assert.match(source, /paridade.*em expansão/i);
 });
 
