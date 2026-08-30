@@ -48,7 +48,7 @@ export async function downloadGoogleDriveAsFile(user: GoogleUserProfile, file: D
     originalExtension: native ? native.extension : extensionOf(name),
     modifiedTime: String(metadata.modifiedTime || file.modifiedTime || ''),
     etag: metadata.version ? `version:${String(metadata.version)}` : undefined,
-    readOnly: Boolean(native),
+    ...(native ? { readOnly: true } : {}),
   });
 }
 
@@ -79,6 +79,5 @@ export async function downloadOneDriveAsFile(user: MicrosoftUserProfile, file: O
     originalExtension: extensionOf(name),
     modifiedTime: String(item.lastModifiedDateTime || file.modifiedTime || ''),
     etag: item.eTag ? String(item.eTag) : undefined,
-    readOnly: false,
   });
 }
