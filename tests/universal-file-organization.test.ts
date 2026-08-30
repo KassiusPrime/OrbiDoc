@@ -29,3 +29,25 @@ test('format reference is honest about codec gaps instead of advertising fake pa
   assert.match(source, /não serem anunciados como completos/);
   assert.match(source, /paridade.*em expansão/i);
 });
+
+test('universal reader opens zip-compatible packages media fonts structured files and unknown bytes safely', async () => {
+  const reader = await read('src/lib/documentReader.ts');
+  for (const extension of ['jar', 'apk', 'cbz', 'whl', 'vsix', 'mp3', 'mkv', 'ttf', 'ics', 'vcf', 'eml']) {
+    assert.match(reader, new RegExp(`['\"]${extension}['\"]`));
+  }
+  assert.match(reader, /unknownFallback/);
+  assert.match(reader, /looksTextual/);
+  assert.match(reader, /hexDump/);
+  assert.match(reader, /kind: 'hex'/);
+  assert.match(reader, /kind: 'media'/);
+  assert.match(reader, /kind: 'font'/);
+});
+
+test('system file surface renders audio video fonts archives and hex without another mini app', async () => {
+  const agent = await read('src/components/SystemFileOpenAgent.tsx');
+  assert.match(agent, /<audio/);
+  assert.match(agent, /<video/);
+  assert.match(agent, /FontPreview/);
+  assert.match(agent, /Conteúdo do pacote/);
+  assert.match(agent, /readerDocument\.kind === 'hex'/);
+});
