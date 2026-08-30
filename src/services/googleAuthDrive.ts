@@ -10,6 +10,7 @@ const SCOPES = [
 
 const STORAGE_KEY_USER = 'orbidoc_google_user';
 const TOKEN_SAFETY_WINDOW_MS = 60_000;
+const DRIVE_FIELDS = 'id,name,mimeType,modifiedTime,webViewLink,size';
 
 export function isGoogleOAuthConfigured(): boolean {
   return Boolean(CLIENT_ID);
@@ -118,7 +119,7 @@ export async function uploadToGoogleDrive(
   form.append('file', typeof content === 'string' ? new Blob([content], { type: mimeType }) : content);
 
   const response = await fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,modifiedTime,webViewLink,size',
+    `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=${encodeURIComponent(DRIVE_FIELDS)}`,
     { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body: form }
   );
   if (!response.ok) {
@@ -129,11 +130,43 @@ export async function uploadToGoogleDrive(
   return { id: data.id, name: data.name, mimeType: data.mimeType, modifiedTime: data.modifiedTime, webViewLink: data.webViewLink, size: data.size };
 }
 
+export async function getGoogleDriveFileMetadata(accessToken: string, fileId: string): Promise<DriveFile> {
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent(DRIVE_FIELDS)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Falha ao verificar a versão do arquivo no Google Drive (${response.status}).`);
+  }
+  const data = await response.json();
+  return { id: data.id, name: data.name, mimeType: data.mimeType, modifiedTime: data.modifiedTime, webViewLink: data.webViewLink, size: data.size };
+}
+
+export async function updateGoogleDriveFileContent(accessToken: string, fileId: string, content: Blob, mimeType: string): Promise<DriveFile> {
+  const response = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media&fields=${encodeURIComponent(DRIVE_FIELDS)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': content.type || mimeType || 'application/octet-stream',
+      },
+      body: content,
+    },
+  );
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Falha ao atualizar o arquivo no Google Drive (${response.status}).`);
+  }
+  const data = await response.json();
+  return { id: data.id, name: data.name, mimeType: data.mimeType, modifiedTime: data.modifiedTime, webViewLink: data.webViewLink, size: data.size };
+}
+
 /** Lists files that the drive.file OAuth scope makes available to this OrbiDoc client. */
 export async function listGoogleDriveFiles(accessToken: string): Promise<DriveFile[]> {
   const query = encodeURIComponent('trashed = false');
   const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,mimeType,modifiedTime,webViewLink,size)&pageSize=30&orderBy=modifiedTime%20desc`,
+    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(${DRIVE_FIELDS})&pageSize=30&orderBy=modifiedTime%20desc`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!response.ok) {
