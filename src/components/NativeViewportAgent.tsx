@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { isOrbiDocNativeRuntime } from '../lib/nativeRuntime';
 
-const GLOBAL_SHORTCUTS = new Set(['m', 'o', 'h', 'k']);
+const GLOBAL_SHORTCUTS = new Set(['m', 'o', 'h', 'k', 'r']);
 
 function editableTarget(target: EventTarget | null) {
   const element = target instanceof HTMLElement ? target : null;

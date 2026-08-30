@@ -1,6 +1,7 @@
 import { isOrbiDocNativeRuntime } from './nativeRuntime';
 
 export type OrbiDocPlatform = 'web' | 'desktop' | 'mobile';
+export type OrbiDocWindowClass = 'compact' | 'medium' | 'expanded';
 
 const isStandalone = () => {
   if (isOrbiDocNativeRuntime()) return true;
@@ -16,36 +17,50 @@ const isMobileDevice = () => {
   return Boolean((coarse && narrow) || userAgentMobile);
 };
 
+export function detectOrbiDocWindowClass(width = window.innerWidth): OrbiDocWindowClass {
+  if (width < 600) return 'compact';
+  if (width < 1024) return 'medium';
+  return 'expanded';
+}
+
 export function detectOrbiDocPlatform(): OrbiDocPlatform {
   if (isMobileDevice()) return 'mobile';
   if (isStandalone()) return 'desktop';
   return 'web';
 }
 
-export function applyOrbiDocPlatformProfile() {
-  const root = document.documentElement;
+function applyRootProfile(root: HTMLElement) {
   const platform = detectOrbiDocPlatform();
+  const windowClass = detectOrbiDocWindowClass();
   root.dataset.orbidocPlatform = platform;
+  root.dataset.orbidocWindowClass = windowClass;
   root.dataset.orbidocStandalone = isStandalone() ? 'true' : 'false';
   root.dataset.orbidocNative = isOrbiDocNativeRuntime() ? 'true' : 'false';
-  root.classList.remove('orbidoc-platform-web', 'orbidoc-platform-desktop', 'orbidoc-platform-mobile');
-  root.classList.add(`orbidoc-platform-${platform}`);
+  root.classList.remove(
+    'orbidoc-platform-web',
+    'orbidoc-platform-desktop',
+    'orbidoc-platform-mobile',
+    'orbidoc-window-compact',
+    'orbidoc-window-medium',
+    'orbidoc-window-expanded',
+  );
+  root.classList.add(`orbidoc-platform-${platform}`, `orbidoc-window-${windowClass}`);
+}
 
-  const update = () => {
-    const next = detectOrbiDocPlatform();
-    root.dataset.orbidocPlatform = next;
-    root.dataset.orbidocStandalone = isStandalone() ? 'true' : 'false';
-    root.dataset.orbidocNative = isOrbiDocNativeRuntime() ? 'true' : 'false';
-    root.classList.remove('orbidoc-platform-web', 'orbidoc-platform-desktop', 'orbidoc-platform-mobile');
-    root.classList.add(`orbidoc-platform-${next}`);
-  };
+export function applyOrbiDocPlatformProfile() {
+  const root = document.documentElement;
+  applyRootProfile(root);
 
+  const update = () => applyRootProfile(root);
   const mediaQueries = [
-    window.matchMedia?.('(max-width: 767px)'),
+    window.matchMedia?.('(max-width: 599px)'),
+    window.matchMedia?.('(min-width: 600px) and (max-width: 1023px)'),
+    window.matchMedia?.('(min-width: 1024px)'),
     window.matchMedia?.('(pointer: coarse)'),
     window.matchMedia?.('(display-mode: standalone)'),
     window.matchMedia?.('(display-mode: window-controls-overlay)'),
   ].filter(Boolean) as MediaQueryList[];
+
   mediaQueries.forEach((query) => query.addEventListener?.('change', update));
   window.addEventListener('resize', update, { passive: true });
 

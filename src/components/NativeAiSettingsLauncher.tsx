@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { IconCheck, IconKey, IconTrash, IconX } from '@tabler/icons-react';
-import { clearNativeAiKey, getNativeAiStatus, isNativeBridgeAvailable, setNativeAiKey, type NativeAiProvider } from '../lib/nativeAndroidBridge';
+import { IconCheck, IconExternalLink, IconKey, IconTrash, IconX } from '@tabler/icons-react';
+import { clearNativeAiKey, getNativeAiStatus, isNativeBridgeAvailable, openNativeUri, setNativeAiKey, type NativeAiProvider } from '../lib/nativeAndroidBridge';
 import { isOrbiDocNativeRuntime } from '../lib/nativeRuntime';
 
 const LABELS: Record<NativeAiProvider, string> = {
   gemini: 'Google Gemini',
   groq: 'Groq',
   openrouter: 'OpenRouter',
+};
+
+type DownloadNotice = {
+  message: string;
+  uri?: string;
+  mimeType?: string;
 };
 
 export const NativeAiSettingsLauncher: React.FC = () => {
@@ -17,7 +23,7 @@ export const NativeAiSettingsLauncher: React.FC = () => {
   const [status, setStatus] = useState<Array<{ provider: NativeAiProvider; configured: boolean }>>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [downloadNotice, setDownloadNotice] = useState('');
+  const [downloadNotice, setDownloadNotice] = useState<DownloadNotice | null>(null);
 
   const refresh = async () => {
     if (!native) return;
@@ -93,15 +99,28 @@ export const NativeAiSettingsLauncher: React.FC = () => {
   useEffect(() => {
     if (!native) return;
     let timeout = 0;
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ fileName?: string }>).detail;
-      setDownloadNotice(`Salvo em Downloads/OrbiDoc${detail?.fileName ? ` · ${detail.fileName}` : ''}`);
+    const show = (next: DownloadNotice) => {
+      setDownloadNotice(next);
       window.clearTimeout(timeout);
-      timeout = window.setTimeout(() => setDownloadNotice(''), 4200);
+      timeout = window.setTimeout(() => setDownloadNotice(null), 5200);
     };
-    window.addEventListener('orbidoc:native-download', handler);
+    const saved = (event: Event) => {
+      const detail = (event as CustomEvent<{ fileName?: string }>).detail;
+      show({ message: `Salvo em Downloads/OrbiDoc${detail?.fileName ? ` · ${detail.fileName}` : ''}` });
+    };
+    const openable = (event: Event) => {
+      const detail = (event as CustomEvent<{ fileName?: string; uri?: string; mimeType?: string }>).detail;
+      show({
+        message: `Salvo em Downloads/OrbiDoc${detail?.fileName ? ` · ${detail.fileName}` : ''}`,
+        uri: detail?.uri,
+        mimeType: detail?.mimeType,
+      });
+    };
+    window.addEventListener('orbidoc:native-download', saved);
+    window.addEventListener('orbidoc:native-export-openable', openable);
     return () => {
-      window.removeEventListener('orbidoc:native-download', handler);
+      window.removeEventListener('orbidoc:native-download', saved);
+      window.removeEventListener('orbidoc:native-export-openable', openable);
       window.clearTimeout(timeout);
     };
   }, [native]);
@@ -133,8 +152,21 @@ export const NativeAiSettingsLauncher: React.FC = () => {
     window.setTimeout(() => window.location.reload(), 500);
   };
 
+  const openDownloaded = async () => {
+    if (!downloadNotice?.uri) return;
+    try {
+      await openNativeUri(downloadNotice.uri, downloadNotice.mimeType);
+    } catch (error: any) {
+      setDownloadNotice({ message: error?.message || 'Nenhum aplicativo compatível conseguiu abrir este arquivo.' });
+    }
+  };
+
   return <>
-    {downloadNotice && <div className="orbidoc-native-download-notice fixed z-[176] left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm bottom-[9.2rem] sm:bottom-20 rounded-2xl bg-emerald-600 text-white shadow-2xl px-4 py-3 flex items-center gap-2 text-[10px] font-black" role="status" aria-live="polite"><IconCheck className="w-4 h-4 shrink-0" /><span className="truncate">{downloadNotice}</span></div>}
+    {downloadNotice && <div className="orbidoc-native-download-notice fixed z-[176] left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm bottom-[9.2rem] sm:bottom-20 rounded-2xl bg-emerald-600 text-white shadow-2xl px-3 py-2.5 flex items-center gap-2 text-[10px] font-black" role="status" aria-live="polite">
+      <IconCheck className="w-4 h-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{downloadNotice.message}</span>
+      {downloadNotice.uri && <button type="button" onClick={() => void openDownloaded()} className="h-9 px-2.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 inline-flex items-center gap-1.5 shrink-0" aria-label="Abrir arquivo exportado"><IconExternalLink className="w-3.5 h-3.5" /> Abrir</button>}
+    </div>}
 
     <button
       type="button"

@@ -1,0 +1,126 @@
+/* OrbiDoc Elite Workspace 2.0 — creator chrome
+ * Scoped to Document, Spreadsheet, Presentation and Design wrappers.
+ * Product colors identify the tool; surfaces and interaction remain consistent.
+ */
+.orbidoc-creator-shell {
+  --orbidoc-creator-accent: #3157F6;
+  --orbidoc-creator-accent-soft: #EFF4FF;
+  --orbidoc-creator-surface: #FFFFFF;
+  --orbidoc-creator-muted: #EEF3FA;
+  --orbidoc-creator-border: #D9E2F0;
+  --orbidoc-creator-fg: #0B1220;
+  --orbidoc-creator-fg-muted: #536176;
+  min-width: 0;
+  letter-spacing: -0.006em;
+}
+
+.orbidoc-creator-shell[data-orbidoc-creator='excel'] {
+  --orbidoc-creator-accent: #059669;
+  --orbidoc-creator-accent-soft: #ECFDF5;
+}
+.orbidoc-creator-shell[data-orbidoc-creator='powerpoint'] {
+  --orbidoc-creator-accent: #EA580C;
+  --orbidoc-creator-accent-soft: #FFF7ED;
+}
+.orbidoc-creator-shell[data-orbidoc-creator='canva'] {
+  --orbidoc-creator-accent: #6D5EF7;
+  --orbidoc-creator-accent-soft: #F3F0FF;
+}
+
+.dark .orbidoc-creator-shell {
+  --orbidoc-creator-surface: #101827;
+  --orbidoc-creator-muted: #162238;
+  --orbidoc-creator-border: #2A3852;
+  --orbidoc-creator-fg: #F8FAFC;
+  --orbidoc-creator-fg-muted: #9CACBF;
+}
+
+/* Keep the common power bar quieter than the editing surface. */
+.orbidoc-creator-shell > .orbidoc-studio-powerbar {
+  border-color: var(--orbidoc-creator-border);
+  background: var(--orbidoc-creator-surface);
+  box-shadow: 0 1px 2px rgba(8, 13, 24, .05);
+}
+
+/* Pro panels are capabilities, not separate mini-products. Neutralizing their
+ * outer surface makes the editor read as one application while their icons and
+ * primary actions retain functional color. */
+.orbidoc-creator-shell > section {
+  border-color: var(--orbidoc-creator-border) !important;
+  background: color-mix(in srgb, var(--orbidoc-creator-surface) 88%, var(--orbidoc-creator-accent-soft) 12%) !important;
+  box-shadow: 0 1px 2px rgba(8, 13, 24, .04);
+}
+
+/* Tailwind group-hover menus were mouse-only. Focus-within makes the exact same
+ * controls usable after tapping/clicking the trigger on touch devices. */
+.orbidoc-creator-shell .group:focus-within > .hidden {
+  display: block;
+}
+
+/* Tool strips should scroll horizontally rather than compress controls until
+ * labels overlap. */
+.orbidoc-creator-shell .overflow-x-auto {
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  scroll-padding-inline: 12px;
+}
+
+.orbidoc-creator-shell :where(button, select, input, textarea, [contenteditable='true']):focus-visible {
+  outline: 2px solid var(--orbidoc-creator-accent) !important;
+  outline-offset: 2px !important;
+}
+
+/* Avoid focused editors/inputs being hidden under creator chrome or the IME. */
+.orbidoc-creator-shell :where(input, textarea, select, [contenteditable='true']) {
+  scroll-margin-block: 16px;
+}
+
+/* Compact windows are primarily touch-first. Spreadsheet cell inputs are not
+ * changed here; only actions/selectors receive larger hit targets. */
+@media (max-width: 599px) {
+  .orbidoc-creator-shell button:not(.orbidoc-compact-control),
+  .orbidoc-creator-shell select:not(.orbidoc-compact-control) {
+    min-height: 44px;
+  }
+
+  .orbidoc-creator-shell > .orbidoc-studio-powerbar {
+    position: relative;
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 14px;
+    gap: 6px;
+  }
+
+  .orbidoc-creator-shell > .orbidoc-studio-powerbar > div:first-child {
+    flex-basis: 100%;
+  }
+
+  .orbidoc-creator-shell > section > button:first-child {
+    min-height: 48px;
+  }
+
+  .orbidoc-creator-shell > section > button:first-child > span:nth-of-type(2) {
+    display: none;
+  }
+
+  /* Keep page/canvas areas edge-efficient on phones while preserving rounded
+   * chrome on larger windows. */
+  .orbidoc-creator-shell > div:last-child {
+    border-radius: 16px;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 1023px) {
+  .orbidoc-creator-shell button:not(.orbidoc-compact-control),
+  .orbidoc-creator-shell select:not(.orbidoc-compact-control) {
+    min-height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbidoc-creator-shell *,
+  .orbidoc-creator-shell *::before,
+  .orbidoc-creator-shell *::after {
+    scroll-behavior: auto !important;
+  }
+}

@@ -44,7 +44,7 @@ export const DesignEditor: React.FC<React.ComponentProps<typeof DesignEditorStud
   }, [hydratedProject, props.project, props.onProjectChange]);
 
   const refresh = () => setRevision((value) => value + 1);
-  return <div>
+  return <div className="orbidoc-creator-shell" data-orbidoc-creator="canva">
     <StudioPowerBar project={hydratedProject} kind="canva" showNotification={props.showNotification} />
     <DesignProPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={refresh} showNotification={props.showNotification} />
     <DesignAdvancedPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={refresh} showNotification={props.showNotification} />

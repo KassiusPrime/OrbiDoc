@@ -2,7 +2,7 @@ import JSZip, { type JSZipObject } from 'jszip';
 import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 
-export type ReaderKind = 'pdf' | 'image' | 'html' | 'text' | 'markdown' | 'epub' | 'zip' | 'docx' | 'spreadsheet' | 'unsupported';
+export type ReaderKind = 'pdf' | 'image' | 'media' | 'font' | 'html' | 'text' | 'markdown' | 'structured' | 'hex' | 'epub' | 'zip' | 'docx' | 'spreadsheet' | 'unsupported';
 
 export interface ReaderArchiveEntry {
   path: string;
@@ -22,13 +22,30 @@ export interface ReaderDocument {
   text?: string;
   html?: string;
   objectUrl?: string;
+  mediaType?: 'audio' | 'video';
   archive?: JSZip;
   archiveEntries?: ReaderArchiveEntry[];
 }
 
+const CODE_EXTENSIONS = [
+  'css', 'js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cc', 'cpp', 'cxx', 'h', 'hh', 'hpp', 'hxx', 'cs', 'kt', 'kts', 'go', 'rs', 'swift',
+  'sql', 'sh', 'bash', 'zsh', 'ps1', 'php', 'rb', 'dart', 'lua', 'scala', 'gradle', 'vue', 'svelte', 'proto', 'graphql', 'gql', 'cmake', 'cmd', 'bat',
+  'diff', 'patch', 'ini', 'cfg', 'conf', 'properties', 'env', 'yaml', 'yml', 'toml', 'plist', 'log',
+];
+const TEXT_EXTENSIONS = ['txt', 'json', 'xml', 'csv', 'tsv', ...CODE_EXTENSIONS];
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'avif', 'gif', 'bmp', 'tif', 'tiff', 'svg'];
+const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'aac', 'flac', 'ogg', 'opus', 'amr', 'mka'];
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v', '3gp', 'flv'];
+const FONT_EXTENSIONS = ['ttf', 'otf', 'ttc', 'otc', 'woff'];
+const STRUCTURED_EXTENSIONS = ['ics', 'vcs', 'vcf', 'eml'];
+const ZIP_PACKAGE_EXTENSIONS = ['zip', 'jar', 'apk', 'cbz', 'xpi', 'whl', 'vsix', 'nupkg', 'ipa', 'aar', 'appx', 'oxt'];
+const OFFICE_ZIP_TEXT_EXTENSIONS = ['pptx', 'pptm', 'ppsx', 'potx', 'odt', 'odp', 'ott', 'otp', 'xps', 'oxps'];
+
 export const READER_ACCEPT = [
-  '.pdf', '.epub', '.zip', '.html', '.htm', '.txt', '.md', '.markdown', '.json', '.xml', '.csv', '.css', '.js', '.ts', '.jsx', '.tsx',
-  '.docx', '.xlsx', '.xls', '.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif', '.bmp', '.tif', '.tiff', '.svg',
+  '.pdf', '.epub', ...ZIP_PACKAGE_EXTENSIONS.map((value) => `.${value}`), '.html', '.htm', '.xhtml', '.md', '.markdown',
+  ...TEXT_EXTENSIONS.map((value) => `.${value}`), '.docx', '.xlsx', '.xls', ...OFFICE_ZIP_TEXT_EXTENSIONS.map((value) => `.${value}`),
+  ...IMAGE_EXTENSIONS.map((value) => `.${value}`), ...AUDIO_EXTENSIONS.map((value) => `.${value}`), ...VIDEO_EXTENSIONS.map((value) => `.${value}`),
+  ...FONT_EXTENSIONS.map((value) => `.${value}`), ...STRUCTURED_EXTENSIONS.map((value) => `.${value}`),
 ].join(',');
 
 const extensionOf = (name: string) => name.split('.').pop()?.toLowerCase() || '';
@@ -87,9 +104,15 @@ export function markdownToReaderHtml(markdown: string) {
   return output.join('');
 }
 
-const textExtensions = new Set(['txt', 'json', 'xml', 'csv', 'css', 'js', 'ts', 'jsx', 'tsx']);
-const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'avif', 'gif', 'bmp', 'tif', 'tiff', 'svg']);
-const archiveTextExtensions = new Set(['txt', 'md', 'markdown', 'html', 'htm', 'json', 'xml', 'csv', 'css', 'js', 'ts', 'jsx', 'tsx', 'svg']);
+const textExtensions = new Set(TEXT_EXTENSIONS);
+const imageExtensions = new Set(IMAGE_EXTENSIONS);
+const audioExtensions = new Set(AUDIO_EXTENSIONS);
+const videoExtensions = new Set(VIDEO_EXTENSIONS);
+const fontExtensions = new Set(FONT_EXTENSIONS);
+const structuredExtensions = new Set(STRUCTURED_EXTENSIONS);
+const zipPackageExtensions = new Set(ZIP_PACKAGE_EXTENSIONS);
+const officeZipTextExtensions = new Set(OFFICE_ZIP_TEXT_EXTENSIONS);
+const archiveTextExtensions = new Set(['txt', 'md', 'markdown', 'html', 'htm', 'xhtml', ...TEXT_EXTENSIONS, 'svg']);
 
 const archiveEntryKind = (entry: JSZipObject): ReaderArchiveEntry['kind'] => {
   const extension = extensionOf(entry.name);
@@ -173,19 +196,44 @@ async function readEpub(file: File): Promise<ReaderDocument> {
 }
 
 async function readZip(file: File): Promise<ReaderDocument> {
+  const extension = extensionOf(file.name);
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const entries = Object.values(zip.files).map((entry) => ({ path: entry.name, name: entry.name.split('/').filter(Boolean).pop() || entry.name, directory: entry.dir, kind: archiveEntryKind(entry) })).sort((a, b) => Number(a.directory) - Number(b.directory) || a.path.localeCompare(b.path));
-  return { id: crypto.randomUUID(), name: file.name, extension: 'zip', mimeType: file.type || 'application/zip', kind: 'zip', size: file.size, title: baseName(file.name), archive: zip, archiveEntries: entries };
+  return { id: crypto.randomUUID(), name: file.name, extension, mimeType: file.type || 'application/zip', kind: 'zip', size: file.size, title: baseName(file.name), archive: zip, archiveEntries: entries };
+}
+
+async function readOfficeZipText(file: File, common: Omit<ReaderDocument, 'kind'>): Promise<ReaderDocument> {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const extension = common.extension;
+  let paths: string[] = [];
+  if (extension.startsWith('ppt') || extension === 'ppsx' || extension === 'potx') paths = Object.keys(zip.files).filter((path) => /^ppt\/slides\/slide\d+\.xml$/i.test(path));
+  else if (extension === 'xps' || extension === 'oxps') paths = Object.keys(zip.files).filter((path) => /documents\/\d+\/pages\/\d+\.fpage$/i.test(path));
+  else paths = ['content.xml'].filter((path) => Boolean(zip.file(path)));
+  paths.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const sections: string[] = [];
+  const plain: string[] = [];
+  for (let index = 0; index < paths.length; index += 1) {
+    const entry = zip.file(paths[index]);
+    if (!entry) continue;
+    const xml = parseXml(await entry.async('string'));
+    const text = (xml.documentElement?.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!text) continue;
+    const label = extension.startsWith('ppt') || extension === 'ppsx' || extension === 'potx' ? `Slide ${index + 1}` : `Parte ${index + 1}`;
+    plain.push(`${label}\n${text}`);
+    sections.push(`<section><h2>${escapeHtml(label)}</h2><p>${escapeHtml(text)}</p></section>`);
+  }
+  if (!sections.length) throw new Error(`O arquivo ${extension.toUpperCase()} foi reconhecido, mas esta versão não encontrou conteúdo textual legível para a prévia.`);
+  return { ...common, kind: 'structured', html: sections.join(''), text: plain.join('\n\n') };
 }
 
 export async function readArchiveEntry(document: ReaderDocument, path: string): Promise<{ kind: 'text' | 'image' | 'binary'; text?: string; html?: string; dataUrl?: string }> {
   const entry = document.archive?.file(path);
-  if (!entry) throw new Error('Item não encontrado no ZIP.');
+  if (!entry) throw new Error('Item não encontrado no arquivo compactado.');
   const kind = archiveEntryKind(entry);
   const extension = extensionOf(path);
   if (kind === 'text') {
     const text = await entry.async('string');
-    if (extension === 'html' || extension === 'htm') return { kind, text: new DOMParser().parseFromString(text, 'text/html').body.textContent || '', html: sanitizeReaderHtml(text) };
+    if (extension === 'html' || extension === 'htm' || extension === 'xhtml') return { kind, text: new DOMParser().parseFromString(text, 'text/html').body.textContent || '', html: sanitizeReaderHtml(text) };
     if (extension === 'md' || extension === 'markdown') return { kind, text, html: markdownToReaderHtml(text) };
     if (extension === 'svg') return { kind: 'image', dataUrl: await dataUrlForZipFile(entry, 'image/svg+xml') };
     return { kind, text };
@@ -197,15 +245,83 @@ export async function readArchiveEntry(document: ReaderDocument, path: string): 
   return { kind: 'binary' };
 }
 
+function jsonTree(value: unknown, depth = 0): string {
+  if (depth > 10) return '<span>…</span>';
+  if (value === null) return '<span class="orbidoc-json-null">null</span>';
+  if (typeof value !== 'object') return `<code>${escapeHtml(JSON.stringify(value))}</code>`;
+  const entries = Array.isArray(value) ? value.map((item, index) => [String(index), item] as const) : Object.entries(value as Record<string, unknown>);
+  return `<div class="orbidoc-json-tree">${entries.map(([key, child]) => `<details open><summary><strong>${escapeHtml(key)}</strong></summary><div>${jsonTree(child, depth + 1)}</div></details>`).join('')}</div>`;
+}
+
+function structuredPreview(extension: string, text: string) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  if (extension === 'eml') {
+    const divider = lines.findIndex((line) => !line.trim());
+    const headerLines = divider >= 0 ? lines.slice(0, divider) : lines;
+    const body = divider >= 0 ? lines.slice(divider + 1).join('\n') : '';
+    const fields = ['From', 'To', 'Cc', 'Subject', 'Date'].map((name) => {
+      const line = headerLines.find((candidate) => candidate.toLowerCase().startsWith(`${name.toLowerCase()}:`));
+      return line ? `<div><strong>${name}</strong><span>${escapeHtml(line.slice(name.length + 1).trim())}</span></div>` : '';
+    }).join('');
+    return `<article class="orbidoc-structured-card"><div class="orbidoc-structured-fields">${fields}</div><pre>${escapeHtml(body)}</pre></article>`;
+  }
+  const wanted = extension === 'vcf' ? ['FN', 'ORG', 'TITLE', 'TEL', 'EMAIL', 'ADR', 'URL', 'BDAY'] : ['SUMMARY', 'DTSTART', 'DTEND', 'LOCATION', 'DESCRIPTION', 'ORGANIZER', 'ATTENDEE'];
+  const fields = lines.map((line) => {
+    const split = line.indexOf(':');
+    if (split <= 0) return null;
+    const rawKey = line.slice(0, split).split(';')[0].toUpperCase();
+    if (!wanted.includes(rawKey)) return null;
+    return [rawKey, line.slice(split + 1).trim()] as const;
+  }).filter(Boolean) as Array<readonly [string, string]>;
+  return `<article class="orbidoc-structured-card"><div class="orbidoc-structured-fields">${fields.map(([key, value]) => `<div><strong>${escapeHtml(key)}</strong><span>${escapeHtml(value)}</span></div>`).join('')}</div><details><summary>Texto original</summary><pre>${escapeHtml(text)}</pre></details></article>`;
+}
+
+function looksTextual(bytes: Uint8Array) {
+  if (!bytes.length) return true;
+  let printable = 0;
+  let nul = 0;
+  for (const byte of bytes) {
+    if (byte === 0) nul += 1;
+    if (byte === 9 || byte === 10 || byte === 13 || byte >= 32) printable += 1;
+  }
+  return nul === 0 && printable / bytes.length >= 0.88;
+}
+
+function hexDump(bytes: Uint8Array) {
+  const rows: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += 16) {
+    const chunk = bytes.slice(offset, offset + 16);
+    const hex = Array.from(chunk).map((byte) => byte.toString(16).padStart(2, '0')).join(' ').padEnd(47, ' ');
+    const ascii = Array.from(chunk).map((byte) => byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : '.').join('');
+    rows.push(`${offset.toString(16).padStart(8, '0')}  ${hex}  |${ascii}|`);
+  }
+  return rows.join('\n');
+}
+
+async function unknownFallback(file: File, common: Omit<ReaderDocument, 'kind'>): Promise<ReaderDocument> {
+  const sampleSize = Math.min(file.size, 1024 * 1024);
+  const sample = new Uint8Array(await file.slice(0, sampleSize).arrayBuffer());
+  if (looksTextual(sample)) {
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(sample);
+    return { ...common, kind: 'text', text: file.size > sampleSize ? `${text}\n\n[Prévia limitada ao primeiro 1 MB de ${file.name}.]` : text };
+  }
+  const hexSample = sample.slice(0, 256 * 1024);
+  const suffix = file.size > hexSample.length ? `\n\n[Prévia hexadecimal limitada aos primeiros ${hexSample.length.toLocaleString('pt-BR')} bytes.]` : '';
+  return { ...common, kind: 'hex', text: `${hexDump(hexSample)}${suffix}` };
+}
+
 export async function readDocumentFile(file: File): Promise<ReaderDocument> {
   if (file.size > 120 * 1024 * 1024) throw new Error('O leitor local aceita arquivos de até 120 MB nesta versão.');
   const extension = extensionOf(file.name);
   const common = { id: crypto.randomUUID(), name: file.name, extension, mimeType: file.type || 'application/octet-stream', size: file.size, title: baseName(file.name) };
   if (extension === 'epub') return readEpub(file);
-  if (extension === 'zip') return readZip(file);
+  if (zipPackageExtensions.has(extension)) return readZip(file);
   if (extension === 'pdf') return { ...common, kind: 'pdf', objectUrl: URL.createObjectURL(file) };
   if (imageExtensions.has(extension)) return { ...common, kind: 'image', objectUrl: URL.createObjectURL(file) };
-  if (extension === 'html' || extension === 'htm') {
+  if (audioExtensions.has(extension) || file.type.startsWith('audio/')) return { ...common, kind: 'media', mediaType: 'audio', objectUrl: URL.createObjectURL(file) };
+  if (videoExtensions.has(extension) || file.type.startsWith('video/')) return { ...common, kind: 'media', mediaType: 'video', objectUrl: URL.createObjectURL(file) };
+  if (fontExtensions.has(extension) || file.type.startsWith('font/')) return { ...common, kind: 'font', objectUrl: URL.createObjectURL(file) };
+  if (extension === 'html' || extension === 'htm' || extension === 'xhtml') {
     const source = await file.text();
     const parsed = new DOMParser().parseFromString(source, 'text/html');
     return { ...common, kind: 'html', html: sanitizeReaderHtml(source), text: parsed.body.textContent || '' };
@@ -213,6 +329,19 @@ export async function readDocumentFile(file: File): Promise<ReaderDocument> {
   if (extension === 'md' || extension === 'markdown') {
     const text = await file.text();
     return { ...common, kind: 'markdown', text, html: markdownToReaderHtml(text) };
+  }
+  if (extension === 'json') {
+    const text = await file.text();
+    try {
+      const value = JSON.parse(text);
+      return { ...common, kind: 'structured', text, html: `<section><h2>Estrutura JSON</h2>${jsonTree(value)}<details><summary>Fonte</summary><pre>${escapeHtml(JSON.stringify(value, null, 2))}</pre></details></section>` };
+    } catch {
+      return { ...common, kind: 'text', text };
+    }
+  }
+  if (structuredExtensions.has(extension)) {
+    const text = await file.text();
+    return { ...common, kind: 'structured', text, html: structuredPreview(extension, text) };
   }
   if (textExtensions.has(extension)) return { ...common, kind: 'text', text: await file.text() };
   if (extension === 'docx') {
@@ -226,7 +355,8 @@ export async function readDocumentFile(file: File): Promise<ReaderDocument> {
     const text = workbook.SheetNames.map((name) => `--- ${name} ---\n${xlsx.utils.sheet_to_csv(workbook.Sheets[name])}`).join('\n\n');
     return { ...common, kind: 'spreadsheet', html: sanitizeReaderHtml(html), text };
   }
-  return { ...common, kind: 'unsupported' };
+  if (officeZipTextExtensions.has(extension)) return readOfficeZipText(file, common);
+  return unknownFallback(file, common);
 }
 
 export function releaseReaderDocument(document?: ReaderDocument | null) {

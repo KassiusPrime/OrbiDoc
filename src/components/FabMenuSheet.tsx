@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import {
+  IconArrowsMaximize as Resize,
   IconDownload as Download,
   IconFileCheck as FileCheck,
   IconFileSpreadsheet as FileSpreadsheet,
@@ -11,6 +12,7 @@ import {
   IconPresentation as Presentation,
   IconRobot as Robot,
   IconScan as Scan,
+  IconShieldLock as ShieldLock,
   IconSparkles as Sparkles,
   IconTool as Tool,
   IconUser as User,
@@ -71,13 +73,15 @@ export const FabMenuSheet: React.FC<FabMenuSheetProps> = ({ isOpen, onClose, onS
   };
 
   const utilities = [
-    { id: 'account', title: 'Conta e login', desc: 'Entrar, criar conta e manter a sessão vinculada', icon: User, run: () => clickLauncher('Conta OrbiDoc e conexões externas') },
+    { id: 'account', title: 'Conta e login', desc: 'Conta OrbiDoc e conexões externas', icon: User, run: () => clickLauncher('Conta OrbiDoc e conexões externas') },
     { id: 'ai', title: 'Conectar IA', desc: 'Gemini, Groq ou OpenRouter no Android', icon: Key, run: () => window.dispatchEvent(new Event('orbidoc:open-ai-settings')) },
-    { id: 'download', title: 'Downloader', desc: 'Salvar links diretos em Downloads/OrbiDoc', icon: Download, run: () => openMediaTab('Baixar por link') },
+    { id: 'download', title: 'Downloader', desc: 'Salvar links diretos com segurança', icon: Download, run: () => openMediaTab('Baixar por link') },
     { id: 'enhance', title: 'Melhorar imagem', desc: 'HQ local 1×/2×/4× e restauração', icon: Photo, run: () => openMediaTab('Aprimorar imagem') },
+    { id: 'resize', title: 'Redimensionar', desc: 'Lote, presets, crop e formatos locais', icon: Resize, run: () => window.dispatchEvent(new Event('orbidoc:open-image-resizer')) },
     { id: 'scan', title: 'Scan & Reader', desc: 'Scanner, leitor universal e OCR local', icon: Scan, run: () => clickLauncher('Abrir Scan e Reader') },
     { id: 'versions', title: 'Versões', desc: 'Snapshots locais e recuperação', icon: History, run: () => clickLauncher('Abrir histórico de versões') },
     { id: 'local', title: 'Ferramentas locais', desc: 'Texto, JSON, senha, hash, Base64, URL e UUID', icon: Tool, run: () => window.dispatchEvent(new Event('orbidoc:open-local-tools')) },
+    { id: 'lab', title: 'Laboratório offline', desc: 'Diff, CSV/JSON, regex e privacidade', icon: ShieldLock, run: () => window.dispatchEvent(new Event('orbidoc:open-advanced-tools')) },
   ] as const;
 
   return (
@@ -98,8 +102,8 @@ export const FabMenuSheet: React.FC<FabMenuSheetProps> = ({ isOpen, onClose, onS
           >
             <div className="p-5 sm:p-6 pb-4 flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] dark:bg-[#0D1E5B]/60 text-[#3157F6] dark:text-[#7AA2FF] flex items-center justify-center shrink-0"><Sparkles className="w-5 h-5" /></div>
-              <div className="min-w-0 flex-1"><h3 id="orbidoc-quick-create-title" className="font-black text-slate-900 dark:text-slate-100 text-base">Criar e acessar ferramentas</h3><p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">No celular, recursos importantes ficam aqui em vez de ocupar a tela com botões flutuantes.</p></div>
-              <button type="button" onClick={onClose} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 flex items-center justify-center" aria-label="Fechar criação rápida"><X className="w-5 h-5" /></button>
+              <div className="min-w-0 flex-1"><h3 id="orbidoc-quick-create-title" className="font-black text-slate-900 dark:text-slate-100 text-base">Criar e acessar ferramentas</h3><p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Em telas compactas e médias, recursos globais ficam reunidos aqui em vez de disputar espaço com o conteúdo.</p></div>
+              <button type="button" onClick={onClose} className="w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 flex items-center justify-center" aria-label="Fechar criação rápida"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-5">
@@ -109,7 +113,7 @@ export const FabMenuSheet: React.FC<FabMenuSheetProps> = ({ isOpen, onClose, onS
                   {ACTIONS.map((action) => {
                     const Icon = action.icon;
                     return (
-                      <motion.button key={action.id} whileTap={{ scale: 0.97 }} type="button" onClick={() => { onSelectAction(action.tab); onClose(); }} className="p-3.5 bg-slate-50 dark:bg-[#080D18]/55 hover:bg-[#EFF4FF] dark:hover:bg-[#0D1E5B]/35 border border-slate-200/70 dark:border-slate-700/70 hover:border-[#3157F6]/35 rounded-2xl flex items-center gap-3 text-left group">
+                      <motion.button key={action.id} whileTap={{ scale: 0.97 }} type="button" onClick={() => { onSelectAction(action.tab); onClose(); }} className="min-h-[72px] p-3.5 bg-slate-50 dark:bg-[#080D18]/55 hover:bg-[#EFF4FF] dark:hover:bg-[#0D1E5B]/35 border border-slate-200/70 dark:border-slate-700/70 hover:border-[#3157F6]/35 rounded-2xl flex items-center gap-3 text-left group">
                         <div className={`w-10 h-10 rounded-xl ${action.color} flex items-center justify-center shadow-sm shrink-0`}><Icon className="w-5 h-5" /></div>
                         <div className="min-w-0"><h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm group-hover:text-[#3157F6] dark:group-hover:text-[#7AA2FF] truncate">{action.title}</h4><p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">{action.desc}</p></div>
                       </motion.button>
@@ -120,10 +124,10 @@ export const FabMenuSheet: React.FC<FabMenuSheetProps> = ({ isOpen, onClose, onS
 
               <section>
                 <div className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Ferramentas e conta</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {utilities.map((item) => {
                     const Icon = item.icon;
-                    return <button key={item.id} type="button" onClick={() => runUtility(item.run)} className="min-h-[104px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#080D18]/45 hover:border-[#3157F6]/35 p-3 text-left"><div className="w-9 h-9 rounded-xl bg-[#EFF4FF] dark:bg-[#0D1E5B]/60 text-[#3157F6] dark:text-[#7AA2FF] flex items-center justify-center"><Icon className="w-4.5 h-4.5" /></div><div className="mt-2 text-[10px] font-black text-slate-800 dark:text-slate-100">{item.title}</div><div className="mt-0.5 text-[8px] leading-relaxed text-slate-400">{item.desc}</div></button>;
+                    return <button key={item.id} type="button" onClick={() => runUtility(item.run)} className="min-h-[108px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#080D18]/45 hover:border-[#3157F6]/35 p-3 text-left"><div className="w-9 h-9 rounded-xl bg-[#EFF4FF] dark:bg-[#0D1E5B]/60 text-[#3157F6] dark:text-[#7AA2FF] flex items-center justify-center"><Icon className="w-4.5 h-4.5" /></div><div className="mt-2 text-[10px] font-black text-slate-800 dark:text-slate-100">{item.title}</div><div className="mt-0.5 text-[8px] leading-relaxed text-slate-400">{item.desc}</div></button>;
                   })}
                 </div>
               </section>
