@@ -56,16 +56,19 @@ test('one canonical office importer preserves editable document spreadsheet and 
 });
 
 test('connected files keep provider identity in memory without persisting provider secrets', async () => {
-  const [open, cloud, github] = await Promise.all([
+  const [open, cloud, github, routing] = await Promise.all([
     read('src/lib/systemFileOpen.ts'),
     read('src/services/connectedFileAccess.ts'),
     read('src/services/githubFiles.ts'),
+    read('src/lib/editorFileRouting.ts'),
   ]);
   assert.match(open, /new WeakMap<File, Partial<OrbiDocFileOrigin>>/);
   assert.match(open, /bindOrbiDocFileOrigin/);
   assert.match(cloud, /providerId: file\.id/);
   assert.match(cloud, /etag:/);
-  assert.match(cloud, /readOnly: Boolean\(native\)/);
+  assert.match(cloud, /native \? \{ readOnly: true \} : \{\}/);
+  assert.doesNotMatch(cloud, /readOnly: false/);
+  assert.match(routing, /readOnly: origin\?\.readOnly \?\? !\(cloudWritable && extension === canonical\)/);
   assert.match(github, /readOnly: true/);
   assert.match(github, /repository: \{ owner: target\.owner, repo: target\.repo, path: entry\.path/);
 });
