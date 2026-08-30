@@ -38,12 +38,12 @@ const FontPreview: React.FC<{ document: ReaderDocument }> = ({ document: readerD
   if (error) return <div className="h-full flex items-center justify-center p-8 text-center text-xs text-slate-400">{error}</div>;
   return <div className="max-w-5xl mx-auto p-6 sm:p-10 space-y-8">
     <div><div className="text-[9px] uppercase tracking-[0.16em] font-black text-slate-400">Prévia de fonte</div><h1 className="mt-2 text-2xl font-black">{readerDocument.name}</h1></div>
-    <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-6 sm:p-8" style={{ fontFamily }}>
+    <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-6 sm:p-8" style={{ fontFamily: family }}>
       <p className="text-4xl sm:text-6xl leading-tight">OrbiDoc Aa Bb Cc 0123</p>
       <p className="mt-6 text-2xl">Documentos em órbita. Inteligência em conexão.</p>
       <p className="mt-6 text-base leading-relaxed">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br />abcdefghijklmnopqrstuvwxyz<br />0123456789 !?.,:;()[]{} @#%&amp;*</p>
     </div>
-    <div className="grid sm:grid-cols-3 gap-3">{[16, 24, 36].map((size) => <div key={size} className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4"><div className="text-[9px] font-black text-slate-400">{size}px</div><div className="mt-2 truncate" style={{ fontFamily, fontSize: size }}>OrbiDoc Workspace</div></div>)}</div>
+    <div className="grid sm:grid-cols-3 gap-3">{[16, 24, 36].map((size) => <div key={size} className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4"><div className="text-[9px] font-black text-slate-400">{size}px</div><div className="mt-2 truncate" style={{ fontFamily: family, fontSize: size }}>OrbiDoc Workspace</div></div>)}</div>
   </div>;
 };
 
