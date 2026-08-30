@@ -183,6 +183,17 @@ OrbiDoc-specific parity layer:
 - source-aware open, save-back, save-copy and version conflict handling;
 - no personal access token persisted in browser storage.
 
+## Current validated milestone
+
+- DOCX/HTML/TXT/Markdown, XLS/XLSX/XLSM/XLTX/CSV/TSV, PPTX and PDF now route through one focused file session before the generic reader.
+- The focused session reuses the real Document, Spreadsheet, Presentation and PDF/OCR workspaces instead of creating duplicate mini-apps.
+- The operating-system/PWA `launchQueue` uses the same file router.
+- Google Drive, OneDrive and GitHub file opens retain source identity and revision metadata without persisting provider secrets into the file/session.
+- Canonical DOCX/XLSX/PPTX from writable Google Drive/OneDrive sources can expose source-aware save-back.
+- Google Workspace native exports, GitHub and non-canonical imported formats remain read-only at the origin and use Save Copy/Export instead of risking format corruption.
+- Save-back serializes the live editor state and performs a remote revision preflight; stale revisions are refused. OneDrive additionally uses eTag/`If-Match` on replacement.
+- This milestone is validated by CI, PWA/mobile/native audits, Vercel preview and Android debug APK on head `addfe95bf56dd754c89f909dc7b6ed851bb8da1a`.
+
 ## Definition of done for a file family
 
 A family is only marked complete when:
@@ -198,9 +209,9 @@ A family is only marked complete when:
 
 ## Current priority
 
-1. Finish open-any-file and honest capability registry.
-2. Route editable DOCX/XLSX/PPTX/PDF from local/cloud sources directly to the matching editor.
-3. Add source-aware save-back.
+1. Add explicit dirty-state, safe-close prompts and recoverable session journals.
+2. Unify Save Copy/Save As across device and connected sources.
+3. Expand Shared Drives, SharePoint and Teams file hierarchies.
 4. Add specialist viewers and archive codecs.
 5. Deepen PDF/Office parity.
 6. Add AI actions contextually after the underlying file operation works without AI.
