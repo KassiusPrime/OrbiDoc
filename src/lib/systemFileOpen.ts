@@ -8,10 +8,22 @@ export type OrbiDocOpenFileDetail = {
   origin?: Partial<OrbiDocFileOrigin>;
 };
 
+const fileOrigins = new WeakMap<File, Partial<OrbiDocFileOrigin>>();
+
+export function bindOrbiDocFileOrigin(file: File, origin: Partial<OrbiDocFileOrigin>) {
+  fileOrigins.set(file, origin);
+  return file;
+}
+
+export function readOrbiDocFileOrigin(file: File) {
+  return fileOrigins.get(file);
+}
+
 export function openFileInsideOrbiDoc(
   file: File,
   source: OrbiDocOpenFileDetail['source'] = 'local',
   origin?: OrbiDocOpenFileDetail['origin'],
 ) {
-  window.dispatchEvent(new CustomEvent<OrbiDocOpenFileDetail>(ORBIDOC_OPEN_FILE_EVENT, { detail: { file, source, origin } }));
+  const boundOrigin = origin || readOrbiDocFileOrigin(file);
+  window.dispatchEvent(new CustomEvent<OrbiDocOpenFileDetail>(ORBIDOC_OPEN_FILE_EVENT, { detail: { file, source, origin: boundOrigin } }));
 }
