@@ -1,0 +1,241 @@
+/* Offline-first productivity suite foundations. Keep these rules semantic and
+   surface-aware so editors do not depend on one viewport size. */
+
+.orbidoc-productivity-shell,
+.orbidoc-productivity-shell *,
+.orbidoc-workspace-shell,
+.orbidoc-workspace-shell * {
+  min-width: 0;
+}
+
+.orbidoc-productivity-shell p,
+.orbidoc-productivity-shell li,
+.orbidoc-productivity-shell td,
+.orbidoc-productivity-shell th,
+.orbidoc-productivity-shell label,
+.orbidoc-productivity-shell [role='dialog'],
+.orbidoc-productivity-shell [role='status'],
+.orbidoc-workspace-shell p,
+.orbidoc-workspace-shell li {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.orbidoc-productivity-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbidoc-offline-sync-status {
+  position: fixed;
+  z-index: 112;
+  right: max(12px, var(--orbidoc-safe-right, 0px));
+  bottom: max(12px, var(--orbidoc-safe-bottom, 0px));
+  max-width: min(360px, calc(100vw - 24px));
+  min-height: 34px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid rgb(49 87 246 / 0.22);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.96);
+  color: #2446D8;
+  box-shadow: 0 8px 30px rgb(15 23 42 / 0.12);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.dark .orbidoc-offline-sync-status {
+  background: rgb(16 24 39 / 0.96);
+  border-color: rgb(122 162 255 / 0.25);
+  color: #7AA2FF;
+}
+
+.orbidoc-offline-sync-status.has-conflict {
+  border-color: rgb(245 158 11 / 0.38);
+  color: #b45309;
+}
+
+.dark .orbidoc-offline-sync-status.has-conflict {
+  color: #fbbf24;
+}
+
+html.orbidoc-platform-mobile .orbidoc-offline-sync-status,
+html.orbidoc-platform-app .orbidoc-offline-sync-status {
+  left: max(10px, var(--orbidoc-safe-left, 0px));
+  right: max(10px, var(--orbidoc-safe-right, 0px));
+  bottom: calc(var(--orbidoc-bottom-nav-height, 72px) + var(--orbidoc-safe-bottom, 0px) + 8px);
+  margin-inline: auto;
+  width: fit-content;
+}
+
+html[data-orbidoc-keyboard='open'] .orbidoc-offline-sync-status {
+  bottom: max(8px, var(--orbidoc-safe-bottom, 0px));
+}
+
+.orbidoc-editor-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 5px 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  border-bottom: 1px solid rgb(148 163 184 / 0.2);
+}
+
+.orbidoc-editor-ribbon-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  padding-inline: 4px;
+  border-right: 1px solid rgb(148 163 184 / 0.18);
+}
+
+.orbidoc-editor-ribbon-group:last-child {
+  border-right: 0;
+}
+
+.orbidoc-page-stage {
+  min-height: 100%;
+  padding: 28px max(12px, 3vw) 80px;
+  overflow: auto;
+  background: #e9edf5;
+}
+
+.dark .orbidoc-page-stage {
+  background: #070b12;
+}
+
+.orbidoc-a4-page {
+  width: min(210mm, calc(100vw - 32px));
+  min-height: 297mm;
+  margin: 0 auto 24px;
+  padding: var(--orbidoc-page-margin, 20mm);
+  box-sizing: border-box;
+  background: white;
+  color: #111827;
+  box-shadow: 0 16px 45px rgb(15 23 42 / 0.16);
+}
+
+.orbidoc-a4-page .ContentEditable__root,
+.orbidoc-a4-page [contenteditable='true'] {
+  min-height: calc(297mm - (var(--orbidoc-page-margin, 20mm) * 2));
+  outline: none;
+  line-height: var(--orbidoc-line-height, 1.5);
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.orbidoc-a4-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.orbidoc-a4-page td,
+.orbidoc-a4-page th {
+  border: 1px solid #cbd5e1;
+  padding: 6px 8px;
+  min-width: 36px;
+}
+
+.orbidoc-a4-page blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 3px solid #3157F6;
+  color: #475569;
+}
+
+.orbidoc-editor-footer {
+  min-height: 32px;
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgb(148 163 184 / 0.2);
+  font-size: 9px;
+  color: #64748b;
+}
+
+.orbidoc-save-state {
+  font-weight: 800;
+}
+
+.orbidoc-save-state[data-state='saving'] { color: #3157F6; }
+.orbidoc-save-state[data-state='saved'] { color: #059669; }
+.orbidoc-save-state[data-state='modified-offline'] { color: #d97706; }
+.orbidoc-save-state[data-state='error'] { color: #e11d48; }
+
+.orbidoc-pdf-canvas-wrap {
+  position: relative;
+  width: fit-content;
+  margin-inline: auto;
+  background: white;
+  box-shadow: 0 10px 32px rgb(15 23 42 / 0.18);
+}
+
+.orbidoc-pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  text-size-adjust: none;
+  transform-origin: 0 0;
+}
+
+.orbidoc-pdf-text-layer span,
+.orbidoc-pdf-text-layer br {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}
+
+.orbidoc-pdf-text-layer ::selection {
+  background: rgb(49 87 246 / 0.32);
+}
+
+@media (max-width: 767px) {
+  .orbidoc-a4-page {
+    width: 100%;
+    min-height: calc(100dvh - 180px);
+    padding: 18px;
+    box-shadow: none;
+  }
+  .orbidoc-page-stage {
+    padding: 0 0 88px;
+  }
+}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .orbidoc-print-document,
+  .orbidoc-print-document * { visibility: visible !important; }
+  .orbidoc-print-document {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .orbidoc-a4-page {
+    width: auto;
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+}
