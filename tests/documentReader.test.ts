@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { markdownToReaderHtml, READER_ACCEPT } from '../src/lib/documentReader';
 
-test('universal reader advertises the primary office, ebook and archive formats', () => {
-  for (const extension of ['.pdf', '.epub', '.zip', '.html', '.txt', '.md', '.docx', '.xlsx', '.jpg']) {
+test('universal reader advertises office, ebook, archive, code and image formats', () => {
+  for (const extension of [
+    '.pdf', '.epub', '.zip', '.html', '.txt', '.md', '.docx', '.xlsx', '.ods', '.pptx', '.jpg', '.svg', '.yaml', '.sql', '.py',
+  ]) {
     assert.ok(READER_ACCEPT.includes(extension), extension);
   }
 });
