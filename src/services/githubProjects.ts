@@ -43,6 +43,7 @@ const STORAGE_KEY = 'orbidoc_github_user';
 const STATE_PREFIX = 'orbidoc_github_oauth_';
 const OAUTH_MESSAGE = 'orbidoc:github-oauth';
 const API = 'https://api.github.com';
+const API_VERSION = '2022-11-28';
 const TOKEN_SAFETY_MS = 60_000;
 
 const clientId = () => String(import.meta.env.VITE_GITHUB_CLIENT_ID || '').trim();
@@ -64,7 +65,10 @@ export function getStoredGitHubUser(): GitHubUserProfile | null {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const user = JSON.parse(raw) as GitHubUserProfile;
-    if (!user?.id || !user?.login || !user.accessToken) return null;
+    if (!user?.id || !user?.login || !user.accessToken) {
+      logoutGitHubUser();
+      return null;
+    }
     if (user.expiresAt && Date.now() + TOKEN_SAFETY_MS >= user.expiresAt && !user.refreshToken) {
       logoutGitHubUser();
       return null;
@@ -103,14 +107,14 @@ async function exchangeToken(payload: Record<string, string>) {
 }
 
 async function githubFetch(path: string, user?: GitHubUserProfile, init: RequestInit = {}) {
-  const session = user ? await ensureGitHubSession(user) : await ensureGitHubSession();
+  const session = await ensureGitHubSession(user);
   if (!session) throw new Error('Conecte o GitHub antes de acessar repositórios privados.');
   const response = await fetch(`${API}${path}`, {
     ...init,
     headers: {
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${session.accessToken}`,
-      'X-GitHub-Api-Version': '2026-03-10',
+      'X-GitHub-Api-Version': API_VERSION,
       ...init.headers,
     },
   });
@@ -123,7 +127,8 @@ async function githubFetch(path: string, user?: GitHubUserProfile, init: Request
 }
 
 export async function ensureGitHubSession(explicit?: GitHubUserProfile): Promise<GitHubUserProfile | null> {
-  let user = explicit || getStoredGitHubUser();
+  const stored = getStoredGitHubUser();
+  let user = stored && (!explicit || stored.id === explicit.id) ? stored : explicit || stored;
   if (!user) return null;
   if (!user.expiresAt || Date.now() + TOKEN_SAFETY_MS < user.expiresAt) return user;
   if (!user.refreshToken || (user.refreshTokenExpiresAt && Date.now() >= user.refreshTokenExpiresAt)) {
@@ -148,7 +153,7 @@ async function fetchProfile(accessToken: string): Promise<Omit<GitHubUserProfile
     headers: {
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${accessToken}`,
-      'X-GitHub-Api-Version': '2026-03-10',
+      'X-GitHub-Api-Version': API_VERSION,
     },
   });
   const data = await response.json().catch(() => ({}));
@@ -243,14 +248,16 @@ export function openGitHubAppInstallation() {
 }
 
 export async function listGitHubRepositories(user?: GitHubUserProfile): Promise<GitHubRepository[]> {
-  const installationsResponse = await githubFetch('/user/installations?per_page=100', user);
+  const session = await ensureGitHubSession(user);
+  if (!session) throw new Error('Conecte o GitHub antes de listar repositórios.');
+  const installationsResponse = await githubFetch('/user/installations?per_page=100', session);
   const installationsData = await installationsResponse.json();
   const installations = Array.isArray(installationsData.installations) ? installationsData.installations : [];
   const repositories = new Map<number, GitHubRepository>();
 
   for (const installation of installations) {
     const installationId = Number(installation.id);
-    const response = await githubFetch(`/user/installations/${installationId}/repositories?per_page=100`, user);
+    const response = await githubFetch(`/user/installations/${installationId}/repositories?per_page=100`, session);
     const data = await response.json();
     for (const repo of Array.isArray(data.repositories) ? data.repositories : []) {
       repositories.set(Number(repo.id), {
