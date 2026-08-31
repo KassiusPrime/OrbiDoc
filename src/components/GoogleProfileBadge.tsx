@@ -52,6 +52,11 @@ const initialsFor = (user: OrbiDocAuthUser) => {
   return source.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'OD';
 };
 
+const initialsFromName = (name?: string | null, email?: string | null) => {
+  const source = name || email?.split('@')[0] || 'OrbiDoc';
+  return source.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'OD';
+};
+
 export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
   user,
   onUserChange,
@@ -68,6 +73,7 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
   const [orbiUser, setOrbiUser] = useState<OrbiDocAuthUser | null>(null);
   const [githubUser, setGitHubUser] = useState(() => getStoredGitHubUser());
   const [mobileSheet, setMobileSheet] = useState(() => window.matchMedia('(max-width: 639px)').matches);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const currentGoogle = user ?? googleUser ?? getStoredGoogleUser();
@@ -208,7 +214,10 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
 
   const avatar = orbiUser?.photoURL || currentGoogle?.picture || currentMicrosoft?.picture || githubUser?.avatarUrl;
   const primaryName = orbiUser?.displayName || orbiUser?.email?.split('@')[0] || currentGoogle?.name || currentMicrosoft?.name || githubUser?.name;
+  const primaryEmail = orbiUser?.email || currentGoogle?.email || currentMicrosoft?.email || githubUser?.email;
   const connectedCount = Number(Boolean(currentGoogle)) + Number(Boolean(currentMicrosoft)) + Number(Boolean(githubUser));
+
+  useEffect(() => { setAvatarFailed(false); }, [avatar]);
 
   const accountPanel = (
     <div
@@ -258,7 +267,11 @@ export const GoogleProfileBadge: React.FC<GoogleProfileBadgeProps> = ({
   return (
     <div ref={rootRef} className="relative shrink-0">
       <button onClick={() => setOpen((value) => !value)} className="h-10 max-w-[210px] px-1.5 sm:px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-[#3157F6]/40 dark:hover:border-[#7AA2FF]/40 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2" aria-expanded={open} aria-label="Conta OrbiDoc e conexões externas">
-        {avatar ? <img src={avatar} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : orbiUser ? <div className="w-7 h-7 rounded-lg bg-[#3157F6] text-white flex items-center justify-center text-[9px] font-black shrink-0">{initialsFor(orbiUser)}</div> : <div className="w-7 h-7 rounded-lg bg-[#EFF4FF] dark:bg-[#0D1E5B]/70 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-[#3157F6] dark:text-[#7AA2FF]" /></div>}
+        {avatar && !avatarFailed
+          ? <img src={avatar} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} />
+          : (orbiUser || primaryName || primaryEmail)
+            ? <div className="w-7 h-7 rounded-lg bg-[#3157F6] text-white flex items-center justify-center text-[9px] font-black shrink-0">{orbiUser ? initialsFor(orbiUser) : initialsFromName(primaryName, primaryEmail)}</div>
+            : <div className="w-7 h-7 rounded-lg bg-[#EFF4FF] dark:bg-[#0D1E5B]/70 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-[#3157F6] dark:text-[#7AA2FF]" /></div>}
         <div className="orbidoc-account-trigger-copy min-w-0 hidden sm:block text-left"><div className="text-[10px] font-black text-slate-800 dark:text-slate-100 truncate">{primaryName || 'Conta'}</div><div className="text-[9px] text-slate-400 whitespace-nowrap">{orbiUser ? `Conta OrbiDoc · ${connectedCount} vínculo(s)` : connectedCount ? `${connectedCount} serviço(s)` : 'Modo local'}</div></div>
         <ChevronDown className="orbidoc-account-trigger-chevron w-3.5 h-3.5 text-slate-400 hidden sm:block shrink-0" />
       </button>
