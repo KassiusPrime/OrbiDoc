@@ -142,19 +142,37 @@ export interface EngineOption {
   provider: string;
   model: string;
   label: string;
-  description?: string;
-  supportsVision?: boolean;
-  supportsImageGeneration?: boolean;
+  emoji: string;
+  description: string;
+}
+
+export interface SlideData {
+  id: string;
+  title: string;
+  subtitle?: string;
+  bullets: string[];
+  image?: string;
+  bgGradient: string;
+  layout: 'title' | 'content' | 'two-column' | 'image' | 'quote';
+  notes?: string;
+}
+
+export interface PresentationDeck {
+  id: string;
+  title: string;
+  slides: SlideData[];
 }
 
 export interface ExcelCell {
-  value: string | number;
+  value: string;
   formula?: string;
   bold?: boolean;
   italic?: boolean;
-  fontFamily?: string;
-  fontSize?: number;
-  textColor?: string;
-  backgroundColor?: string;
   align?: 'left' | 'center' | 'right';
+  bgColor?: string;
+  textColor?: string;
+  fontFamily?: string;
+  colSpan?: number;
+  rowSpan?: number;
+  isMergedChild?: boolean;
 }
