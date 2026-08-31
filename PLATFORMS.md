@@ -1,151 +1,152 @@
 # OrbiDoc Platforms
 
-O OrbiDoc deve permanecer um único produto, com um único núcleo de editores e dados, distribuído em experiências diferentes sem duplicar o frontend.
+O OrbiDoc permanece um único produto com um único núcleo de editores e dados, porém agora possui **quatro superfícies de experiência distintas**. Não são quatro frontends duplicados: o core é compartilhado e o shell/layout muda conforme o ambiente.
 
 ## 1. Web
 
-Base: Vite + React + Vercel.
+Base: Vite + React + Vercel, aberto em navegador de desktop/notebook sem instalação.
 
-Responsabilidades:
-- acesso por URL sem instalação;
-- criação/edição completa;
-- conta OrbiDoc opcional via Firebase Authentication;
-- integração opcional com serviços externos;
-- atualizações imediatas;
-- fallback local-first.
+Perfil: `data-orbidoc-platform="web"`.
 
-A versão web continua existindo, mas **não é requisito para o Android nativo iniciar**.
+Prioridades:
+- espaço de trabalho amplo;
+- sidebar e painéis simultâneos quando houver largura;
+- recursos online opcionais;
+- instalação PWA disponível;
+- atualização imediata pelo deploy.
 
-## 2. Mobile
+## 2. Mobile Web
 
-### Android — distribuição principal nativa
+Base: o mesmo site aberto em navegador móvel, sem ser o APK nativo.
+
+Perfil: `data-orbidoc-platform="mobile"`.
+
+Prioridades:
+- navegação inferior e ações de polegar;
+- controles compactos, mas com alvo de toque seguro;
+- teclado virtual e `visualViewport`;
+- safe areas, notch, barras de gesto e orientação;
+- overlays em bottom-sheet/full-screen;
+- nenhuma ferramenta flutuante competindo com a hotbar.
+
+**Importante:** Mobile Web não é mais sinônimo de Android nativo.
+
+## 3. App nativo
+
+### Android — distribuição principal
 
 Base: **Capacitor 8 + build Vite empacotado dentro do APK/AAB**.
 
-O Android nativo contém o conteúdo de `dist/` dentro do próprio pacote. Não existe `server.url` em `capacitor.config.json`, portanto o shell não aponta para uma hospedagem web para abrir o workspace.
+Perfil: `data-orbidoc-platform="app"` e `data-orbidoc-native="true"`.
 
-O perfil `mobile` adapta:
-- áreas de toque;
-- safe areas;
-- navegação inferior;
-- scanner e câmera;
-- densidade visual;
-- gestos e scroll;
-- armazenamento local;
-- execução offline do núcleo.
+O app herda o baseline de segurança de toque/safe-area do mobile, mas recebe uma classe própria (`orbidoc-platform-app`) para diferenças nativas. Assim, regras específicas do APK não contaminam o navegador móvel e vice-versa.
 
-O runtime detecta Capacitor e:
-- marca `data-orbidoc-native="true"`;
-- considera o aplicativo já instalado;
-- esconde CTAs de instalação PWA;
-- não registra service worker da PWA dentro do app nativo;
-- usa worker/core/idiomas locais para OCR.
+Prioridades adicionais do App:
+- ponte nativa para salvar/abrir arquivos;
+- intents Android / “Abrir com”;
+- acesso ao arquivo recebido pelo sistema;
+- downloads fora da sandbox do WebView quando autorizado;
+- integração com status/navigation bars;
+- densidade e superfícies próprias do app instalado;
+- service worker PWA desativado dentro do Capacitor.
+
+O Android nativo contém `dist/` no pacote. `capacitor.config.json` não usa `server.url`, portanto o workspace básico não depende de uma hospedagem web para iniciar.
 
 ### Saídas Android
 
-1. **APK debug** — instalável diretamente para testes, sem Play Store.
-2. **APK release assinado** — instalável diretamente e apropriado para distribuição fora da loja.
-3. **AAB release assinado** — formato destinado a lojas como Google Play.
+1. **APK debug** — testes diretos.
+2. **APK release assinado** — distribuição direta.
+3. **AAB release assinado** — lojas como Google Play.
 
-O workflow `.github/workflows/android-native.yml` gera esses pacotes. A versão release exige secrets de assinatura; a chave privada nunca deve ser commitada.
-
-### PWA Android — alternativa
-
-A PWA/WebAPK continua disponível para quem preferir instalar pelo navegador. Ela não é mais a arquitetura principal do Android.
+O workflow `.github/workflows/android-native.yml` gera/valida essas saídas. Release exige keystore permanente em secrets.
 
 ### iOS
 
-Distribuição inicial como PWA adicionada à Tela de Início. Um shell Capacitor iOS pode ser acrescentado posteriormente usando o mesmo `dist/`, sem criar um frontend separado.
+A experiência atual pode ser PWA; um shell Capacitor iOS pode reutilizar o mesmo core no futuro, recebendo o mesmo perfil `app` com `data-orbidoc-native-platform="ios"`.
 
-## 3. Desktop
+## 4. Desktop instalado
 
-Base atual: PWA standalone, com `display_override: ["window-controls-overlay", "standalone"]`.
+Base atual: PWA standalone, incluindo `window-controls-overlay` quando suportado.
 
-Isso permite experiência separada do navegador sem manter outro frontend.
+Perfil: `data-orbidoc-platform="desktop"`.
+
+Prioridades:
+- janela redimensionável sem largura mínima rígida;
+- scrollbar estável;
+- densidade um pouco maior que a web normal;
+- affordances de mouse/trackpad;
+- atalhos de teclado;
+- associação de arquivos PWA quando suportada pelo SO/navegador.
 
 ### Desktop nativo futuro
 
-Quando necessário, empacotar com Tauri 2:
-- Windows: `.msi` / `.exe`;
-- macOS: `.app` / `.dmg`;
-- Linux: AppImage/deb/rpm.
+Tauri 2 pode empacotar o mesmo core se houver necessidade de integração ainda mais profunda:
+- Windows `.msi/.exe`;
+- macOS `.app/.dmg`;
+- Linux AppImage/deb/rpm.
 
-O wrapper Tauri deve reutilizar o mesmo build e adicionar apenas capacidades realmente nativas, por exemplo:
-- abrir/salvar arquivos pelo sistema;
-- associação de extensões;
-- drag & drop nativo;
-- acesso a diretórios escolhidos pelo usuário;
-- menus do sistema;
-- impressão e exportação nativa.
+## Modificadores de entrada e formato
 
-## Núcleo que deve funcionar sem servidor
+Além da superfície principal, `src/lib/platformProfile.ts` publica dois eixos independentes:
 
-Depois que o APK estiver instalado, o funcionamento básico não deve depender de Vercel, Firebase ou outro backend:
+### Entrada
+- `data-orbidoc-input="touch"`
+- `data-orbidoc-input="pointer"`
 
-- Documentos;
-- Planilhas;
-- Apresentações;
-- Design;
-- scanner;
-- processamento de imagem local;
-- leitura de PDF/DOCX/XLSX/EPUB/ZIP/texto/imagens;
-- OCR Português + Inglês empacotado no APK;
-- histórico local e backup local;
-- criação/edição/exportação local.
+### Form factor
+- `data-orbidoc-form-factor="phone"`
+- `data-orbidoc-form-factor="tablet"`
+- `data-orbidoc-form-factor="wide"`
+
+Isso evita erros como classificar um tablet Android como desktop somente pela largura, ou aplicar UX de telefone a uma janela PWA estreita com mouse.
+
+## Universal File Opener
+
+O OrbiDoc registra `file_handlers` na PWA e consome `window.launchQueue`. O bridge Android expõe o mesmo contrato para o frontend, permitindo que PWA/Desktop e App compartilhem o leitor sem duplicação.
+
+Formatos atualmente reconhecidos incluem:
+- PDF;
+- DOCX;
+- XLS/XLSX/ODS;
+- PPTX (extração/preview textual local nesta etapa);
+- EPUB;
+- ZIP com inspeção interna;
+- HTML/Markdown/texto/CSV/JSON/XML/YAML/TOML/SQL e vários formatos de código;
+- imagens comuns.
+
+O opener lê localmente, permite filtrar/buscar, copiar texto extraído e salvar uma cópia do original. Arquivos não suportados permanecem preservados; o app não tenta interpretar binários desconhecidos de forma insegura.
 
 ## Recursos naturalmente online e opcionais
 
-Esses recursos podem usar Internet, mas **não podem impedir o app de abrir ou o núcleo local de funcionar**:
-
-- geração/restauração por IA remota;
-- Real-ESRGAN hospedado externamente;
-- Firebase Authentication e sincronização em nuvem;
-- Google Drive/OneDrive;
-- baixar um arquivo de uma URL externa;
+- Firebase Authentication e sincronização;
+- Google Drive;
+- OneDrive/Microsoft Graph;
+- GitHub privado via GitHub App;
+- IA remota;
+- Real-ESRGAN remoto;
+- downloads por URL;
 - atualizações do aplicativo.
+
+Esses recursos não devem impedir o núcleo local de abrir.
 
 ## Regra de arquitetura
 
-Não criar cópias independentes dos editores.
-
 ```text
 OrbiDoc Core
-├── Documentos
-├── Planilhas
-├── Apresentações
-├── Design
-├── Scan & Reader
-├── PDF/OCR
-├── Conversor
-├── histórico / backup local
-├── IA opcional
-└── Conta / Sync opcional
+├── Documentos / Planilhas / Apresentações
+├── Design / PDF / OCR / Scanner
+├── Universal File Opener
+├── Conversão e mídia
+├── Projetos / histórico / backup
+├── Conta OrbiDoc
+└── Conexões externas opcionais
 
-        ↓
+       ↓ perfil de superfície
 
-Web Shell          Android Native        Desktop Shell
-Vite/PWA           Capacitor 8           PWA/Tauri
-URL opcional       APK/AAB local         build compartilhado
+Web Browser     Mobile Browser     Desktop Installed     Native App
+web             mobile             desktop               app
+pointer/touch   touch              pointer               touch
+wide/tablet     phone/tablet       wide/tablet           phone/tablet
 ```
 
-## Detecção atual
-
-`src/lib/platformProfile.ts` atribui:
-- `data-orbidoc-platform="web"`
-- `data-orbidoc-platform="mobile"`
-- `data-orbidoc-platform="desktop"`
-
-`src/lib/nativeRuntime.ts` adiciona:
-- `data-orbidoc-native="true|false"`
-- `data-orbidoc-native-platform="android|ios"` quando aplicável.
-
-## Ordem recomendada
-
-1. manter o core local estável;
-2. validar o workflow de APK debug;
-3. criar uma chave de assinatura permanente;
-4. gerar APK release assinado;
-5. testar instalação e atualização em Android real;
-6. distribuir o APK diretamente quando desejado;
-7. gerar AAB e publicar na Play Store somente se houver interesse;
-8. manter recursos de nuvem/IA como complementos opcionais.
+Nenhum editor deve ser duplicado por plataforma; diferenças devem ficar em shell, CSS de superfície, bridges nativas e adaptadores de capacidade.
