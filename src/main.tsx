@@ -12,6 +12,7 @@ import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
 import { NativeAiSettingsLauncher } from './components/NativeAiSettingsLauncher';
 import { NativeViewportAgent } from './components/NativeViewportAgent';
+import { OfflineSyncStatus } from './components/OfflineSyncStatus';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
@@ -23,6 +24,7 @@ import { installNativeAiApiBridge, installNativeFileOpenBridge } from './lib/nat
 import { applyOrbiDocNativeRuntimeProfile } from './lib/nativeRuntime';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import { mountPwaInstallStateAgent } from './lib/pwaInstall';
+import { installDriveSyncQueueAgent } from './services/driveSyncQueue';
 import './index.css';
 import './orbidoc-ui.css';
 import './orbidoc-motion.css';
@@ -32,6 +34,7 @@ import './platform-surfaces.css';
 import './orbidoc-overlay-safety.css';
 import './orbidoc-layout-safety-v2.css';
 import './orbidoc-product-polish.css';
+import './offline-suite.css';
 import './scan-reader.css';
 
 migrateLegacyBrandStorage();
@@ -43,6 +46,7 @@ if (nativeRuntime) {
 installAiInternetAgent();
 applyOrbiDocPlatformProfile();
 mountPwaInstallStateAgent();
+installDriveSyncQueueAgent();
 
 if (!nativeRuntime) {
   registerSW({
@@ -75,6 +79,7 @@ ReactDOM.createRoot(root).render(
       <LocalUtilitiesLauncher />
       <AdvancedFreeToolsLauncher />
       <ImageResizeLauncher />
+      <OfflineSyncStatus />
     </AppErrorBoundary>
   </React.StrictMode>
 );
