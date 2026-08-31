@@ -1,0 +1,94 @@
+/* OrbiDoc surface profiles --------------------------------------------------
+   The product keeps one editor/tool core, but the shell is intentionally
+   different for regular Web, installed desktop, mobile Web/PWA and native app.
+   platform.css remains the shared safety baseline; this file contains only
+   surface-specific decisions so native and mobile no longer need to masquerade
+   as the same experience. */
+
+html.orbidoc-platform-web {
+  --orbidoc-shell-density: 1;
+  --orbidoc-shell-radius: 1.5rem;
+  --orbidoc-primary-control-height: 40px;
+}
+
+html.orbidoc-platform-web.orbidoc-input-pointer .orbidoc-workspace-shell {
+  --orbidoc-workspace-density: 1;
+}
+
+html.orbidoc-platform-desktop {
+  --orbidoc-shell-density: .94;
+  --orbidoc-shell-radius: 1.15rem;
+  --orbidoc-primary-control-height: 36px;
+}
+
+html.orbidoc-platform-desktop.orbidoc-input-pointer .orbidoc-workspace-shell {
+  --orbidoc-workspace-density: .92;
+}
+
+html.orbidoc-platform-desktop .orbidoc-account-panel {
+  scrollbar-gutter: stable;
+}
+
+html.orbidoc-platform-mobile:not(.orbidoc-platform-app) {
+  --orbidoc-shell-density: 1;
+  --orbidoc-shell-radius: 1.1rem;
+  --orbidoc-primary-control-height: 42px;
+  --orbidoc-bottom-nav-height: 72px;
+}
+
+html.orbidoc-platform-mobile:not(.orbidoc-platform-app) button:not(.orbidoc-compact-control),
+html.orbidoc-platform-mobile:not(.orbidoc-platform-app) [role='button']:not(.orbidoc-compact-control) {
+  min-height: 40px;
+}
+
+/* Native app: inherit the safe-area/keyboard rules from the mobile baseline,
+   then become deliberately more app-like: larger touch targets, native-system
+   spacing and no browser-install affordances. */
+html.orbidoc-platform-app {
+  --orbidoc-shell-density: 1;
+  --orbidoc-shell-radius: 1rem;
+  --orbidoc-primary-control-height: 44px;
+  --orbidoc-bottom-nav-height: 76px;
+}
+
+html.orbidoc-platform-app button:not(.orbidoc-compact-control),
+html.orbidoc-platform-app [role='button']:not(.orbidoc-compact-control) {
+  min-height: 44px;
+}
+
+html.orbidoc-platform-app [data-orbidoc-browser-only='true'],
+html.orbidoc-platform-app [data-orbidoc-install-cta='true'] {
+  display: none !important;
+}
+
+html.orbidoc-platform-app .orbidoc-account-panel {
+  border-radius: 1rem;
+}
+
+html.orbidoc-platform-app .orbidoc-app-root > div > div.flex-1 > main {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Form-factor is a modifier, not a fifth platform. This lets a tablet use the
+   app or mobile shell without pretending it is a desktop just because it is
+   wider than a phone. */
+html.orbidoc-form-phone {
+  --orbidoc-content-gutter: .75rem;
+}
+
+html.orbidoc-form-tablet {
+  --orbidoc-content-gutter: 1rem;
+}
+
+html.orbidoc-form-wide {
+  --orbidoc-content-gutter: 1.25rem;
+}
+
+html.orbidoc-input-touch {
+  --orbidoc-hit-target: 44px;
+}
+
+html.orbidoc-input-pointer {
+  --orbidoc-hit-target: 36px;
+}
