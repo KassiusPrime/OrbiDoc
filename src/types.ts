@@ -66,13 +66,13 @@ export interface PdfExportOptions {
   subtitle?: string;
   author?: string;
   fontFamily: 'helvetica' | 'times' | 'courier';
-  fontSize: number; // 10, 12, 14, 16
-  margin: 'narrow' | 'normal' | 'wide'; // 10, 15, 25mm
+  fontSize: number;
+  margin: 'narrow' | 'normal' | 'wide';
   themeColor: 'indigo' | 'swiss-red' | 'emerald' | 'slate' | 'navy';
   showPageNumbers: boolean;
   showDate: boolean;
   watermark?: string;
-  lineSpacing: number; // 1.2, 1.5, 2.0
+  lineSpacing: number;
 }
 
 export interface GoogleUserProfile {
@@ -116,6 +116,8 @@ export interface DriveFile {
   modifiedTime: string;
   webViewLink?: string;
   size?: string;
+  version?: string;
+  md5Checksum?: string;
 }
 
 export type AppThemeMode = 'auto' | 'light' | 'dark';
@@ -140,38 +142,19 @@ export interface EngineOption {
   provider: string;
   model: string;
   label: string;
-  emoji: string;
-  description: string;
-}
-
-export interface SlideData {
-  id: string;
-  title: string;
-  subtitle?: string;
-  bullets: string[];
-  image?: string;
-  bgGradient: string;
-  layout: 'title' | 'content' | 'two-column' | 'image' | 'quote';
-  notes?: string;
-}
-
-export interface PresentationDeck {
-  id: string;
-  title: string;
-  slides: SlideData[];
+  description?: string;
+  supportsVision?: boolean;
+  supportsImageGeneration?: boolean;
 }
 
 export interface ExcelCell {
-  value: string;
+  value: string | number;
   formula?: string;
   bold?: boolean;
   italic?: boolean;
-  align?: 'left' | 'center' | 'right';
-  bgColor?: string;
-  textColor?: string;
   fontFamily?: string;
-  colSpan?: number;
-  rowSpan?: number;
-  isMergedChild?: boolean;
+  fontSize?: number;
+  textColor?: string;
+  backgroundColor?: string;
+  align?: 'left' | 'center' | 'right';
 }
-
