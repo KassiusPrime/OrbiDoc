@@ -67,13 +67,15 @@ export function getLinkedAccounts(): LinkedAccounts {
 /**
  * Links external service identity metadata to the current OrbiDoc workspace.
  * Access/refresh tokens are deliberately excluded: only non-secret account
- * identifiers are synchronized to Firestore.
+ * identifiers are synchronized to Firestore. Remote providers are merged first
+ * so linking on a second device never erases a provider linked elsewhere.
  */
 export async function rememberLinkedAccount(
   provider: LinkedAccountProvider,
   account: Omit<LinkedAccountRecord, 'provider' | 'connectedAt' | 'updatedAt'>,
 ) {
-  const previous = readLocal();
+  const [local, remote] = await Promise.all([Promise.resolve(readLocal()), readCloud()]);
+  const previous: LinkedAccounts = { ...remote, ...local };
   const existing = previous[provider];
   const now = new Date().toISOString();
   const next: LinkedAccounts = {
@@ -91,7 +93,8 @@ export async function rememberLinkedAccount(
 }
 
 export async function forgetLinkedAccount(provider: LinkedAccountProvider) {
-  const next = { ...readLocal() };
+  const [local, remote] = await Promise.all([Promise.resolve(readLocal()), readCloud()]);
+  const next: LinkedAccounts = { ...remote, ...local };
   delete next[provider];
   writeLocal(next);
   await writeCloud(next);
