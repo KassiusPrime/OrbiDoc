@@ -1,4 +1,4 @@
-const CLIENT_AI_TIMEOUT_MS = 70000;
+const CLIENT_AI_TIMEOUT_MS = 70_000;
 const CHAT_API_ENDPOINT = '/api/chat';
 const CHAT_STREAM_ENDPOINT = '/api/chat/stream';
 
@@ -9,52 +9,60 @@ export interface AiMessage {
 
 export interface AiRuntimeMeta {
   requestId?: string;
-  requestedProvider?: string;
-  requestedModel?: string;
-  provider?: string;
-  model?: string;
-  routedModel?: string;
+  assistant?: 'Nexus AI';
+  strategy?: 'fast' | 'coding' | 'deep' | 'web';
+  freeOnly?: boolean;
   fallbackUsed?: boolean;
-  fallbackReason?: string;
   webSearch?: boolean;
+  webEngine?: 'tavily-free';
 }
 
-const RUNTIME_EVENT = 'orbidoc:ai-runtime';
+const RUNTIME_EVENT = 'orbit:nexus-ai-runtime';
 
-function parseApiResponse(text: string) {
+function parseApiResponse(text: string): Record<string, unknown> {
   try {
-    return text ? JSON.parse(text) : {};
+    return text ? JSON.parse(text) as Record<string, unknown> : {};
   } catch {
     return {};
   }
 }
 
-function publishRuntime(meta?: AiRuntimeMeta) {
+function publishRuntime(meta?: AiRuntimeMeta): void {
   if (!meta || typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent<AiRuntimeMeta>(RUNTIME_EVENT, { detail: meta }));
 }
 
-function publishFailure(error: unknown, provider: string, model: string, webSearch?: boolean) {
-  const message = error instanceof Error ? error.message : String(error || 'Falha na IA');
-  publishRuntime({
-    requestedProvider: provider,
-    requestedModel: model,
-    provider,
-    model,
-    fallbackUsed: false,
-    fallbackReason: message,
+function publishFailure(webSearch?: boolean): void {
+  publishRuntime({ assistant: 'Nexus AI', freeOnly: true, fallbackUsed: false, webSearch });
+}
+
+function requestBody(
+  messages: AiMessage[],
+  systemPrompt?: string,
+  files?: unknown[],
+  webSearch = false,
+): string {
+  return JSON.stringify({
+    messages,
+    systemPrompt,
+    files,
     webSearch,
   });
 }
 
+/**
+ * Compatibility façade used by OrbiDoc tools while the product migrates to
+ * Nexus AI. provider/model are deliberately ignored: users and feature code
+ * cannot pin an internal model anymore.
+ */
 export async function sendToVercel(
-  provider: string,
-  model: string,
+  _provider: string,
+  _model: string,
   messages: AiMessage[],
   systemPrompt?: string,
-  files?: any[],
+  files?: unknown[],
   webSearch = false,
-) {
+): Promise<string> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), CLIENT_AI_TIMEOUT_MS);
 
@@ -62,36 +70,32 @@ export async function sendToVercel(
     const response = await fetch(CHAT_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, model, messages, systemPrompt, files, webSearch }),
+      body: requestBody(messages, systemPrompt, files, webSearch),
       signal: controller.signal,
     });
 
     const text = await response.text();
     const data = parseApiResponse(text);
     if (!response.ok) {
-      const error = new Error(data.error || `Erro no servidor: ${response.status}`);
-      publishFailure(error, provider, model, webSearch);
-      throw error;
+      publishFailure(webSearch);
+      throw new Error(String(data.error || `Erro no servidor: ${response.status}`));
     }
 
     publishRuntime({
-      requestId: data.requestId,
-      requestedProvider: data.requestedProvider || provider,
-      requestedModel: data.requestedModel || model,
-      provider: data.provider || data.engine || provider,
-      model: data.model || model,
-      routedModel: data.routedModel,
-      fallbackUsed: Boolean(data.fallbackUsed),
-      fallbackReason: data.fallbackReason,
-      webSearch: Boolean(data.webSearch ?? webSearch),
+      requestId: typeof data.requestId === 'string' ? data.requestId : undefined,
+      assistant: 'Nexus AI',
+      strategy: data.strategy === 'fast' || data.strategy === 'coding' || data.strategy === 'deep' || data.strategy === 'web' ? data.strategy : undefined,
+      freeOnly: data.freeOnly === true,
+      fallbackUsed: data.fallbackUsed === true,
+      webSearch: data.webSearch === true,
+      webEngine: data.webEngine === 'tavily-free' ? 'tavily-free' : undefined,
     });
 
-    return data.answer || data.text || '';
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
-      const timeoutError = new Error('Tempo limite ao aguardar a IA. Tente novamente ou desative a pesquisa na internet.');
-      publishFailure(timeoutError, provider, model, webSearch);
-      throw timeoutError;
+    return String(data.answer || '');
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      publishFailure(webSearch);
+      throw new Error('Tempo limite ao aguardar o Nexus AI. Tente novamente.');
     }
     throw error;
   } finally {
@@ -100,17 +104,17 @@ export async function sendToVercel(
 }
 
 export async function sendToVercelStream(
-  provider: string,
-  model: string,
+  _provider: string,
+  _model: string,
   messages: AiMessage[],
   onChunk: (chunk: string) => void,
   options?: {
     systemPrompt?: string;
-    files?: any[];
+    files?: unknown[];
     signal?: AbortSignal;
     webSearch?: boolean;
   },
-) {
+): Promise<void> {
   const timeoutController = new AbortController();
   const timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_AI_TIMEOUT_MS);
   const abortFromCaller = () => timeoutController.abort();
@@ -120,23 +124,15 @@ export async function sendToVercelStream(
     const response = await fetch(CHAT_STREAM_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        provider,
-        model,
-        messages,
-        systemPrompt: options?.systemPrompt,
-        files: options?.files,
-        webSearch: Boolean(options?.webSearch),
-      }),
+      body: requestBody(messages, options?.systemPrompt, options?.files, Boolean(options?.webSearch)),
       signal: timeoutController.signal,
     });
 
     if (!response.ok) {
       const text = await response.text();
       const data = parseApiResponse(text);
-      const error = new Error(data.error || `Erro no servidor (${response.status})`);
-      publishFailure(error, provider, model, options?.webSearch);
-      throw error;
+      publishFailure(options?.webSearch);
+      throw new Error(String(data.error || `Erro no servidor (${response.status})`));
     }
     if (!response.body) throw new Error('Resposta sem corpo de dados.');
 
@@ -144,26 +140,25 @@ export async function sendToVercelStream(
     const decoder = new TextDecoder();
     let buffer = '';
 
-    const processLine = (line: string) => {
+    const processLine = (line: string): boolean => {
       const trimmed = line.trim();
       if (!trimmed.startsWith('data: ')) return false;
       const payload = trimmed.slice(6).trim();
       if (!payload) return false;
       if (payload === '[DONE]') return true;
 
-      let parsed: any;
+      let parsed: { error?: unknown; meta?: AiRuntimeMeta; chunk?: unknown };
       try {
-        parsed = JSON.parse(payload);
+        parsed = JSON.parse(payload) as typeof parsed;
       } catch {
         return false;
       }
 
       if (parsed.error) {
-        const error = new Error(String(parsed.error));
-        publishFailure(error, provider, model, options?.webSearch);
-        throw error;
+        publishFailure(options?.webSearch);
+        throw new Error(String(parsed.error));
       }
-      if (parsed.meta) publishRuntime(parsed.meta as AiRuntimeMeta);
+      if (parsed.meta) publishRuntime(parsed.meta);
       if (typeof parsed.chunk === 'string' && parsed.chunk) onChunk(parsed.chunk);
       return false;
     };
@@ -181,12 +176,11 @@ export async function sendToVercelStream(
 
     buffer += decoder.decode();
     if (buffer.trim()) processLine(buffer);
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
       if (options?.signal?.aborted) throw error;
-      const timeoutError = new Error('Tempo limite durante a resposta em streaming da IA.');
-      publishFailure(timeoutError, provider, model, options?.webSearch);
-      throw timeoutError;
+      publishFailure(options?.webSearch);
+      throw new Error('Tempo limite durante a resposta em streaming do Nexus AI.');
     }
     throw error;
   } finally {
