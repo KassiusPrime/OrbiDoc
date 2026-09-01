@@ -1,0 +1,138 @@
+name: Wire Drive editor sync
+
+on:
+  push:
+    branches: ["feat/offline-first-productivity-suite"]
+    paths: [".github/workflows/wire-drive-editor-sync.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - name: Wire Google Drive origin metadata into professional editors
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # Shared project metadata.
+          path = Path('src/types.ts')
+          text = path.read_text()
+          anchor = "export interface SavedProject {\n"
+          cloud = """export interface CloudFileOrigin {\n  provider: 'googleDrive';\n  fileId: string;\n  version?: string;\n  modifiedTime?: string;\n  fileName: string;\n  mimeType: string;\n}\n\n"""
+          if 'export interface CloudFileOrigin' not in text:
+              text = text.replace(anchor, cloud + anchor, 1)
+          saved_anchor = "  tags?: string[];\n  content?: any;\n}"
+          if 'cloudOrigin?: CloudFileOrigin;' not in text:
+              text = text.replace(saved_anchor, "  tags?: string[];\n  cloudOrigin?: CloudFileOrigin;\n  content?: any;\n}", 1)
+          path.write_text(text)
+
+          # Preserve latest Drive version after each successful sync.
+          path = Path('src/services/offlinePersistence.ts')
+          text = path.read_text()
+          old = """export async function saveDocumentLocal(record: Omit<LocalDocumentRecord, 'updatedAt'> & { updatedAt?: string }) {\n  const next: LocalDocumentRecord = { ...record, updatedAt: record.updatedAt || now() };\n  await orbiDocDb.documents.put(next);\n  return next;\n}\n\nexport async function saveSheetLocal(record: Omit<LocalSheetRecord, 'updatedAt'> & { updatedAt?: string }) {\n  const next: LocalSheetRecord = { ...record, updatedAt: record.updatedAt || now() };\n  await orbiDocDb.sheets.put(next);\n  return next;\n}\n\nexport async function savePdfLocal(record: Omit<LocalPdfRecord, 'updatedAt'> & { updatedAt?: string }) {\n  const next: LocalPdfRecord = { ...record, updatedAt: record.updatedAt || now() };\n  await orbiDocDb.pdf_store.put(next);\n  return next;\n}"""
+          new = """export async function saveDocumentLocal(record: Omit<LocalDocumentRecord, 'updatedAt'> & { updatedAt?: string }) {\n  const existing = await orbiDocDb.documents.get(record.id);\n  const sameDriveFile = Boolean(existing?.driveFileId && existing.driveFileId === record.driveFileId);\n  const next: LocalDocumentRecord = {\n    ...existing,\n    ...record,\n    driveVersion: sameDriveFile ? existing?.driveVersion || record.driveVersion : record.driveVersion,\n    driveModifiedTime: sameDriveFile ? existing?.driveModifiedTime || record.driveModifiedTime : record.driveModifiedTime,\n    updatedAt: record.updatedAt || now(),\n  };\n  await orbiDocDb.documents.put(next);\n  return next;\n}\n\nexport async function saveSheetLocal(record: Omit<LocalSheetRecord, 'updatedAt'> & { updatedAt?: string }) {\n  const existing = await orbiDocDb.sheets.get(record.id);\n  const sameDriveFile = Boolean(existing?.driveFileId && existing.driveFileId === record.driveFileId);\n  const next: LocalSheetRecord = {\n    ...existing,\n    ...record,\n    driveVersion: sameDriveFile ? existing?.driveVersion || record.driveVersion : record.driveVersion,\n    driveModifiedTime: sameDriveFile ? existing?.driveModifiedTime || record.driveModifiedTime : record.driveModifiedTime,\n    updatedAt: record.updatedAt || now(),\n  };\n  await orbiDocDb.sheets.put(next);\n  return next;\n}\n\nexport async function savePdfLocal(record: Omit<LocalPdfRecord, 'updatedAt'> & { updatedAt?: string }) {\n  const existing = await orbiDocDb.pdf_store.get(record.id);\n  const sameDriveFile = Boolean(existing?.driveFileId && existing.driveFileId === record.driveFileId);\n  const next: LocalPdfRecord = {\n    ...existing,\n    ...record,\n    driveVersion: sameDriveFile ? existing?.driveVersion || record.driveVersion : record.driveVersion,\n    driveModifiedTime: sameDriveFile ? existing?.driveModifiedTime || record.driveModifiedTime : record.driveModifiedTime,\n    updatedAt: record.updatedAt || now(),\n  };\n  await orbiDocDb.pdf_store.put(next);\n  return next;\n}"""
+          if old not in text:
+              raise SystemExit('offlinePersistence save functions anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          # Queue helper reads the latest version from IndexedDB.
+          path = Path('src/services/driveSyncQueue.ts')
+          text = path.read_text()
+          text = text.replace("import { markEntitySyncState } from './offlinePersistence';", "import { enqueueSync, markEntityModifiedOffline, markEntitySyncState } from './offlinePersistence';", 1)
+          marker = "let lastRunAt = '';\n"
+          helper = """\nasync function localDriveMetadata(entityType: LocalEntityType, entityId: string) {\n  if (entityType === 'document') return orbiDocDb.documents.get(entityId);\n  if (entityType === 'sheet') return orbiDocDb.sheets.get(entityId);\n  return orbiDocDb.pdf_store.get(entityId);\n}\n\nexport async function queueGoogleDriveEntitySync(entityType: LocalEntityType, entityId: string) {\n  const record = await localDriveMetadata(entityType, entityId);\n  if (!record?.driveFileId) return false;\n  await enqueueSync({\n    action: 'upsert',\n    entityType,\n    entityId,\n    provider: 'googleDrive',\n    expectedDriveVersion: record.driveVersion,\n  });\n  if (!navigator.onLine) await markEntityModifiedOffline(entityType, entityId);\n  else queueMicrotask(() => void flushDriveSyncQueue());\n  return true;\n}\n"""
+          if 'export async function queueGoogleDriveEntitySync' not in text:
+              text = text.replace(marker, marker + helper, 1)
+          path.write_text(text)
+
+          # Professional router can receive cloud provenance.
+          path = Path('src/components/ProfessionalFileRouterAgent.tsx')
+          text = path.read_text()
+          text = text.replace("import type { SavedProject } from '../types';", "import type { CloudFileOrigin, SavedProject } from '../types';", 1)
+          text = text.replace("export type ProfessionalFileOpenDetail = { file: File };", "export type ProfessionalFileOpenDetail = { file: File; cloudOrigin?: CloudFileOrigin };", 1)
+          text = text.replace(
+              "const newProject = (type: SavedProject['type'], title: string, content?: unknown): SavedProject => {",
+              "const newProject = (type: SavedProject['type'], title: string, content?: unknown, cloudOrigin?: CloudFileOrigin): SavedProject => {",
+              1,
+          )
+          text = text.replace("    tags: ['Abrir com'],\n    content,", "    tags: cloudOrigin ? ['Abrir com', 'Google Drive'] : ['Abrir com'],\n    cloudOrigin,\n    content,", 1)
+          text = text.replace("      const file = (event as CustomEvent<ProfessionalFileOpenDetail>).detail?.file;\n      if (!file) return;", "      const detail = (event as CustomEvent<ProfessionalFileOpenDetail>).detail;\n      const file = detail?.file;\n      const cloudOrigin = detail?.cloudOrigin;\n      if (!file) return;", 1)
+          text = text.replace("setProject(newProject('word', title, html));", "setProject(newProject('word', title, html, cloudOrigin));", 1)
+          text = text.replace("setProject(newProject('excel', title, sheets));", "setProject(newProject('excel', title, sheets, cloudOrigin));", 1)
+          text = text.replace("const next = newProject('extract', title, { pdfStudio: { fileName: file.name } });", "const next = newProject('extract', title, { pdfStudio: { fileName: file.name } }, cloudOrigin);", 1)
+          text = text.replace("            isSynced: false,\n            syncState: 'local',", "            driveFileId: cloudOrigin?.fileId,\n            driveVersion: cloudOrigin?.version,\n            driveModifiedTime: cloudOrigin?.modifiedTime,\n            isSynced: Boolean(cloudOrigin),\n            syncState: cloudOrigin ? 'synced' : 'local',", 1)
+          text = text.replace("export function dispatchProfessionalFile(file: File) {\n  window.dispatchEvent(new CustomEvent<ProfessionalFileOpenDetail>(PROFESSIONAL_FILE_EVENT, { detail: { file } }));\n}", "export function dispatchProfessionalFile(file: File, cloudOrigin?: CloudFileOrigin) {\n  window.dispatchEvent(new CustomEvent<ProfessionalFileOpenDetail>(PROFESSIONAL_FILE_EVENT, { detail: { file, cloudOrigin } }));\n}", 1)
+          path.write_text(text)
+
+          # Google Drive UI downloads editable Office/PDF files into the professional router.
+          path = Path('src/components/CloudWorkspace.tsx')
+          text = path.read_text()
+          text = text.replace("import { listGoogleDriveFiles, uploadToGoogleDrive } from '../services/googleAuthDrive';", "import { downloadGoogleDriveFileBlob, listGoogleDriveFiles, uploadToGoogleDrive } from '../services/googleAuthDrive';\nimport { dispatchProfessionalFile } from './ProfessionalFileRouterAgent';", 1)
+          state_anchor = "  const [uploading, setUploading] = useState(false);\n"
+          if 'openingGoogleId' not in text:
+              text = text.replace(state_anchor, state_anchor + "  const [openingGoogleId, setOpeningGoogleId] = useState<string | null>(null);\n", 1)
+          download_anchor = "  const downloadMicrosoft = async (file: OneDriveFile) => {"
+          google_fn = """  const openGoogleInOrbiDoc = async (file: DriveFile) => {\n    if (!googleUser) return;\n    if (!/\\.(docx|xlsx?|ods|csv|tsv|pdf)$/i.test(file.name)) {\n      showNotification('Este formato do Drive ainda não possui editor profissional local.', 'error');\n      return;\n    }\n    setOpeningGoogleId(file.id);\n    try {\n      const blob = await downloadGoogleDriveFileBlob(googleUser.accessToken, file.id);\n      const localFile = new File([blob], file.name, { type: file.mimeType || blob.type || 'application/octet-stream' });\n      dispatchProfessionalFile(localFile, {\n        provider: 'googleDrive',\n        fileId: file.id,\n        version: file.version,\n        modifiedTime: file.modifiedTime,\n        fileName: file.name,\n        mimeType: file.mimeType || blob.type || 'application/octet-stream',\n      });\n      showNotification(`${file.name} aberto no OrbiDoc com sincronização do Drive.`, 'success');\n    } catch (error: any) {\n      showNotification(error?.message || 'Falha ao abrir arquivo do Google Drive.', 'error');\n    } finally {\n      setOpeningGoogleId(null);\n    }\n  };\n\n"""
+          if 'const openGoogleInOrbiDoc' not in text:
+              text = text.replace(download_anchor, google_fn + download_anchor, 1)
+          button_anchor = """                    {viewUrl ? (\n                      <button type=\"button\" onClick={() => window.open(viewUrl, '_blank', 'noopener,noreferrer')} className=\"w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center\" aria-label={`Abrir ${file.name} na nuvem`}>\n                        <ExternalLink className=\"w-4 h-4\" />\n                      </button>\n                    ) : null}\n"""
+          google_button = """                    {provider === 'google' && /\\.(docx|xlsx?|ods|csv|tsv|pdf)$/i.test(file.name) ? (\n                      <button type=\"button\" disabled={openingGoogleId === file.id} onClick={() => void openGoogleInOrbiDoc(file)} className=\"w-9 h-9 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-indigo-600 dark:text-indigo-300 flex items-center justify-center disabled:opacity-50\" aria-label={`Editar ${file.name} no OrbiDoc`}>\n                        {openingGoogleId === file.id ? <Refresh className=\"w-4 h-4 animate-spin\" /> : <Download className=\"w-4 h-4\" />}\n                      </button>\n                    ) : null}\n"""
+          if 'void openGoogleInOrbiDoc(file)' not in text:
+              if button_anchor not in text:
+                  raise SystemExit('CloudWorkspace action anchor not found')
+              text = text.replace(button_anchor, google_button + button_anchor, 1)
+          path.write_text(text)
+
+          # DOCX autosave stores a real DOCX binary when the origin is Drive.
+          path = Path('src/components/DocumentEditorLexical.tsx')
+          text = path.read_text()
+          import_anchor = "import { type HistoryItem, type SavedProject } from '../types';"
+          if "queueGoogleDriveEntitySync" not in text:
+              text = text.replace(import_anchor, import_anchor + "\nimport { queueGoogleDriveEntitySync } from '../services/driveSyncQueue';", 1)
+          old = """      await saveDocumentLocal({\n        id: project.id,\n        title: snapshot.title,\n        contentJSON: snapshot.editorState,\n        rawBlob: new Blob([snapshot.html], { type: 'text/html;charset=utf-8' }),\n        updatedAt,\n        isSynced: false,\n        syncState: navigator.onLine ? 'local' : 'modified-offline',\n        fileName: `${SAFE_FILE_NAME(snapshot.title)}.docx`,\n        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',\n      });"""
+          new = """      const origin = project.cloudOrigin?.provider === 'googleDrive' ? project.cloudOrigin : undefined;\n      const rawBlob = origin && (origin.fileName.toLowerCase().endsWith('.docx') || origin.mimeType.includes('wordprocessingml'))\n        ? (await exportRichHtmlToDocx(snapshot.html, snapshot.title)).blob\n        : new Blob([snapshot.html], { type: 'text/html;charset=utf-8' });\n      await saveDocumentLocal({\n        id: project.id,\n        title: snapshot.title,\n        contentJSON: snapshot.editorState,\n        rawBlob,\n        updatedAt,\n        driveFileId: origin?.fileId,\n        driveVersion: origin?.version,\n        driveModifiedTime: origin?.modifiedTime,\n        isSynced: false,\n        syncState: origin && !navigator.onLine ? 'modified-offline' : 'local',\n        fileName: origin?.fileName || `${SAFE_FILE_NAME(snapshot.title)}.docx`,\n        mimeType: origin?.mimeType || rawBlob.type || 'text/html;charset=utf-8',\n      });\n      if (origin) await queueGoogleDriveEntitySync('document', project.id);"""
+          if old not in text:
+              raise SystemExit('Document autosave anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          # Spreadsheet autosave produces XLSX/CSV binary for Drive.
+          path = Path('src/components/SpreadsheetEditorFortune.tsx')
+          text = path.read_text()
+          if "queueGoogleDriveEntitySync" not in text:
+              text = text.replace("import { createDebouncedAutosave, saveSheetLocal, type AutosaveStatus } from '../services/offlinePersistence';", "import { createDebouncedAutosave, saveSheetLocal, type AutosaveStatus } from '../services/offlinePersistence';\nimport { queueGoogleDriveEntitySync } from '../services/driveSyncQueue';", 1)
+          old = """      await saveSheetLocal({\n        id: project.id,\n        title: snapshot.title,\n        workbookData: snapshot.sheets,\n        updatedAt,\n        isSynced: false,\n        syncState: navigator.onLine ? 'local' : 'modified-offline',\n        fileName: `${safeFileName(snapshot.title)}.xlsx`,\n        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n      });"""
+          new = """      const origin = project.cloudOrigin?.provider === 'googleDrive' ? project.cloudOrigin : undefined;\n      const rawBlob = origin?.fileName.toLowerCase().endsWith('.csv')\n        ? fortuneSheetToCsvBlob(snapshot.sheets[0])\n        : fortuneSheetsToXlsxBlob(snapshot.sheets);\n      await saveSheetLocal({\n        id: project.id,\n        title: snapshot.title,\n        workbookData: snapshot.sheets,\n        rawBlob,\n        updatedAt,\n        driveFileId: origin?.fileId,\n        driveVersion: origin?.version,\n        driveModifiedTime: origin?.modifiedTime,\n        isSynced: false,\n        syncState: origin && !navigator.onLine ? 'modified-offline' : 'local',\n        fileName: origin?.fileName || `${safeFileName(snapshot.title)}.xlsx`,\n        mimeType: origin?.mimeType || rawBlob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n      });\n      if (origin) await queueGoogleDriveEntitySync('sheet', project.id);"""
+          if old not in text:
+              raise SystemExit('Spreadsheet autosave anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          # PDF keeps its native binary and joins the same sync queue.
+          path = Path('src/components/PdfStudio.tsx')
+          text = path.read_text()
+          if "queueGoogleDriveEntitySync" not in text:
+              text = text.replace("import { createDebouncedAutosave, savePdfLocal, type AutosaveStatus } from '../services/offlinePersistence';", "import { createDebouncedAutosave, savePdfLocal, type AutosaveStatus } from '../services/offlinePersistence';\nimport { queueGoogleDriveEntitySync } from '../services/driveSyncQueue';", 1)
+          old = """    await savePdfLocal({\n      id: project.id,\n      title: project.title || snapshot.fileName.replace(/\\.pdf$/i, ''),\n      pdfBlob: blob,\n      annotationsJSON: snapshot.annotations,\n      updatedAt,\n      fileName: snapshot.fileName,\n      isSynced: false,\n      syncState: navigator.onLine ? 'local' : 'modified-offline',\n    });"""
+          new = """    const origin = project.cloudOrigin?.provider === 'googleDrive' ? project.cloudOrigin : undefined;\n    await savePdfLocal({\n      id: project.id,\n      title: project.title || snapshot.fileName.replace(/\\.pdf$/i, ''),\n      pdfBlob: blob,\n      annotationsJSON: snapshot.annotations,\n      updatedAt,\n      fileName: origin?.fileName || snapshot.fileName,\n      driveFileId: origin?.fileId,\n      driveVersion: origin?.version,\n      driveModifiedTime: origin?.modifiedTime,\n      isSynced: false,\n      syncState: origin && !navigator.onLine ? 'modified-offline' : 'local',\n    });\n    if (origin) await queueGoogleDriveEntitySync('pdf', project.id);"""
+          if old not in text:
+              raise SystemExit('PDF autosave anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+      - name: Commit Drive wiring atomically
+        run: |
+          rm .github/workflows/wire-drive-editor-sync.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(sync): preserve Drive origin through offline editor autosave"
+          git pull --rebase origin feat/offline-first-productivity-suite
+          git push origin HEAD:feat/offline-first-productivity-suite
