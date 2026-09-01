@@ -23,16 +23,14 @@ try {
 
 if (config) {
   if (config.appId !== 'app.orbidoc.workspace') failures.push(`Capacitor appId inesperado: ${config.appId}.`);
-  if (config.appName !== 'OrbiDoc') failures.push(`Capacitor appName precisa ser OrbiDoc (atual: ${config.appName}).`);
+  if (config.appName !== 'Orbit') failures.push(`Capacitor appName precisa ser Orbit (atual: ${config.appName}).`);
   if (config.webDir !== 'dist') failures.push(`Capacitor webDir precisa ser dist (atual: ${config.webDir}).`);
-  if (config.server?.url) failures.push('capacitor.config.json contém server.url. Isso faria o app nativo depender de um servidor remoto.');
+  if (config.server?.url) failures.push('capacitor.config.json contém server.url; o núcleo nativo não deve depender de uma URL remota para abrir.');
 }
 
 const main = read('src/main.tsx');
 if (!main.includes('applyOrbiDocNativeRuntimeProfile')) failures.push('main.tsx não inicializa o perfil nativo.');
-if (!main.includes('installNativeAiApiBridge')) failures.push('main.tsx não inicializa a ponte nativa de IA.');
 if (!main.includes('installNativeFileOpenBridge')) failures.push('main.tsx não inicializa abertura de arquivos do Android.');
-if (!main.includes('NativeAiSettingsLauncher')) failures.push('main.tsx não monta configurações BYOK de IA.');
 if (!main.includes('installAiInternetAgent')) failures.push('main.tsx não monta a detecção central de consultas atuais/web.');
 if (!/if \(!nativeRuntime\)[\s\S]*registerSW/.test(main)) failures.push('main.tsx não protege o service worker contra execução no shell nativo.');
 
@@ -40,23 +38,19 @@ const nativeRuntime = read('src/lib/nativeRuntime.ts');
 if (!nativeRuntime.includes('isNativePlatform')) failures.push('nativeRuntime.ts não detecta Capacitor nativo.');
 
 const aiInternet = read('src/lib/aiInternet.ts');
-for (const token of ['shouldUseAiInternet', 'PESQUISA_WEB_ORBIDOC', 'webSearch: true']) {
+for (const token of ['shouldUseAiInternet', 'ORBIT_NEXUS_WEB', 'webSearch: true']) {
   if (!aiInternet.includes(token)) failures.push(`aiInternet.ts não contém ${token}.`);
 }
 
 const androidBridge = read('src/lib/nativeAndroidBridge.ts');
-for (const token of ['getNativeAiCatalog', 'nativeAiComplete', 'webSearch', 'saveNativeBlob', 'downloadNativeUrl', 'consumeOpenFile']) {
+for (const token of ['installNativeAiApiBridge(): false', 'saveNativeBlob', 'downloadNativeUrl', 'consumeOpenFile']) {
   if (!androidBridge.includes(token)) failures.push(`nativeAndroidBridge.ts não contém ${token}.`);
 }
+if (/gemini|groq|setAiKey|listAiModels/i.test(androidBridge)) failures.push('nativeAndroidBridge.ts ainda contém roteamento/provedores de IA próprios do Android.');
 
-const nativeWebScript = read('scripts/configure-native-ai-web.mjs');
-for (const token of ['google_search', 'groq/compound-mini', 'web_search', 'visit_website', 'openrouter:web_search', 'openrouter:web_fetch', 'webSearch']) {
-  if (!nativeWebScript.includes(token)) failures.push(`configure-native-ai-web.mjs não contém ${token}.`);
-}
-
-const webGrounding = read('api/_lib/webGrounding.ts');
-for (const token of ['generativelanguage.googleapis.com/v1beta/interactions', 'groq/compound-mini', 'openrouter:web_search', 'streamWebGroundedChat']) {
-  if (!webGrounding.includes(token)) failures.push(`webGrounding.ts não contém ${token}.`);
+const nexus = read('api/_lib/nexusAI.ts');
+for (const token of ['createOpenRouter', 'openrouter/free', 'PAID_MODEL_FORBIDDEN', 'CircuitBreaker']) {
+  if (!nexus.includes(token)) failures.push(`nexusAI.ts não contém ${token}.`);
 }
 
 const nativeNetwork = read('src/lib/nativeNetwork.ts');
@@ -82,7 +76,7 @@ for (const token of ['@tesseract.js-data', "['por', 'eng']", 'tesseract.js-core'
 }
 
 const bridgeScript = read('scripts/configure-native-android-bridge.mjs');
-for (const token of ['AndroidKeyStore', 'MediaStore.Downloads', 'OrbiDocNativePlugin', 'android.intent.action.VIEW', 'android.intent.action.SEND']) {
+for (const token of ['MediaStore.Downloads', 'OrbiDocNativePlugin', 'android.intent.action.VIEW', 'android.intent.action.SEND']) {
   if (!bridgeScript.includes(token)) failures.push(`configure-native-android-bridge.mjs não contém ${token}.`);
 }
 
@@ -96,7 +90,8 @@ for (const workflowFile of ['.github/workflows/ci.yml', '.github/workflows/andro
   if (!workflow.includes('@capacitor/android@8')) failures.push(`${workflowFile} não fixa Capacitor 8.`);
   if (!workflow.includes('configure-native-android-bridge.mjs')) failures.push(`${workflowFile} não injeta a ponte nativa Android.`);
   if (!workflow.includes('configure-native-android-network.mjs')) failures.push(`${workflowFile} não injeta o transporte nativo de URLs.`);
-  if (!workflow.includes('configure-native-ai-web.mjs')) failures.push(`${workflowFile} não injeta a pesquisa web da IA nativa.`);
+  if (workflow.includes('configure-native-ai-web.mjs')) failures.push(`${workflowFile} ainda injeta IA multi-provider dentro do APK.`);
+  if (!workflow.includes('verify:nexus')) failures.push(`${workflowFile} não valida a política Nexus AI free-only.`);
   if (!workflow.includes('assembleDebug')) failures.push(`${workflowFile} não gera APK debug instalável.`);
 }
 
@@ -111,10 +106,8 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Native Android: shell Capacitor local, sem server.url e sem service worker obrigatório.');
-console.log('Native Android: OCR por+eng lazy-loaded e configurado para assets empacotados no APK/AAB.');
-console.log('Native Android: IA BYOK protegida pelo Android Keystore e chamadas diretas aos provedores.');
-console.log('Native Android: pesquisa atual usa Google Search no Gemini, Compound Web Search no Groq e Web Tools no OpenRouter.');
-console.log('Native Android: exports encaminhados ao MediaStore em Downloads/OrbiDoc e intents de arquivos configuradas.');
-console.log('Native Android: links públicos diretos usam transporte HTTP nativo, sem depender de CORS da WebView.');
+console.log('Orbit Android: shell Capacitor local, sem server.url e sem service worker obrigatório.');
+console.log('Orbit Android: OCR por+eng lazy-loaded e configurado para assets empacotados no APK/AAB.');
+console.log('Orbit Android: Nexus AI não possui runtime paralelo no WebView; usa o mesmo backend OpenRouter free-only da Web/PWA.');
+console.log('Orbit Android: exports seguem para MediaStore/Downloads e intents de arquivos permanecem habilitadas.');
 warnings.forEach((warning) => console.log(`Aviso: ${warning}`));
