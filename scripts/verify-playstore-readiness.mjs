@@ -32,16 +32,16 @@ const capacitor = fs.existsSync(capacitorPath) ? readJson(capacitorPath) : null;
 const firebaseConfig = fs.existsSync(firebaseConfigPath) ? readJson(firebaseConfigPath) : null;
 const nativeAppId = String(capacitor?.appId || '');
 if (capacitor) {
-  if (nativeAppId !== 'app.orbidoc.workspace') failures.push(`Capacitor appId precisa ser app.orbidoc.workspace (atual: ${nativeAppId || 'vazio'}).`);
-  if (capacitor.appName !== 'OrbiDoc') failures.push(`Capacitor appName precisa ser OrbiDoc (atual: ${capacitor.appName}).`);
+  if (nativeAppId !== 'app.orbidoc.workspace') failures.push(`Capacitor appId precisa permanecer app.orbidoc.workspace para compatibilidade de atualização (atual: ${nativeAppId || 'vazio'}).`);
+  if (capacitor.appName !== 'Orbit') failures.push(`Capacitor appName precisa ser Orbit (atual: ${capacitor.appName}).`);
   if (capacitor.webDir !== 'dist') failures.push(`Capacitor webDir precisa ser dist (atual: ${capacitor.webDir}).`);
   if (capacitor.server?.url) failures.push('A build Android nativa não pode depender de server.url.');
 }
 
 const manifest = fs.existsSync(manifestPath) ? readJson(manifestPath) : null;
 if (manifest) {
-  if (manifest.name !== 'OrbiDoc') failures.push('O manifesto PWA precisa usar o nome OrbiDoc.');
-  if (manifest.short_name !== 'OrbiDoc') failures.push('O short_name do manifesto precisa usar OrbiDoc.');
+  if (manifest.name !== 'Orbit') failures.push('O manifesto PWA precisa usar o nome Orbit.');
+  if (manifest.short_name !== 'Orbit') failures.push('O short_name do manifesto precisa usar Orbit.');
   if (manifest.display !== 'standalone') failures.push(`display deve ser standalone (atual: ${manifest.display}).`);
   if (manifest.start_url !== '/') failures.push(`start_url deve ser / (atual: ${manifest.start_url}).`);
   if (manifest.scope !== '/') failures.push(`scope deve ser / (atual: ${manifest.scope}).`);
@@ -58,13 +58,14 @@ if (fs.existsSync(privacyPath)) {
   const privacy = fs.readFileSync(privacyPath, 'utf8');
   if (!/Política de Privacidade/i.test(privacy)) failures.push('privacy.html não contém uma política de privacidade reconhecível.');
   if (!/Firebase/i.test(privacy)) warnings.push('Revise privacy.html caso Firebase Authentication continue habilitado.');
-  if (!/inteligência artificial|\bIA\b/i.test(privacy)) warnings.push('Revise privacy.html caso os recursos de IA continuem habilitados.');
+  if (!/Nexus AI|inteligência artificial|\bIA\b/i.test(privacy)) warnings.push('Revise privacy.html caso os recursos do Nexus AI continuem habilitados.');
   if (!/delete-account\.html/i.test(privacy)) failures.push('privacy.html precisa apontar para o recurso público de exclusão de conta.');
+  if (!/OpenRouter/i.test(privacy)) failures.push('privacy.html precisa descrever o gateway de inferência usado pelo Nexus AI.');
 }
 
 if (fs.existsSync(deletionPath)) {
   const deletion = fs.readFileSync(deletionPath, 'utf8');
-  if (!/Excluir (sua )?conta OrbiDoc/i.test(deletion)) failures.push('delete-account.html não identifica claramente o fluxo de exclusão da conta OrbiDoc.');
+  if (!/Excluir (sua )?Conta Orbit/i.test(deletion)) failures.push('delete-account.html não identifica claramente o fluxo de exclusão da Conta Orbit.');
   if (!/EXCLUIR/.test(deletion)) failures.push('delete-account.html não contém uma confirmação explícita para exclusão permanente.');
   if (!/deleteUser/.test(deletion)) failures.push('delete-account.html não contém o fluxo de remoção da identidade Firebase.');
   if (/__ORBIDOC_FIREBASE_CONFIG__|__ORBIDOC_FIRESTORE_DATABASE_ID__/.test(deletion)) failures.push('delete-account.html ainda contém placeholders de Firebase; a configuração pública não foi injetada no build.');
@@ -76,7 +77,7 @@ const appLinksEnabled = String(process.env.ANDROID_APP_LINKS_ENABLED || 'false')
 const targetSdk = Number(process.env.ANDROID_TARGET_SDK || REQUIRED_TARGET_SDK);
 const publicUrl = String(process.env.VITE_PUBLIC_APP_URL || '').trim();
 
-if (!Number.isFinite(targetSdk) || targetSdk < REQUIRED_TARGET_SDK) failures.push(`ANDROID_TARGET_SDK=${process.env.ANDROID_TARGET_SDK || targetSdk} é insuficiente. Novos pacotes OrbiDoc devem mirar API ${REQUIRED_TARGET_SDK}.`);
+if (!Number.isFinite(targetSdk) || targetSdk < REQUIRED_TARGET_SDK) failures.push(`ANDROID_TARGET_SDK=${process.env.ANDROID_TARGET_SDK || targetSdk} é insuficiente. Novos pacotes Orbit devem mirar API ${REQUIRED_TARGET_SDK}.`);
 if (!/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName)) failures.push(`ANDROID_PACKAGE_NAME inválido: ${packageName}.`);
 if (packageName !== nativeAppId) failures.push(`ANDROID_PACKAGE_NAME (${packageName}) não corresponde ao Capacitor appId (${nativeAppId}).`);
 if (publicUrl && !/^https:\/\/[^\s/]+(?:\/.*)?$/.test(publicUrl)) failures.push('VITE_PUBLIC_APP_URL precisa ser uma URL HTTPS pública.');
@@ -135,13 +136,13 @@ if (fs.existsSync(firebaseWorkflowPath)) {
 }
 
 if (failures.length) {
-  console.error('\nFalhas de prontidão Google Play / Android nativo:');
+  console.error('\nFalhas de prontidão Google Play / Orbit Android:');
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
 
-console.log(`Google Play nativo: package ${packageName}, Capacitor local-first e target mínimo API ${REQUIRED_TARGET_SDK} validados.`);
-console.log('Google Play nativo: release sem keystore permanente é bloqueada; APK release + AAB exigem assinatura e verificação apksigner.');
+console.log(`Orbit Android: package legado compatível ${packageName}, Capacitor local-first e target mínimo API ${REQUIRED_TARGET_SDK} validados.`);
+console.log('Orbit Android: release sem keystore permanente é bloqueada; APK release + AAB exigem assinatura e verificação apksigner.');
 console.log('Firebase production: workflow administrativo valida a ordem Auth → health-check estrito → regras Firestore.');
 if (appLinksEnabled) console.log('Android App Links: Digital Asset Links e SHA-256 de produção validados.');
 else console.log('Android App Links: desativados. assetlinks.json não é requisito para publicar um AAB Capacitor nativo na Play Store.');
