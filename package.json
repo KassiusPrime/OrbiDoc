@@ -1,7 +1,7 @@
 {
   "name": "orbidoc-workspace",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -11,18 +11,21 @@
     "verify:native": "node scripts/verify-native-build.mjs",
     "verify:mobile": "node scripts/verify-mobile-ui.mjs",
     "verify:auth": "node scripts/verify-firebase-auth.mjs",
+    "verify:nexus": "node scripts/verify-nexus-ai.mjs",
     "lint": "node scripts/lint-source.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "check": "bun run lint && bun run typecheck && bun run test && bun run build && bun run verify:pwa && bun run verify:playstore && bun run verify:native && bun run verify:mobile && bun run verify:auth",
+    "check": "bun run lint && bun run typecheck && bun run test && bun run build && bun run verify:nexus && bun run verify:pwa && bun run verify:playstore && bun run verify:native && bun run verify:mobile && bun run verify:auth",
     "start": "node dist/server.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",
     "@imagemagick/magick-wasm": "0.0.42",
+    "@openrouter/ai-sdk-provider": "^3.0.0",
     "@tabler/icons-react": "^3.46.0",
     "@types/file-saver": "^2.0.7",
     "@vercel/oidc": "3.8.4",
+    "ai": "^7.0.0",
     "clsx": "2.1.1",
     "docx": "^9.7.1",
     "express": "^5.2.1",
