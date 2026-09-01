@@ -1,10 +1,18 @@
-import { compactError } from './_lib/ai.js';
-import { runChatV2 } from './_lib/aiRuntimeV2.js';
-import { hydrateGatewayRuntimeAuth } from './_lib/gatewayAuth.js';
+import { nexusAI, type NexusBody } from './_lib/nexusAI.js';
 
-function parseBody(body: any) {
-  if (typeof body !== 'string') return body || {};
-  try { return JSON.parse(body); } catch { return {}; }
+function parseBody(body: unknown): NexusBody {
+  if (typeof body !== 'string') return (body ?? {}) as NexusBody;
+  try {
+    return JSON.parse(body) as NexusBody;
+  } catch {
+    return {};
+  }
+}
+
+function compactError(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error ?? 'Falha desconhecida'))
+    .replace(/\s+/g, ' ')
+    .slice(0, 420);
 }
 
 export default async function handler(req: any, res: any) {
@@ -15,10 +23,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    await hydrateGatewayRuntimeAuth();
-    const result = await runChatV2(parseBody(req.body));
+    const result = await nexusAI.complete(parseBody(req.body));
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-OrbiDoc-Request-Id', result.requestId);
+    res.setHeader('X-Orbit-Request-Id', result.requestId);
     res.status(200).json(result);
   } catch (error) {
     res.status(502).json({ error: compactError(error) });
