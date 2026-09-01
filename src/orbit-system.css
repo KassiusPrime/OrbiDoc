@@ -207,7 +207,8 @@
   outline-offset: 2px;
 }
 
-/* Product-wide visual cleanup: Orbit is a tool, not a landing page. */
+/* Product-wide visual cleanup while modules migrate to V2 primitives. */
+.orbit-app-shell .rounded-3xl,
 .orbit-app-shell [class*="rounded-[28px]"],
 .orbit-app-shell [class*="rounded-[30px]"],
 .orbit-app-shell [class*="rounded-[32px]"] {
