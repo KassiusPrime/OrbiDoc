@@ -15,13 +15,13 @@ import {
   IconMoon as Moon,
   IconPhoto as Photo,
   IconPresentation as Presentation,
-  IconRobot as Robot,
   IconSearch as Search,
+  IconSparkles as Sparkles,
   IconSun as Sun,
   IconX as X,
 } from '@tabler/icons-react';
 import { saveAs } from 'file-saver';
-import { AiWorkspace, AiModelOption } from './components/AiWorkspace';
+import { AiWorkspace } from './components/AiWorkspace';
 import { AnalyticsWorkspace } from './components/AnalyticsWorkspace';
 import { AudioWorkspace } from './components/AudioWorkspace';
 import { BottomNavBar } from './components/BottomNavBar';
@@ -43,7 +43,7 @@ import { SpreadsheetEditor } from './components/SpreadsheetEditor';
 import { convertFile } from './lib/fileConversion';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
-import {
+import type {
   ChatSession,
   GoogleUserProfile,
   HistoryItem,
@@ -62,24 +62,32 @@ type SearchResult =
   | { kind: 'navigate'; id: AppView; label: string; icon: React.ComponentType<{ className?: string }> }
   | { kind: 'create'; id: TabType; label: string; icon: React.ComponentType<{ className?: string }>; iconClass: string };
 
+type DeferredInstallPrompt = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
 const PROJECTS_KEY = 'orbidoc_projects_v1';
 const HISTORY_KEY = 'orbidoc_history_v2';
-const THEME_KEY = 'orbidoc_theme_v2';
-const MODEL_KEY = 'orbidoc_ai_model_v2';
+const THEME_KEY = 'orbit_theme_v1';
 const PROJECT_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'extract']);
 
+// Compatibility adapter for editor props. The frontend never chooses an internal
+// model: src/api/chat.ts ignores these values and Nexus AI routes server-side.
+const NEXUS_ENGINE = Object.freeze({ provider: 'openrouter', model: 'openrouter/free', label: 'Nexus AI' });
+
 const WORKSPACE_NAV: NavItem[] = [
-  { id: 'home', label: 'Início', icon: Home },
+  { id: 'home', label: 'Orbispace', icon: Home },
   { id: 'projects', label: 'Meus arquivos', icon: Folder },
-  { id: 'office', label: 'Apps & converter', icon: Apps },
+  { id: 'office', label: 'OrbiDoc', icon: Apps },
   { id: 'cloud', label: 'Nuvem', icon: Cloud },
 ];
 
 const TOOL_NAV: NavItem[] = [
-  { id: 'chat', label: 'Assistente IA', icon: Robot },
-  { id: 'image', label: 'Imagens IA', icon: Photo },
+  { id: 'chat', label: 'Nexus AI', icon: Sparkles },
+  { id: 'image', label: 'Imagens', icon: Photo },
   { id: 'audio', label: 'Áudio', icon: Headphones },
-  { id: 'analytics', label: 'Analytics', icon: ChartBar },
+  { id: 'analytics', label: 'Dashboards', icon: ChartBar },
   { id: 'history', label: 'Histórico', icon: History },
 ];
 
@@ -94,42 +102,42 @@ const CREATE_ITEMS: CreateItem[] = [
 ];
 
 const VIEW_LABELS: Record<string, string> = {
-  home: 'Início',
+  home: 'Orbispace',
   projects: 'Meus arquivos',
-  office: 'Apps & conversor',
+  office: 'OrbiDoc',
   cloud: 'Nuvem',
-  chat: 'Assistente IA',
-  ai: 'Assistente IA',
-  compare: 'Arena de IA',
-  image: 'Imagens IA',
+  chat: 'Nexus AI',
+  ai: 'Nexus AI',
+  compare: 'Nexus AI',
+  image: 'Imagens',
   audio: 'Áudio',
-  analytics: 'Analytics',
+  analytics: 'Dashboards',
   history: 'Histórico',
-  word: 'Documentos',
-  excel: 'Planilhas',
-  powerpoint: 'Apresentações',
+  word: 'OrbiDoc · Documentos',
+  excel: 'OrbiDoc · Planilhas',
+  powerpoint: 'OrbiDoc · Apresentações',
   canva: 'Design',
-  extract: 'PDF & OCR',
+  extract: 'OrbiDoc · PDF & OCR',
 };
 
 const readArray = <T,>(key: string): T[] => {
   try {
     const value = localStorage.getItem(key);
     if (!value) return [];
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed as T[] : [];
   } catch {
     return [];
   }
 };
 
 const initialTheme = (): ThemeMode => {
-  const stored = localStorage.getItem(THEME_KEY);
+  const stored = localStorage.getItem(THEME_KEY) ?? localStorage.getItem('orbidoc_theme_v2');
   if (stored === 'light' || stored === 'dark') return stored;
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return 'dark';
 };
 
-const projectTitle = (type: SavedProject['type']) => {
+const projectTitle = (type: SavedProject['type']): string => {
   const labels: Record<SavedProject['type'], string> = {
     word: 'Novo documento',
     excel: 'Nova planilha',
@@ -149,7 +157,7 @@ const createProjectRecord = (type: SavedProject['type'], content?: unknown): Sav
     type,
     createdAt: now,
     updatedAt: now,
-    previewSnippet: 'Criado no workspace OrbiDoc.',
+    previewSnippet: 'Criado no Orbispace · OrbiDoc.',
     tags: [],
     content,
   };
@@ -166,12 +174,12 @@ const readProjectOcrItems = (project: SavedProject | null | undefined): OcrItem[
   return Array.isArray(saved) ? saved as OcrItem[] : [];
 };
 
-const escapeHtml = (value: string) => value
+const escapeHtml = (value: string): string => value
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;');
 
-const textToEditorHtml = (text: string) => {
+const textToEditorHtml = (text: string): string => {
   const html: string[] = [];
   let list: 'ul' | 'ol' | null = null;
   const closeList = () => {
@@ -250,7 +258,7 @@ const SidebarSection: React.FC<{
             type="button"
             onClick={() => onNavigate(item.id)}
             aria-current={active ? 'page' : undefined}
-            className={`w-full h-10 px-3 rounded-xl flex items-center gap-3 text-xs font-bold ${active ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            className={`w-full h-10 px-3 rounded-xl flex items-center gap-3 text-xs font-bold ${active ? 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
           >
             <Icon className="w-4 h-4 shrink-0" />
             <span className="truncate">{item.label}</span>
@@ -273,12 +281,10 @@ export default function AppV5() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<DeferredInstallPrompt | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [notice, setNotice] = useState<Notice>(null);
   const [search, setSearch] = useState('');
-  const [selectedModelKey, setSelectedModelKey] = useState(() => localStorage.getItem(MODEL_KEY) || 'gemini:gemini-3.6-flash');
-  const [modelCatalog, setModelCatalog] = useState<AiModelOption[]>([]);
 
   const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setNotice({ message, type });
@@ -305,11 +311,11 @@ export default function AppV5() {
     const onOffline = () => setOnline(false);
     const onInstall = (event: Event) => {
       event.preventDefault();
-      setDeferredPrompt(event);
+      setDeferredPrompt(event as DeferredInstallPrompt);
     };
     const onInstalled = () => {
       setDeferredPrompt(null);
-      showNotification('OrbiDoc instalado no dispositivo.', 'success');
+      showNotification('Orbit instalado no dispositivo.', 'success');
     };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
@@ -333,35 +339,6 @@ export default function AppV5() {
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/ai/models')
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Catálogo de IA indisponível.')))
-      .then((data) => {
-        if (cancelled || !Array.isArray(data.models)) return;
-        const enabled = (data.models as AiModelOption[]).filter((model) => model.enabled);
-        setModelCatalog(enabled);
-        if (!enabled.length) return;
-        if (!enabled.some((model) => `${model.provider}:${model.id}` === selectedModelKey)) {
-          const next = enabled.find((model) => model.recommended) || enabled[0];
-          const nextKey = `${next.provider}:${next.id}`;
-          setSelectedModelKey(nextKey);
-          localStorage.setItem(MODEL_KEY, nextKey);
-        }
-      })
-      .catch(() => setModelCatalog([]));
-    return () => { cancelled = true; };
-  }, []);
-
-  const selectedModel = useMemo<AiModelOption>(() => {
-    const match = modelCatalog.find((model) => `${model.provider}:${model.id}` === selectedModelKey);
-    if (match) return match;
-    const separator = selectedModelKey.indexOf(':');
-    const provider = separator > 0 ? selectedModelKey.slice(0, separator) : 'gemini';
-    const id = separator > 0 ? selectedModelKey.slice(separator + 1) : 'gemini-3.6-flash';
-    return { provider, id, label: id, enabled: true };
-  }, [modelCatalog, selectedModelKey]);
 
   const persistProject = useCallback((project: SavedProject) => {
     setProjects((current) => current.some((item) => item.id === project.id)
@@ -421,7 +398,7 @@ export default function AppV5() {
     const project = createProjectRecord('word', html);
     const updated: SavedProject = {
       ...project,
-      title: 'Documento da IA',
+      title: 'Documento do Nexus AI',
       content: html,
       previewSnippet: text.replace(/\s+/g, ' ').trim().slice(0, 180),
       updatedAt: new Date().toISOString(),
@@ -430,13 +407,8 @@ export default function AppV5() {
     setProjects((current) => [updated, ...current]);
     setActiveProject(updated);
     setView('word');
-    showNotification('Conteúdo aberto em Documentos.', 'success');
+    showNotification('Conteúdo aberto no OrbiDoc · Documentos.', 'success');
   }, [showNotification]);
-
-  const changeModel = useCallback((key: string) => {
-    setSelectedModelKey(key);
-    localStorage.setItem(MODEL_KEY, key);
-  }, []);
 
   const exportOcrText = useCallback(async (text: string, name: string, format: 'txt' | 'docx' | 'pdf' | 'html') => {
     try {
@@ -450,8 +422,8 @@ export default function AppV5() {
       const result = await convertFile(source, format);
       saveAs(result.blob, result.fileName);
       showNotification(result.warnings[0] || `Exportado como ${format.toUpperCase()}.`, result.warnings.length ? 'error' : 'success');
-    } catch (error: any) {
-      showNotification(error?.message || 'Falha na exportação.', 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : 'Falha na exportação.', 'error');
     }
   }, [showNotification]);
 
@@ -491,7 +463,6 @@ export default function AppV5() {
   const searchResults = useMemo<SearchResult[]>(() => {
     const normalized = search.trim().toLowerCase();
     if (!normalized) return [];
-
     const navigation: SearchResult[] = ALL_NAV
       .filter((item) => item.label.toLowerCase().includes(normalized) || String(item.id).includes(normalized))
       .map((item) => ({ kind: 'navigate', ...item }));
@@ -501,7 +472,7 @@ export default function AppV5() {
     return [...creation, ...navigation].slice(0, 8);
   }, [search]);
 
-  const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'OrbiDoc';
+  const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'Orbit';
   const editorView = PROJECT_VIEWS.has(view) || view === 'chat' || view === 'ai' || view === 'compare' || view === 'image';
   const currentProject = (type: SavedProject['type']) => activeProject?.type === type ? activeProject : null;
 
@@ -509,31 +480,31 @@ export default function AppV5() {
     <div className="max-w-xl mx-auto mt-14 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center shadow-sm">
       <Folder className="w-10 h-10 mx-auto text-slate-300" />
       <h2 className="mt-3 text-lg font-black">Nenhum arquivo aberto</h2>
-      <p className="mt-1 text-sm text-slate-500">Crie um novo arquivo ou abra um existente em Meus arquivos.</p>
-      <button type="button" onClick={() => createProject(type)} className="mt-5 h-10 px-4 rounded-xl bg-indigo-600 text-white text-xs font-black">Criar agora</button>
+      <p className="mt-1 text-sm text-slate-500">Crie um arquivo no OrbiDoc ou abra um existente em Meus arquivos.</p>
+      <button type="button" onClick={() => createProject(type)} className="mt-5 h-10 px-4 rounded-xl bg-violet-600 text-white text-xs font-black">Criar agora</button>
     </div>
   );
 
   const renderContent = () => {
-    if (view === 'home') return <HomeDashboard onNavigate={launchTool} onNewChat={() => navigate('chat')} recentHistory={history.slice(0, 6)} recentProjects={recentProjects} recentChats={[] as ChatSession[]} googleUser={googleUser} microsoftUser={microsoftUser} activeEngineLabel={selectedModel.label} />;
+    if (view === 'home') return <HomeDashboard onNavigate={launchTool} onNewChat={() => navigate('chat')} recentHistory={history.slice(0, 6)} recentProjects={recentProjects} recentChats={[] as ChatSession[]} googleUser={googleUser} microsoftUser={microsoftUser} activeEngineLabel="Nexus AI" />;
     if (view === 'projects') return <FilesWorkspace projects={projects} onOpenProject={openProject} onCreateProject={createProject} onUpdateProject={persistProject} onDeleteProject={deleteProject} showNotification={showNotification} />;
     if (view === 'office') return <OfficeSuiteHub onSelectTool={launchTool} onOpenTool={launchTool} msUser={microsoftUser} setMsUser={setMicrosoftUser} showNotification={showNotification} />;
     if (view === 'cloud') return <CloudWorkspace googleUser={googleUser} microsoftUser={microsoftUser} showNotification={showNotification} />;
     if (view === 'word') {
       const project = currentProject('word');
-      return project ? <DocumentEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={selectedModel.provider} engineModel={selectedModel.id} /> : renderProjectMissing('word');
+      return project ? <DocumentEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('word');
     }
     if (view === 'excel') {
       const project = currentProject('excel');
-      return project ? <SpreadsheetEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={selectedModel.provider} engineModel={selectedModel.id} /> : renderProjectMissing('excel');
+      return project ? <SpreadsheetEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('excel');
     }
     if (view === 'powerpoint') {
       const project = currentProject('powerpoint');
-      return project ? <PresentationEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={selectedModel.provider} engineModel={selectedModel.id} /> : renderProjectMissing('powerpoint');
+      return project ? <PresentationEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('powerpoint');
     }
     if (view === 'canva') {
       const project = currentProject('canva');
-      return project ? <DesignEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={selectedModel.provider} engineModel={selectedModel.id} /> : renderProjectMissing('canva');
+      return project ? <DesignEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('canva');
     }
     if (view === 'extract') {
       const project = currentProject('extract');
@@ -544,9 +515,9 @@ export default function AppV5() {
           setItems={setOcrItems}
           onSaveToHistory={(title, summary, details, tags) => saveHistory({ type: 'ocr', title, summary, details, tags })}
           onSendToChat={(text) => {
-            navigator.clipboard?.writeText(text).catch(() => {});
+            navigator.clipboard?.writeText(text).catch(() => undefined);
             navigate('chat');
-            showNotification('Texto copiado para a área de transferência. O Assistente IA foi aberto.', 'success');
+            showNotification('Texto copiado. O Nexus AI foi aberto.', 'success');
           }}
           onSendToAiText={sendToDocument}
           showNotification={showNotification}
@@ -557,9 +528,9 @@ export default function AppV5() {
         />
       );
     }
-    if (view === 'chat' || view === 'ai' || view === 'compare') return <AiWorkspace selectedModelKey={selectedModelKey} onSelectedModelChange={changeModel} onSendToWord={sendToDocument} showNotification={showNotification} />;
+    if (view === 'chat' || view === 'ai' || view === 'compare') return <AiWorkspace onSendToWord={sendToDocument} showNotification={showNotification} />;
     if (view === 'image') return <ImageWorkspace onSaveToHistory={saveHistory} showNotification={showNotification} onSendToCanva={() => createProject('canva')} />;
-    if (view === 'audio') return <AudioWorkspace showNotification={showNotification} onSaveToHistory={saveHistory} onSendToWord={sendToDocument} engineProvider={selectedModel.provider} engineModel={selectedModel.id} />;
+    if (view === 'audio') return <AudioWorkspace showNotification={showNotification} onSaveToHistory={saveHistory} onSendToWord={sendToDocument} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} />;
     if (view === 'analytics') return <AnalyticsWorkspace projects={projects} history={history} />;
     if (view === 'history') {
       return (
@@ -590,18 +561,18 @@ export default function AppV5() {
   };
 
   return (
-    <div className="h-dvh min-h-[560px] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden flex">
-      <aside className="hidden lg:flex w-[264px] shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col">
-        <div className="h-[68px] px-[18px] flex items-center border-b border-slate-100 dark:border-slate-800">
-          <button type="button" onClick={() => navigate('home')} aria-label="Ir para o início"><OrbiDocLogo size="md" /></button>
+    <div className="h-dvh min-h-[560px] bg-slate-50 dark:bg-[#09090B] text-slate-900 dark:text-slate-100 overflow-hidden flex">
+      <aside className="hidden lg:flex w-[264px] shrink-0 border-r border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11] flex-col">
+        <div className="h-[68px] px-[18px] flex items-center border-b border-slate-100 dark:border-[#27272A]">
+          <button type="button" onClick={() => navigate('home')} aria-label="Ir para o Orbispace"><OrbiDocLogo size="md" /></button>
         </div>
 
         <div className="p-3 flex-1 overflow-y-auto space-y-5">
-          <SidebarSection label="Workspace" items={WORKSPACE_NAV} view={view} onNavigate={navigate} />
+          <SidebarSection label="Orbispace" items={WORKSPACE_NAV} view={view} onNavigate={navigate} />
           <SidebarSection label="Ferramentas" items={TOOL_NAV} view={view} onNavigate={navigate} />
 
           <div>
-            <div className="px-3 mb-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Criar novo</div>
+            <div className="px-3 mb-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">OrbiDoc · Criar</div>
             <div className="space-y-1">
               {CREATE_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -615,16 +586,16 @@ export default function AppV5() {
           </div>
         </div>
 
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="p-3 border-t border-slate-100 dark:border-[#27272A]">
           <button type="button" onClick={() => setInstallGuideOpen(true)} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800">
-            <div className="text-xs font-black">Instalar OrbiDoc</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">PWA · WebAPK · TWA</div>
+            <div className="text-xs font-black">Instalar Orbit</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">PWA · Android · Desktop</div>
           </button>
         </div>
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-16 shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 sm:px-4 flex items-center gap-2 sm:gap-3 z-30">
+        <header className="h-16 shrink-0 border-b border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11] px-3 sm:px-4 flex items-center gap-2 sm:gap-3 z-30">
           <button type="button" onClick={() => setMenuOpen(true)} className="lg:hidden w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Abrir menu">
             <Menu className="w-5 h-5" />
           </button>
@@ -647,12 +618,12 @@ export default function AppV5() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar ferramenta ou criar…"
+              placeholder="Buscar no Orbispace…"
               aria-label="Buscar ferramenta ou criar"
-              className="w-full h-9 pl-9 pr-3 rounded-xl bg-slate-100 dark:bg-slate-950 border border-transparent text-xs outline-none"
+              className="w-full h-9 pl-9 pr-3 rounded-xl bg-slate-100 dark:bg-[#18181B] border border-transparent text-xs outline-none"
             />
             {search.trim() ? (
-              <div className="absolute top-11 inset-x-0 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1.5 z-50">
+              <div className="absolute top-11 inset-x-0 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F0F11] shadow-xl p-1.5 z-50">
                 {searchResults.length ? searchResults.map((result) => {
                   const Icon = result.icon;
                   const create = result.kind === 'create';
@@ -700,7 +671,7 @@ export default function AppV5() {
 
       {menuOpen ? (
         <div className="lg:hidden fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-sm" onClick={() => setMenuOpen(false)}>
-          <aside className="w-[304px] max-w-[88vw] h-full bg-white dark:bg-slate-900 shadow-2xl p-3 overflow-y-auto" onClick={(event) => event.stopPropagation()}>
+          <aside className="w-[304px] max-w-[88vw] h-full bg-white dark:bg-[#0F0F11] shadow-2xl p-3 overflow-y-auto" onClick={(event) => event.stopPropagation()}>
             <div className="h-14 flex items-center justify-between px-2">
               <OrbiDocLogo size="md" />
               <button type="button" onClick={() => setMenuOpen(false)} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Fechar menu">
@@ -709,12 +680,12 @@ export default function AppV5() {
             </div>
 
             <div className="mt-4 space-y-5">
-              <SidebarSection label="Workspace" items={WORKSPACE_NAV} view={view} onNavigate={navigate} />
+              <SidebarSection label="Orbispace" items={WORKSPACE_NAV} view={view} onNavigate={navigate} />
               <SidebarSection label="Ferramentas" items={TOOL_NAV} view={view} onNavigate={navigate} />
             </div>
 
-            <button type="button" onClick={() => { setFabOpen(true); setMenuOpen(false); }} className="mt-5 w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black">Criar novo</button>
-            <button type="button" onClick={() => { setInstallGuideOpen(true); setMenuOpen(false); }} className="mt-2 w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">Instalar / Android</button>
+            <button type="button" onClick={() => { setFabOpen(true); setMenuOpen(false); }} className="mt-5 w-full h-11 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black">Criar no OrbiDoc</button>
+            <button type="button" onClick={() => { setInstallGuideOpen(true); setMenuOpen(false); }} className="mt-2 w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">Instalar Orbit</button>
           </aside>
         </div>
       ) : null}
