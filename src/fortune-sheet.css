@@ -1,0 +1,112 @@
+.orbidoc-sheet-workspace {
+  min-width: 0;
+  height: min(100%, var(--orbidoc-visual-height, 100dvh));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f7f9fc;
+}
+.dark .orbidoc-sheet-workspace { background: #080d18; }
+
+.orbidoc-sheet-commandbar {
+  flex: 0 0 auto;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  border-bottom: 1px solid rgb(148 163 184 / .2);
+  background: rgb(255 255 255 / .97);
+  scrollbar-width: thin;
+}
+.dark .orbidoc-sheet-commandbar { background: rgb(11 18 32 / .97); }
+
+.orbidoc-sheet-commandbar button,
+.orbidoc-sheet-formula-help {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid #dbe3ef;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 800;
+}
+.orbidoc-sheet-commandbar button svg,
+.orbidoc-sheet-formula-help svg { width: 15px; height: 15px; }
+.orbidoc-sheet-commandbar button:hover { border-color: #9db3ff; color: #3157f6; background: #eef2ff; }
+.dark .orbidoc-sheet-commandbar button,
+.dark .orbidoc-sheet-formula-help { background: #0d1526; border-color: #29364e; color: #cbd5e1; }
+
+.orbidoc-sheet-title-wrap {
+  flex: 0 0 min(320px, 44vw);
+  min-width: 170px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid #dbe3ef;
+  border-radius: 9px;
+  background: white;
+}
+.orbidoc-sheet-title-wrap svg { flex: 0 0 auto; width: 16px; height: 16px; color: #3157f6; }
+.orbidoc-sheet-title-wrap input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: #0f172a; font-size: 12px; font-weight: 850; }
+.dark .orbidoc-sheet-title-wrap { background: #0d1526; border-color: #29364e; }
+.dark .orbidoc-sheet-title-wrap input { color: #e5e7eb; }
+.orbidoc-sheet-formula-help { color: #3157f6; background: #f4f6ff; }
+
+.orbidoc-fortune-host {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.orbidoc-fortune-host > div,
+.orbidoc-fortune-host .fortune-sheet-container,
+.orbidoc-fortune-host .luckysheet {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.orbidoc-fortune-host * { box-sizing: border-box; }
+.orbidoc-fortune-host input,
+.orbidoc-fortune-host textarea,
+.orbidoc-fortune-host [contenteditable='true'] { max-width: 100%; overflow-wrap: break-word; }
+
+.orbidoc-sheet-statusbar {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px max(10px, var(--orbidoc-safe-right, 0px)) calc(6px + var(--orbidoc-safe-bottom, 0px)) max(10px, var(--orbidoc-safe-left, 0px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgb(148 163 184 / .2);
+  background: #fff;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+}
+.dark .orbidoc-sheet-statusbar { background: #0b1220; color: #94a3b8; }
+.orbidoc-sheet-offline { display: inline-flex; align-items: center; gap: 4px; color: #d97706; font-weight: 850; }
+.orbidoc-sheet-offline svg { width: 13px; height: 13px; }
+
+@media (max-width: 767px) {
+  .orbidoc-sheet-commandbar { min-height: 44px; padding-inline: 6px; }
+  .orbidoc-sheet-title-wrap { flex-basis: min(220px, 58vw); }
+  .orbidoc-fortune-host { padding-bottom: max(0px, var(--orbidoc-safe-bottom, 0px)); }
+  .orbidoc-sheet-statusbar { padding-bottom: calc(7px + var(--orbidoc-safe-bottom, 0px)); }
+  html[data-orbidoc-keyboard='open'] .orbidoc-sheet-statusbar { display: none; }
+}
