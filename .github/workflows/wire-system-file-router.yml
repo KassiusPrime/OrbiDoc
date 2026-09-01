@@ -1,0 +1,42 @@
+name: Wire system file router
+
+on:
+  push:
+    branches: ["feat/offline-first-productivity-suite"]
+    paths: [".github/workflows/wire-system-file-router.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Route office file handlers to professional editors
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/components/SystemFileOpenAgent.tsx')
+          text = path.read_text()
+          anchor = "import { OrbiDocLogo } from './OrbiDocLogo';"
+          replacement = anchor + "\nimport { dispatchProfessionalFile, isProfessionalOfficeFile } from './ProfessionalFileRouterAgent';"
+          if anchor not in text:
+              raise SystemExit('SystemFileOpenAgent import anchor not found')
+          text = text.replace(anchor, replacement, 1)
+          old = """  const loadFile = async (file: File) => {\n    setError('');\n    replaceDocument(await readDocumentFile(file));\n  };"""
+          new = """  const loadFile = async (file: File) => {\n    setError('');\n    if (isProfessionalOfficeFile(file)) {\n      replaceDocument(null);\n      dispatchProfessionalFile(file);\n      return;\n    }\n    replaceDocument(await readDocumentFile(file));\n  };"""
+          if old not in text:
+              raise SystemExit('SystemFileOpenAgent loadFile anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+      - name: Commit routing and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/wire-system-file-router.yml
+          git add src/components/SystemFileOpenAgent.tsx .github/workflows/wire-system-file-router.yml
+          git commit -m "feat(files): route OS office files to professional editors"
+          git push
