@@ -4,14 +4,15 @@ import test from 'node:test';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
-test('AI Studio exposes explicit provider diagnostics and provider-native web search', () => {
+test('Nexus AI exposes one assistant without provider or model selectors', () => {
   const workspace = read('src/components/AiWorkspace.tsx');
-  const diagnostics = read('src/components/AiDiagnosticsPanel.tsx');
-  assert.match(workspace, /Diagnóstico/);
-  assert.match(workspace, /undefined, undefined, true/);
-  assert.match(workspace, /supportsWebSearch/);
-  assert.match(diagnostics, /Provedor confirmado sem fallback oculto/);
-  assert.match(diagnostics, /fallbackStatusFromCatalog/);
+  const client = read('src/api/chat.ts');
+  assert.match(workspace, /Nexus AI/);
+  assert.match(workspace, /Free-only/);
+  assert.match(workspace, /Virtuoso/);
+  assert.match(workspace, /Pesquisar|Web/);
+  assert.doesNotMatch(workspace, /<select|optgroup|providerLabel|researchModelKey/);
+  assert.match(client, /provider\/model are deliberately ignored/);
 });
 
 test('video clip editor remains local and feature-detects browser recording support', () => {
