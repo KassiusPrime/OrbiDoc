@@ -37,7 +37,7 @@ import { HomeDashboard } from './components/HomeDashboard';
 import { ImageWorkspace } from './components/ImageWorkspace';
 import { OfficeSuiteHub } from './components/OfficeSuiteHub';
 import { OrbiDocLogo } from './components/OrbiDocLogo';
-import { PdfOcrWorkspace } from './components/PdfOcrWorkspace';
+import { PdfProductivityWorkspace } from './components/PdfProductivityWorkspace';
 import { PresentationEditor } from './components/PresentationEditor';
 import { SpreadsheetEditor } from './components/SpreadsheetEditor';
 import { convertFile } from './lib/fileConversion';
@@ -539,7 +539,9 @@ export default function AppV5() {
       const project = currentProject('extract');
       if (!project) return renderProjectMissing('extract');
       return (
-        <PdfOcrWorkspace
+        <PdfProductivityWorkspace
+          project={project}
+          onProjectChange={persistProject}
           items={ocrItems}
           setItems={setOcrItems}
           onSaveToHistory={(title, summary, details, tags) => saveHistory({ type: 'ocr', title, summary, details, tags })}
