@@ -10,7 +10,7 @@
     "verify:playstore": "node scripts/verify-playstore-readiness.mjs",
     "verify:native": "node scripts/verify-native-build.mjs",
     "verify:mobile": "node scripts/verify-mobile-ui.mjs",
-    "verify:auth": "node scripts/verify-firebase-auth.mjs",
+    "verify:auth": "node scripts/verify-firebase-auth.mjs && node scripts/verify-account-security.mjs",
     "verify:nexus": "node scripts/verify-nexus-ai.mjs",
     "lint": "node scripts/lint-source.mjs",
     "typecheck": "tsc --noEmit",
