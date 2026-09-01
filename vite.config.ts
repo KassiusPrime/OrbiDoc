@@ -38,6 +38,7 @@ export default defineConfig({
             || moduleId.includes("/node_modules/scheduler/")
           ) return "vendor-react";
           if (moduleId.includes("/motion/") || moduleId.includes("/framer-motion/")) return "vendor-motion";
+          if (moduleId.includes("/react-virtuoso/")) return "vendor-nexus-ui";
 
           if (moduleId.includes("/@imagemagick/magick-wasm/")) return "vendor-image-convert";
           if (moduleId.includes("/docx/") || moduleId.includes("/mammoth/")) return "vendor-doc-processing";
@@ -93,7 +94,7 @@ export default defineConfig({
             urlPattern: /\.wasm$/i,
             handler: "CacheFirst",
             options: {
-              cacheName: "orbidoc-wasm-runtime",
+              cacheName: "orbit-wasm-runtime",
               expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 90 },
               cacheableResponse: { statuses: [0, 200] },
             },
@@ -152,27 +153,17 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          {
-            urlPattern: /^https:\/\/image\.pollinations\.ai\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "generated-images",
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 3 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
         ],
       },
       manifest: {
         id: "/",
-        name: "OrbiDoc",
-        short_name: "OrbiDoc",
-        description: "Workspace local-first para documentos, planilhas, apresentações, design, PDF, scanner, OCR e conversão de arquivos.",
+        name: "Orbit",
+        short_name: "Orbit",
+        description: "Orbispace local-first com OrbiDoc para produtividade e Nexus AI unificado via OpenRouter free-only.",
         lang: "pt-BR",
         dir: "ltr",
-        theme_color: "#3157F6",
-        background_color: "#F7F9FC",
+        theme_color: "#09090B",
+        background_color: "#09090B",
         display: "standalone",
         display_override: ["window-controls-overlay", "standalone"],
         orientation: "any",
