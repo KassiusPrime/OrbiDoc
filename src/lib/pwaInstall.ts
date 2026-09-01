@@ -1,10 +1,12 @@
 import { isOrbiDocNativeRuntime } from './nativeRuntime';
 
+/** Internal compatibility name; the product presented to users is Orbit. */
 export type OrbiDocInstallDevice = 'android' | 'ios' | 'windows' | 'mac' | 'linux' | 'web';
 
-const INSTALLED_HINT_KEY = 'orbidoc_installed_hint_v1';
+const INSTALLED_HINT_KEY = 'orbit_installed_hint_v1';
+const LEGACY_INSTALLED_HINT_KEY = 'orbidoc_installed_hint_v1';
 
-export function isStandaloneInstalled() {
+export function isStandaloneInstalled(): boolean {
   if (typeof window === 'undefined') return false;
   if (isOrbiDocNativeRuntime()) return true;
   return Boolean(
@@ -31,30 +33,33 @@ export function detectInstallDevice(): OrbiDocInstallDevice {
   return 'web';
 }
 
-export function isMobileInstallDevice() {
+export function isMobileInstallDevice(): boolean {
   const device = detectInstallDevice();
   return device === 'android' || device === 'ios';
 }
 
-export function hasInstalledHint() {
+export function hasInstalledHint(): boolean {
   if (typeof localStorage === 'undefined') return false;
-  return localStorage.getItem(INSTALLED_HINT_KEY) === 'true';
+  return localStorage.getItem(INSTALLED_HINT_KEY) === 'true'
+    || localStorage.getItem(LEGACY_INSTALLED_HINT_KEY) === 'true';
 }
 
-export function currentInstalledState() {
+export function currentInstalledState(): boolean {
   if (isOrbiDocNativeRuntime()) return true;
   return isStandaloneInstalled() || (isMobileInstallDevice() && hasInstalledHint());
 }
 
-export function applyInstalledStateToDocument(installed = currentInstalledState()) {
+export function applyInstalledStateToDocument(installed = currentInstalledState()): boolean {
   if (typeof document === 'undefined') return installed;
+  // Legacy dataset names remain until the CSS/native profile migration is complete.
   document.documentElement.dataset.orbidocInstalled = installed ? 'true' : 'false';
   document.documentElement.dataset.orbidocMobile = isMobileInstallDevice() ? 'true' : 'false';
   document.documentElement.dataset.orbidocNative = isOrbiDocNativeRuntime() ? 'true' : 'false';
+  document.documentElement.dataset.orbitInstalled = installed ? 'true' : 'false';
   return installed;
 }
 
-function looksLikeInstallTrigger(element: HTMLElement) {
+function looksLikeInstallTrigger(element: HTMLElement): boolean {
   const text = (element.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const aria = (element.getAttribute('aria-label') || '').toLowerCase();
   const title = (element.getAttribute('title') || '').toLowerCase();
@@ -62,18 +67,21 @@ function looksLikeInstallTrigger(element: HTMLElement) {
   return values.some((value) =>
     value === 'baixar app'
     || value === 'instalar app'
+    || value === 'instalar orbit'
     || value === 'instalar orbidoc'
     || value.includes('instalar / android')
+    || value.includes('baixar orbit')
     || value.includes('baixar orbidoc'),
   );
 }
 
-function markLegacyInstallButtons(installed: boolean) {
+function markInstallButtons(installed: boolean): void {
   if (typeof document === 'undefined') return;
   const native = isOrbiDocNativeRuntime();
   document.querySelectorAll<HTMLElement>('button, a').forEach((element) => {
     if (!looksLikeInstallTrigger(element)) return;
     element.dataset.orbidocInstallCta = 'true';
+    element.dataset.orbitInstallCta = 'true';
     const shouldHide = native || (installed && isMobileInstallDevice());
     element.hidden = shouldHide;
     element.style.display = shouldHide ? 'none' : '';
@@ -81,36 +89,51 @@ function markLegacyInstallButtons(installed: boolean) {
 }
 
 /**
- * Compatibility bridge while AppV5 owns legacy install CTAs.
- * Native Android/iOS shells are always considered installed and never expose a
- * nested PWA install CTA. The installed hint remains web/PWA-only behavior.
+ * Orbit install-state bridge. Native Android/iOS shells are always considered
+ * installed and never expose a nested PWA install CTA. Legacy event/storage
+ * names remain mirrored for safe upgrades from existing OrbiDoc installations.
  */
-export function mountPwaInstallStateAgent() {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
+export function mountPwaInstallStateAgent(): () => void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return () => undefined;
   let installed = applyInstalledStateToDocument();
-  markLegacyInstallButtons(installed);
+  markInstallButtons(installed);
 
-  const refresh = () => {
-    installed = applyInstalledStateToDocument();
-    markLegacyInstallButtons(installed);
-    window.dispatchEvent(new CustomEvent('orbidoc:install-state', { detail: { installed } }));
+  const emit = (value: boolean): void => {
+    const detail = { installed: value };
+    window.dispatchEvent(new CustomEvent('orbit:install-state', { detail }));
+    window.dispatchEvent(new CustomEvent('orbidoc:install-state', { detail }));
   };
 
-  const onInstalled = () => {
+  const refresh = (): void => {
+    installed = applyInstalledStateToDocument();
+    markInstallButtons(installed);
+    emit(installed);
+  };
+
+  const onInstalled = (): void => {
     if (!isOrbiDocNativeRuntime()) {
-      try { localStorage.setItem(INSTALLED_HINT_KEY, 'true'); } catch { /* storage is optional */ }
+      try {
+        localStorage.setItem(INSTALLED_HINT_KEY, 'true');
+        localStorage.removeItem(LEGACY_INSTALLED_HINT_KEY);
+      } catch {
+        // Storage is optional.
+      }
     }
     installed = true;
     applyInstalledStateToDocument(true);
-    markLegacyInstallButtons(true);
-    window.dispatchEvent(new CustomEvent('orbidoc:install-state', { detail: { installed: true } }));
+    markInstallButtons(true);
+    emit(true);
   };
 
-  const onInstallPrompt = () => {
+  const onInstallPrompt = (): void => {
     if (isOrbiDocNativeRuntime()) return;
-    // Chrome exposes a fresh install prompt after uninstall; clear a stale hint.
     if (!isStandaloneInstalled()) {
-      try { localStorage.removeItem(INSTALLED_HINT_KEY); } catch { /* storage is optional */ }
+      try {
+        localStorage.removeItem(INSTALLED_HINT_KEY);
+        localStorage.removeItem(LEGACY_INSTALLED_HINT_KEY);
+      } catch {
+        // Storage is optional.
+      }
     }
     refresh();
   };
@@ -119,7 +142,7 @@ export function mountPwaInstallStateAgent() {
   window.addEventListener('beforeinstallprompt', onInstallPrompt as EventListener);
   const media = window.matchMedia?.('(display-mode: standalone)');
   media?.addEventListener?.('change', refresh);
-  const observer = new MutationObserver(() => markLegacyInstallButtons(installed || currentInstalledState()));
+  const observer = new MutationObserver(() => markInstallButtons(installed || currentInstalledState()));
   observer.observe(document.body, { childList: true, subtree: true });
 
   return () => {
