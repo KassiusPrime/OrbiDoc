@@ -1,0 +1,226 @@
+.orbidoc-document-workspace {
+  min-width: 0;
+  height: min(100%, var(--orbidoc-visual-height, 100dvh));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #eef2f7;
+}
+
+.dark .orbidoc-document-workspace { background: #080d18; }
+
+.orbidoc-productivity-ribbon {
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgb(148 163 184 / 0.22);
+  background: rgb(255 255 255 / 0.97);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+.dark .orbidoc-productivity-ribbon { background: rgb(11 18 32 / 0.97); }
+
+.orbidoc-ribbon-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 42px;
+  padding: 5px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.orbidoc-ribbon-row + .orbidoc-ribbon-row { border-top: 1px solid rgb(148 163 184 / 0.12); }
+.orbidoc-ribbon-document-row { min-height: 48px; }
+
+.orbidoc-ribbon-button,
+.orbidoc-ribbon-text-button {
+  flex: 0 0 auto;
+  min-width: 34px;
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 8px;
+  color: #334155;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 800;
+}
+.orbidoc-ribbon-button svg,
+.orbidoc-ribbon-text-button svg { width: 16px; height: 16px; }
+.orbidoc-ribbon-button:hover,
+.orbidoc-ribbon-text-button:hover { background: #eef2ff; border-color: #c7d2fe; color: #3157f6; }
+.dark .orbidoc-ribbon-button,
+.dark .orbidoc-ribbon-text-button { color: #cbd5e1; }
+.dark .orbidoc-ribbon-button:hover,
+.dark .orbidoc-ribbon-text-button:hover { background: #172036; border-color: #334155; color: #7aa2ff; }
+
+.orbidoc-ribbon-select,
+.orbidoc-document-title-input {
+  flex: 0 0 auto;
+  min-height: 32px;
+  border: 1px solid #dbe3ef;
+  border-radius: 9px;
+  background: #fff;
+  color: #0f172a;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  outline: none;
+}
+.dark .orbidoc-ribbon-select,
+.dark .orbidoc-document-title-input { background: #0d1526; border-color: #29364e; color: #e5e7eb; }
+.orbidoc-document-title-input { width: min(300px, 42vw); font-size: 12px; font-weight: 850; }
+.orbidoc-font-size-select { width: 62px; }
+
+.orbidoc-color-control {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 34px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  border: 1px solid #dbe3ef;
+  font-size: 13px;
+  font-weight: 900;
+  overflow: hidden;
+}
+.orbidoc-color-control input { position: absolute; inset: auto 3px 2px; width: calc(100% - 6px); height: 5px; padding: 0; border: 0; opacity: .8; }
+.dark .orbidoc-color-control { border-color: #29364e; color: #e5e7eb; }
+.orbidoc-ribbon-group-label,
+.orbidoc-ribbon-inline-label { flex: 0 0 auto; color: #64748b; font-size: 9px; font-weight: 850; display: inline-flex; align-items: center; gap: 5px; }
+.orbidoc-ribbon-divider { flex: 0 0 1px; width: 1px; align-self: stretch; margin: 3px 5px; background: rgb(148 163 184 / .24); }
+
+.orbidoc-document-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 28px 16px 90px;
+  overscroll-behavior: contain;
+  background: #e8edf5;
+}
+.dark .orbidoc-document-canvas { background: #060a12; }
+
+.orbidoc-lexical-page {
+  position: relative;
+  width: min(210mm, calc(100vw - 36px));
+  min-height: 297mm;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 18px 50px rgb(15 23 42 / .17);
+  transition: padding .18s ease, transform .18s ease;
+}
+
+.orbidoc-lexical-editor {
+  position: relative;
+  z-index: 1;
+  min-height: calc(297mm - 144px);
+  outline: none;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 12pt;
+  line-height: 1.5;
+  color: #111827;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.orbidoc-lexical-placeholder { position: absolute; top: 74px; left: 74px; color: #94a3b8; pointer-events: none; font-size: 12px; }
+
+.orbidoc-lexical-h1 { font-size: 2em; line-height: 1.15; font-weight: 800; margin: .65em 0 .4em; }
+.orbidoc-lexical-h2 { font-size: 1.55em; line-height: 1.2; font-weight: 780; margin: .7em 0 .4em; }
+.orbidoc-lexical-h3 { font-size: 1.25em; line-height: 1.25; font-weight: 750; margin: .7em 0 .35em; }
+.orbidoc-lexical-h4 { font-size: 1.08em; line-height: 1.3; font-weight: 720; margin: .6em 0 .3em; }
+.orbidoc-lexical-paragraph { margin: 0 0 .55em; }
+.orbidoc-lexical-quote { margin: .8em 0; padding: .6em 1em; border-left: 3px solid #3157f6; background: #f8fafc; color: #475569; }
+.orbidoc-lexical-link { color: #3157f6; text-decoration: underline; }
+.orbidoc-lexical-bold { font-weight: 700; }
+.orbidoc-lexical-italic { font-style: italic; }
+.orbidoc-lexical-underline { text-decoration: underline; }
+.orbidoc-lexical-strikethrough { text-decoration: line-through; }
+.orbidoc-lexical-underline-strikethrough { text-decoration: underline line-through; }
+.orbidoc-lexical-subscript { vertical-align: sub; font-size: .78em; }
+.orbidoc-lexical-superscript { vertical-align: super; font-size: .78em; }
+.orbidoc-lexical-ul,
+.orbidoc-lexical-ol { margin: .5em 0 .75em 1.5em; padding: 0; }
+.orbidoc-lexical-list-item { margin: .2em 0; }
+
+.orbidoc-lexical-check-unchecked,
+.orbidoc-lexical-check-checked {
+  position: relative;
+  list-style: none;
+  padding-left: 26px;
+  margin: .25em 0;
+}
+.orbidoc-lexical-check-unchecked::before,
+.orbidoc-lexical-check-checked::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: .15em;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid #94a3b8;
+  background: #fff;
+}
+.orbidoc-lexical-check-checked::before { background: #3157f6; border-color: #3157f6; }
+.orbidoc-lexical-check-checked::after { content: '✓'; position: absolute; left: 3px; top: -.02em; color: #fff; font-size: 12px; font-weight: 900; }
+
+.orbidoc-lexical-table { width: 100%; border-collapse: collapse; margin: 1em 0; table-layout: fixed; overflow: auto; }
+.orbidoc-lexical-table-cell,
+.orbidoc-lexical-table-cell-header { min-width: 72px; padding: 7px 8px; border: 1px solid #cbd5e1; vertical-align: top; overflow-wrap: break-word; }
+.orbidoc-lexical-table-cell-header { background: #f1f5f9; font-weight: 800; }
+.orbidoc-lexical-table-cell:focus-within,
+.orbidoc-lexical-table-cell-header:focus-within { outline: 2px solid rgb(49 87 246 / .28); outline-offset: -2px; }
+
+.orbidoc-lexical-image-host { display: block; }
+.orbidoc-lexical-image { margin: 1em auto; max-width: 100%; text-align: center; }
+.orbidoc-lexical-image img { display: inline-block; max-width: 100%; height: auto; border-radius: 4px; }
+.orbidoc-lexical-image figcaption { margin-top: 5px; color: #64748b; font-size: 10px; }
+
+.orbidoc-document-statusbar {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px max(10px, var(--orbidoc-safe-right, 0px)) calc(6px + var(--orbidoc-safe-bottom, 0px)) max(10px, var(--orbidoc-safe-left, 0px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgb(148 163 184 / .2);
+  background: #fff;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+}
+.dark .orbidoc-document-statusbar { background: #0b1220; color: #94a3b8; }
+
+@media (max-width: 767px) {
+  .orbidoc-ribbon-row { min-height: 40px; padding-inline: 6px; }
+  .orbidoc-document-title-input { width: min(220px, 58vw); }
+  .orbidoc-document-canvas { padding: 0 0 calc(92px + var(--orbidoc-safe-bottom, 0px)); }
+  .orbidoc-lexical-page { width: 100%; min-height: calc(var(--orbidoc-visual-height, 100dvh) - 210px); padding: 18px !important; transform: none !important; box-shadow: none; }
+  .orbidoc-lexical-editor { min-height: calc(var(--orbidoc-visual-height, 100dvh) - 260px); }
+  .orbidoc-lexical-placeholder { top: 18px; left: 18px; }
+  html[data-orbidoc-keyboard='open'] .orbidoc-document-statusbar { display: none; }
+  html[data-orbidoc-keyboard='open'] .orbidoc-document-canvas { padding-bottom: 12px; }
+}
+
+@media print {
+  .orbidoc-productivity-ribbon,
+  .orbidoc-document-statusbar { display: none !important; }
+  .orbidoc-document-workspace,
+  .orbidoc-document-canvas,
+  .orbidoc-lexical-page,
+  .orbidoc-lexical-editor { visibility: visible !important; overflow: visible !important; background: white !important; }
+  .orbidoc-document-workspace { position: static !important; height: auto !important; }
+  .orbidoc-document-canvas { padding: 0 !important; }
+  .orbidoc-lexical-page { width: auto !important; min-height: auto !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; transform: none !important; }
+  @page { size: A4; margin: 20mm; }
+}
