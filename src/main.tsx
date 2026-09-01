@@ -13,6 +13,7 @@ import { NativeViewportAgent } from './components/NativeViewportAgent';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
 import { OrbitAppShell } from './components/orbit/OrbitAppShell';
+import { OrbitCommandPalette } from './components/orbit/OrbitCommandPalette';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
@@ -61,6 +62,7 @@ ReactDOM.createRoot(root).render(
           <App />
         </OrbiDocExperienceShell>
       </OrbitAppShell>
+      <OrbitCommandPalette />
       <OrbiDocLoginScreen />
       <NativeViewportAgent />
       <AccountSyncAgent />
