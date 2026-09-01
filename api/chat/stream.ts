@@ -1,10 +1,18 @@
-import { compactError } from '../_lib/ai.js';
-import { streamChatV2 } from '../_lib/aiRuntimeV2.js';
-import { hydrateGatewayRuntimeAuth } from '../_lib/gatewayAuth.js';
+import { nexusAI, type NexusBody } from '../_lib/nexusAI.js';
 
-function parseBody(body: any) {
-  if (typeof body !== 'string') return body || {};
-  try { return JSON.parse(body); } catch { return {}; }
+function parseBody(body: unknown): NexusBody {
+  if (typeof body !== 'string') return (body ?? {}) as NexusBody;
+  try {
+    return JSON.parse(body) as NexusBody;
+  } catch {
+    return {};
+  }
+}
+
+function compactError(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error ?? 'Falha desconhecida'))
+    .replace(/\s+/g, ' ')
+    .slice(0, 420);
 }
 
 export default async function handler(req: any, res: any) {
@@ -14,7 +22,6 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  await hydrateGatewayRuntimeAuth();
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -22,7 +29,11 @@ export default async function handler(req: any, res: any) {
 
   const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
   try {
-    await streamChatV2(parseBody(req.body), write);
+    await nexusAI.stream(
+      parseBody(req.body),
+      (chunk) => write({ chunk }),
+      (meta) => write({ meta }),
+    );
   } catch (error) {
     write({ error: compactError(error) });
   } finally {
