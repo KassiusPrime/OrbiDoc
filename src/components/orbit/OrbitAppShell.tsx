@@ -4,25 +4,23 @@ export interface OrbitAppShellProps {
   children: React.ReactNode;
 }
 
-/**
- * Product-level shell boundary for Orbit.
- *
- * AppV5 still owns navigation while the migration is incremental, but every
- * surface now lives below a stable shell that centralizes accessibility,
- * connectivity state and visual-system hooks. Individual modules must not
- * recreate these product-level concerns.
- */
+/** Product-level boundary for shared Orbit accessibility/connectivity rules. */
 export const OrbitAppShell: React.FC<OrbitAppShellProps> = ({ children }) => {
   const [online, setOnline] = useState(() => navigator.onLine);
 
   useEffect(() => {
     document.documentElement.dataset.orbitShell = 'v2';
+    const main = document.querySelector<HTMLElement>('main');
+    const previousMainId = main?.id || '';
+    if (main && !main.id) main.id = 'orbit-main-workspace';
+
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     return () => {
       delete document.documentElement.dataset.orbitShell;
+      if (main?.id === 'orbit-main-workspace' && !previousMainId) main.removeAttribute('id');
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
