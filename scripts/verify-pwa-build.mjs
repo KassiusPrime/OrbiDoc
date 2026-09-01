@@ -36,8 +36,8 @@ if (fs.existsSync(manifestPath) && fs.existsSync(legacyManifestPath)) {
 
 if (manifest) {
   if (manifest.id !== '/') failures.push(`manifest.id deve ser / (atual: ${manifest.id}).`);
-  if (manifest.name !== 'OrbiDoc') failures.push(`manifest.name deve ser OrbiDoc (atual: ${manifest.name}).`);
-  if (manifest.short_name !== 'OrbiDoc') failures.push(`manifest.short_name deve ser OrbiDoc (atual: ${manifest.short_name}).`);
+  if (manifest.name !== 'Orbit') failures.push(`manifest.name deve ser Orbit (atual: ${manifest.name}).`);
+  if (manifest.short_name !== 'Orbit') failures.push(`manifest.short_name deve ser Orbit (atual: ${manifest.short_name}).`);
   if (manifest.lang !== 'pt-BR') failures.push(`manifest.lang deve ser pt-BR (atual: ${manifest.lang}).`);
   if (manifest.dir !== 'ltr') failures.push(`manifest.dir deve ser ltr (atual: ${manifest.dir}).`);
   if (manifest.start_url !== '/') failures.push(`manifest.start_url deve ser / (atual: ${manifest.start_url}).`);
@@ -46,7 +46,9 @@ if (manifest) {
   if (!['standalone', 'fullscreen', 'minimal-ui'].includes(manifest.display)) failures.push(`display inválido para instalação: ${manifest.display}.`);
   if (!manifest.theme_color) failures.push('Manifesto precisa de theme_color.');
   if (!manifest.background_color) failures.push('Manifesto precisa de background_color.');
-  if (!manifest.description || /AI Cloud|Vercel/i.test(manifest.description)) failures.push('Descrição do manifesto precisa identificar o OrbiDoc, não conteúdo genérico de plataforma.');
+  if (!manifest.description || !/Orbit/i.test(manifest.description) || /AI Cloud|Vercel/i.test(manifest.description)) {
+    failures.push('Descrição do manifesto precisa identificar Orbit/Orbispace/OrbiDoc, não conteúdo genérico de plataforma.');
+  }
   if (!Array.isArray(manifest.categories) || !manifest.categories.includes('productivity')) failures.push('Manifesto precisa incluir a categoria productivity.');
   if (manifest.prefer_related_applications !== false) failures.push('prefer_related_applications deve ser false enquanto o PWA for instalável diretamente.');
 
@@ -58,10 +60,10 @@ if (manifest) {
   if (!has192) failures.push('Manifesto precisa de ícone PNG 192x192 purpose=any.');
   if (!has512) failures.push('Manifesto precisa de ícone PNG 512x512 purpose=any.');
   if (!hasMaskable) failures.push('Manifesto precisa de ao menos um ícone maskable.');
-  if (externalIcons.length) failures.push('Ícones do manifesto devem ser assets locais do OrbiDoc, não URLs externas.');
+  if (externalIcons.length) failures.push('Ícones do manifesto devem ser assets locais do Orbit, não URLs externas.');
 
   const handlers = Array.isArray(manifest.file_handlers) ? manifest.file_handlers : [];
-  if (!handlers.length) failures.push('Manifesto precisa registrar file_handlers para “Abrir com OrbiDoc”.');
+  if (!handlers.length) failures.push('Manifesto precisa registrar file_handlers para “Abrir com Orbit” e encaminhar arquivos ao OrbiDoc.');
   const accepted = handlers[0]?.accept || {};
   const requiredMimeTypes = [
     'application/pdf',
@@ -98,12 +100,12 @@ if (androidConfigured && (!Number.isFinite(targetSdk) || targetSdk < 36)) {
 }
 
 if (failures.length) {
-  console.error('\nFalhas de validação PWA/WebAPK:');
+  console.error('\nFalhas de validação Orbit PWA/WebAPK:');
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
 
-console.log('PWA/PWABuilder: manifesto canônico, alias, service worker, ícones, metadados, file handlers e assetlinks passaram na validação estrutural.');
+console.log('Orbit PWA: manifesto canônico, alias, service worker, ícones, metadados, file handlers do OrbiDoc e assetlinks passaram na validação estrutural.');
 if (!process.env.ANDROID_PACKAGE_NAME || !process.env.ANDROID_SHA256_CERT_FINGERPRINT) {
   console.log('Distribuição Android nativa continua independente da PWA; assinatura release ainda precisa das credenciais reais do proprietário.');
 } else {
