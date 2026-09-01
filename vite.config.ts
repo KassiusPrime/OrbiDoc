@@ -87,8 +87,26 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//],
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,mjs}"],
+        globPatterns: ["**/*.{js,mjs,css,html,json,ico,png,jpg,jpeg,webp,svg,woff,woff2}"],
         runtimeCaching: [
+          {
+            urlPattern: /\.(?:js|mjs|css|woff2?|ttf|otf|png|jpe?g|webp|svg|ico)$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "orbidoc-static-runtime",
+              expiration: { maxEntries: 180, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "orbidoc-navigation",
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             urlPattern: /\.wasm$/i,
             handler: "CacheFirst",
