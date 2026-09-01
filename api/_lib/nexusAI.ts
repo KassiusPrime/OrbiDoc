@@ -21,6 +21,7 @@ export const NEXUS_FREE_MODELS = [
 export type NexusFreeModelId = (typeof NEXUS_FREE_MODELS)[number];
 export type NexusStrategy = 'fast' | 'coding' | 'deep' | 'web';
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+export type NexusPrivacy = 'standard' | 'sensitive';
 
 export type NexusMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -32,8 +33,10 @@ export type NexusBody = {
   systemPrompt?: unknown;
   files?: unknown;
   webSearch?: unknown;
+  webSearchExplicit?: unknown;
   taskHint?: unknown;
   maxOutputTokens?: unknown;
+  privacy?: unknown;
 };
 
 export type NexusClientMeta = {
@@ -53,6 +56,22 @@ type CircuitOptions = {
   openDurationMs: number;
 };
 
+type OpenRouterUsageMetadata = {
+  usage?: {
+    cost?: unknown;
+    totalTokens?: unknown;
+  };
+};
+
+type ProviderMetadataLike = {
+  openrouter?: OpenRouterUsageMetadata;
+};
+
+type WebDecision = {
+  requested: boolean;
+  explicit: boolean;
+};
+
 const DEFAULT_SYSTEM_PROMPT = [
   'Você é Nexus AI, a inteligência unificada do Orbit.',
   'Orbispace é a área de trabalho e OrbiDoc é o módulo de documentos, planilhas, apresentações e dashboards.',
@@ -64,11 +83,20 @@ const REQUEST_TIMEOUT_MS = 42_000;
 const MAX_MESSAGES = 60;
 const MAX_INPUT_CHARS = 160_000;
 const BREAKERS = new Map<NexusFreeModelId, CircuitBreaker>();
+const FRESHNESS_RE = /\b(hoje|agora|atual(?:mente)?|recente(?:s)?|mais recente|últim[oa]s?|notícias?|news|latest|lançamento|estreia|preço atual|versão atual|atualização|2026|2027)\b/i;
+const EXPLICIT_WEB_RE = /\b(pesquis(?:e|ar)|busqu(?:e|ar)|procure|consulte|verifique)\b.{0,40}\b(internet|web|online|fontes?|sites?)\b|\b(internet|web)\b.{0,40}\b(pesquis(?:a|e)|busca|consulte)\b/i;
 
 export class CircuitOpenError extends Error {
   constructor(public readonly modelId: NexusFreeModelId) {
     super(`Circuito temporariamente aberto para ${modelId}.`);
     this.name = 'CircuitOpenError';
+  }
+}
+
+export class ZeroCostInvariantError extends Error {
+  constructor(public readonly reportedCost: number) {
+    super(`ZERO_COST_INVARIANT_VIOLATED: OpenRouter reportou custo ${reportedCost}.`);
+    this.name = 'ZeroCostInvariantError';
   }
 }
 
@@ -115,7 +143,9 @@ export class CircuitBreaker {
   }
 }
 
-for (const modelId of NEXUS_FREE_MODELS) BREAKERS.set(modelId, new CircuitBreaker(modelId));
+for (const modelId of NEXUS_FREE_MODELS) {
+  BREAKERS.set(modelId, new CircuitBreaker(modelId));
+}
 
 export function assertFreeModel(modelId: string): asserts modelId is NexusFreeModelId {
   if (modelId !== 'openrouter/free' && !modelId.endsWith(':free')) {
@@ -144,12 +174,15 @@ function normalizeMessages(value: unknown): NexusMessage[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > MAX_MESSAGES) {
     throw new Error('Nexus AI recebeu uma conversa inválida.');
   }
+
   let total = 0;
   const messages: NexusMessage[] = [];
   for (const raw of value) {
     if (!raw || typeof raw !== 'object') throw new Error('Mensagem inválida.');
     const item = raw as { role?: unknown; content?: unknown };
-    if (item.role !== 'system' && item.role !== 'user' && item.role !== 'assistant') throw new Error('Papel de mensagem inválido.');
+    if (item.role !== 'system' && item.role !== 'user' && item.role !== 'assistant') {
+      throw new Error('Papel de mensagem inválido.');
+    }
     if (typeof item.content !== 'string') throw new Error('Conteúdo de mensagem inválido.');
     total += item.content.length;
     if (total > MAX_INPUT_CHARS) throw new Error('Contexto muito grande para esta requisição.');
@@ -163,6 +196,16 @@ function lastUserText(messages: readonly NexusMessage[]): string {
     if (messages[index]?.role === 'user') return messages[index]?.content ?? '';
   }
   return '';
+}
+
+function decideWeb(body: NexusBody, messages: readonly NexusMessage[]): WebDecision {
+  if (body.webSearch === true) return { requested: true, explicit: true };
+  if (body.webSearch === false && body.webSearchExplicit === true) return { requested: false, explicit: true };
+  const text = lastUserText(messages);
+  return {
+    requested: FRESHNESS_RE.test(text) || EXPLICIT_WEB_RE.test(text),
+    explicit: false,
+  };
 }
 
 function classify(messages: readonly NexusMessage[], webSearch: boolean, hint?: string): NexusStrategy {
@@ -212,7 +255,7 @@ function candidateOrder(strategy: NexusStrategy): NexusFreeModelId[] {
 }
 
 function toModelMessages(messages: readonly NexusMessage[], web?: WebSearchResult): ModelMessage[] {
-  const output: ModelMessage[] = messages.map((message) => ({
+  const output = messages.map((message) => ({
     role: message.role,
     content: message.content,
   })) as ModelMessage[];
@@ -232,6 +275,10 @@ function outputLimit(value: unknown): number {
   return Math.max(128, Math.min(8_192, Math.floor(value)));
 }
 
+function privacyMode(value: unknown): NexusPrivacy {
+  return value === 'sensitive' ? 'sensitive' : 'standard';
+}
+
 function createProvider() {
   const apiKey = String(process.env.OPENROUTER_API_KEY ?? '').trim();
   if (!apiKey) throw new Error('OPENROUTER_API_KEY não está configurada para o Nexus AI.');
@@ -242,6 +289,39 @@ function createProvider() {
       'HTTP-Referer': String(process.env.ORBIT_PUBLIC_URL ?? process.env.VERCEL_URL ?? 'https://orbidoc.app'),
     },
   });
+}
+
+function modelSettings(privacy: NexusPrivacy): {
+  usage: { include: true };
+  extraBody: Record<string, unknown>;
+} {
+  return {
+    usage: { include: true },
+    extraBody: {
+      provider: {
+        allow_fallbacks: false,
+        max_price: { prompt: 0, completion: 0 },
+        ...(privacy === 'sensitive' ? { data_collection: 'deny', zdr: true } : {}),
+      },
+    },
+  };
+}
+
+function reportedCost(metadata: unknown): number | null {
+  if (!metadata || typeof metadata !== 'object') return null;
+  const root = metadata as ProviderMetadataLike;
+  const raw = root.openrouter?.usage?.cost;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string') {
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function assertZeroReportedCost(metadata: unknown): void {
+  const cost = reportedCost(metadata);
+  if (cost !== null && cost > 0) throw new ZeroCostInvariantError(cost);
 }
 
 function logInternal(event: string, data: Record<string, unknown>): void {
@@ -256,7 +336,7 @@ function logInternal(event: string, data: Record<string, unknown>): void {
 async function withTimeout<T>(signal: AbortSignal | undefined, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error('Nexus AI request timeout')), REQUEST_TIMEOUT_MS);
-  const onAbort = () => controller.abort(signal?.reason);
+  const onAbort = (): void => controller.abort(signal?.reason);
   signal?.addEventListener('abort', onAbort, { once: true });
   try {
     return await run(controller.signal);
@@ -275,7 +355,7 @@ async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) throw signal.reason ?? new Error('Abortado');
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(resolve, ms);
-    const abort = () => {
+    const abort = (): void => {
       clearTimeout(timer);
       reject(signal?.reason ?? new Error('Abortado'));
     };
@@ -283,22 +363,42 @@ async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+async function resolveWebContext(
+  body: NexusBody,
+  messages: readonly NexusMessage[],
+  requestId: string,
+): Promise<{ web?: WebSearchResult; used: boolean }> {
+  const decision = decideWeb(body, messages);
+  if (!decision.requested) return { used: false };
+
+  try {
+    const web = await searchWebZeroCost(lastUserText(messages));
+    return { web, used: true };
+  } catch (error) {
+    if (decision.explicit) throw error;
+    logInternal('web.auto_unavailable', { requestId, error: compactError(error) });
+    return { used: false };
+  }
+}
+
 export class NexusAIClient {
   async complete(body: NexusBody, signal?: AbortSignal): Promise<NexusResult> {
     const requestId = crypto.randomUUID();
     const messages = normalizeMessages(body.messages);
-    const wantsWeb = body.webSearch === true;
-    const strategy = classify(messages, wantsWeb, typeof body.taskHint === 'string' ? body.taskHint : undefined);
-    const web = wantsWeb ? await searchWebZeroCost(lastUserText(messages)) : undefined;
+    const resolvedWeb = await resolveWebContext(body, messages, requestId);
+    const strategy = classify(messages, resolvedWeb.used, typeof body.taskHint === 'string' ? body.taskHint : undefined);
     const candidates = candidateOrder(strategy);
     const provider = createProvider();
+    const privacy = privacyMode(body.privacy);
     const startedAt = Date.now();
     let lastError: unknown;
     let attempts = 0;
 
     for (const modelId of candidates) {
       assertFreeModel(modelId);
-      const breaker = BREAKERS.get(modelId)!;
+      const breaker = BREAKERS.get(modelId);
+      if (!breaker) continue;
+
       try {
         breaker.begin();
       } catch (error) {
@@ -309,32 +409,53 @@ export class NexusAIClient {
       attempts += 1;
       try {
         const result = await withTimeout(signal, (requestSignal) => generateText({
-          model: provider(modelId),
+          model: provider(modelId, modelSettings(privacy)),
           system: systemPrompt(body),
-          messages: toModelMessages(messages, web),
+          messages: toModelMessages(messages, resolvedWeb.web),
           maxOutputTokens: outputLimit(body.maxOutputTokens),
           temperature: strategy === 'fast' ? 0.2 : 0.35,
           maxRetries: 0,
           abortSignal: requestSignal,
         }));
+
+        assertZeroReportedCost(result.providerMetadata);
         const answer = result.text.trim();
         if (!answer) throw new Error('Resposta vazia do modelo interno.');
+
         breaker.success();
-        logInternal('completion.ok', { requestId, modelId, strategy, attempts, latencyMs: Date.now() - startedAt, webSearch: wantsWeb });
+        logInternal('completion.ok', {
+          requestId,
+          modelId,
+          strategy,
+          privacy,
+          attempts,
+          latencyMs: Date.now() - startedAt,
+          webSearch: resolvedWeb.used,
+          reportedCost: reportedCost(result.providerMetadata) ?? 'unavailable',
+        });
+
         return {
           requestId,
           assistant: 'Nexus AI',
           strategy,
           freeOnly: true,
           fallbackUsed: attempts > 1,
-          webSearch: wantsWeb,
-          webEngine: web?.engine,
+          webSearch: resolvedWeb.used,
+          webEngine: resolvedWeb.web?.engine,
           answer,
         };
       } catch (error) {
         breaker.failure();
         lastError = error;
-        logInternal('completion.fail', { requestId, modelId, strategy, attempts, error: compactError(error), status429: is429(error) });
+        logInternal('completion.fail', {
+          requestId,
+          modelId,
+          strategy,
+          attempts,
+          error: compactError(error),
+          status429: is429(error),
+        });
+        if (error instanceof ZeroCostInvariantError) throw error;
         if (signal?.aborted) throw signal.reason ?? error;
         if (is429(error)) await sleep(nextDelay(Math.min(attempts - 1, 4)), signal);
       }
@@ -351,18 +472,20 @@ export class NexusAIClient {
   ): Promise<NexusClientMeta> {
     const requestId = crypto.randomUUID();
     const messages = normalizeMessages(body.messages);
-    const wantsWeb = body.webSearch === true;
-    const strategy = classify(messages, wantsWeb, typeof body.taskHint === 'string' ? body.taskHint : undefined);
-    const web = wantsWeb ? await searchWebZeroCost(lastUserText(messages)) : undefined;
+    const resolvedWeb = await resolveWebContext(body, messages, requestId);
+    const strategy = classify(messages, resolvedWeb.used, typeof body.taskHint === 'string' ? body.taskHint : undefined);
     const candidates = candidateOrder(strategy);
     const provider = createProvider();
+    const privacy = privacyMode(body.privacy);
     const startedAt = Date.now();
     let lastError: unknown;
     let attempts = 0;
 
     for (const modelId of candidates) {
       assertFreeModel(modelId);
-      const breaker = BREAKERS.get(modelId)!;
+      const breaker = BREAKERS.get(modelId);
+      if (!breaker) continue;
+
       try {
         breaker.begin();
       } catch (error) {
@@ -379,13 +502,14 @@ export class NexusAIClient {
           strategy,
           freeOnly: true,
           fallbackUsed: attempts > 1,
-          webSearch: wantsWeb,
-          webEngine: web?.engine,
+          webSearch: resolvedWeb.used,
+          webEngine: resolvedWeb.web?.engine,
         };
+
         const result = streamText({
-          model: provider(modelId),
+          model: provider(modelId, modelSettings(privacy)),
           system: systemPrompt(body),
-          messages: toModelMessages(messages, web),
+          messages: toModelMessages(messages, resolvedWeb.web),
           maxOutputTokens: outputLimit(body.maxOutputTokens),
           temperature: strategy === 'fast' ? 0.2 : 0.35,
           maxRetries: 0,
@@ -405,13 +529,25 @@ export class NexusAIClient {
         }
 
         if (!emitted) throw new Error('Streaming retornou conteúdo vazio.');
+        const metadata = await result.providerMetadata;
+        assertZeroReportedCost(metadata);
         breaker.success();
-        logInternal('stream.ok', { requestId, modelId, strategy, attempts, latencyMs: Date.now() - startedAt, webSearch: wantsWeb });
+        logInternal('stream.ok', {
+          requestId,
+          modelId,
+          strategy,
+          privacy,
+          attempts,
+          latencyMs: Date.now() - startedAt,
+          webSearch: resolvedWeb.used,
+          reportedCost: reportedCost(metadata) ?? 'unavailable',
+        });
         return meta;
       } catch (error) {
         breaker.failure();
         lastError = error;
         logInternal('stream.fail', { requestId, modelId, strategy, attempts, error: compactError(error), emitted });
+        if (error instanceof ZeroCostInvariantError) throw error;
         if (signal?.aborted) throw signal.reason ?? error;
         // Depois do primeiro byte não podemos reiniciar a resposta sem duplicar texto.
         if (emitted) throw error;
@@ -422,13 +558,19 @@ export class NexusAIClient {
     throw new Error(`Nexus AI indisponível em todos os modelos gratuitos permitidos. ${compactError(lastError)}`);
   }
 
-  status(): { assistant: 'Nexus AI'; gateway: 'OpenRouter'; configured: boolean; freeOnly: true; circuits: Array<{ model: NexusFreeModelId; state: CircuitState }> } {
+  status(): {
+    assistant: 'Nexus AI';
+    gateway: 'OpenRouter';
+    configured: boolean;
+    freeOnly: true;
+    circuits: Array<{ model: NexusFreeModelId; state: CircuitState }>;
+  } {
     return {
       assistant: 'Nexus AI',
       gateway: 'OpenRouter',
       configured: Boolean(String(process.env.OPENROUTER_API_KEY ?? '').trim()),
       freeOnly: true,
-      circuits: NEXUS_FREE_MODELS.map((model) => ({ model, state: BREAKERS.get(model)!.getState() })),
+      circuits: NEXUS_FREE_MODELS.map((model) => ({ model, state: BREAKERS.get(model)?.getState() ?? 'OPEN' })),
     };
   }
 }
