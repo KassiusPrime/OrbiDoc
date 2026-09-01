@@ -20,6 +20,7 @@ import type { SavedProject } from '../types';
 import { orbiDocDb } from '../db/orbidocDb';
 import { pickLocalFile, saveLocalFile, type OrbiDocFileSystemFileHandle } from '../lib/fileSystemAccess';
 import { createDebouncedAutosave, savePdfLocal, type AutosaveStatus } from '../services/offlinePersistence';
+import { queueGoogleDriveEntitySync } from '../services/driveSyncQueue';
 
 export type PdfAnnotation = {
   id: string;
@@ -267,16 +268,21 @@ export const PdfStudio: React.FC<PdfStudioProps> = ({ project, onProjectChange, 
     setStatus('saving');
     const updatedAt = new Date().toISOString();
     const blob = new Blob([snapshot.bytes.slice()], { type: 'application/pdf' });
+    const origin = project.cloudOrigin?.provider === 'googleDrive' ? project.cloudOrigin : undefined;
     await savePdfLocal({
       id: project.id,
       title: project.title || snapshot.fileName.replace(/\.pdf$/i, ''),
       pdfBlob: blob,
       annotationsJSON: snapshot.annotations,
       updatedAt,
-      fileName: snapshot.fileName,
+      fileName: origin?.fileName || snapshot.fileName,
+      driveFileId: origin?.fileId,
+      driveVersion: origin?.version,
+      driveModifiedTime: origin?.modifiedTime,
       isSynced: false,
-      syncState: navigator.onLine ? 'local' : 'modified-offline',
+      syncState: origin && !navigator.onLine ? 'modified-offline' : 'local',
     });
+    if (origin) await queueGoogleDriveEntitySync('pdf', project.id);
     onProjectChange({
       ...project,
       content: {

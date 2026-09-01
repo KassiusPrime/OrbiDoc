@@ -1,6 +1,6 @@
 import { orbiDocDb, type LocalEntityType, type SyncQueueRecord } from '../db/orbidocDb';
 import { getStoredGoogleUser, updateGoogleDriveFile } from './googleAuthDrive';
-import { markEntitySyncState } from './offlinePersistence';
+import { enqueueSync, markEntityModifiedOffline, markEntitySyncState } from './offlinePersistence';
 
 export interface SyncQueueSummary {
   pending: number;
@@ -12,6 +12,27 @@ export interface SyncQueueSummary {
 
 let running: Promise<SyncQueueSummary> | null = null;
 let lastRunAt = '';
+
+async function localDriveMetadata(entityType: LocalEntityType, entityId: string) {
+  if (entityType === 'document') return orbiDocDb.documents.get(entityId);
+  if (entityType === 'sheet') return orbiDocDb.sheets.get(entityId);
+  return orbiDocDb.pdf_store.get(entityId);
+}
+
+export async function queueGoogleDriveEntitySync(entityType: LocalEntityType, entityId: string) {
+  const record = await localDriveMetadata(entityType, entityId);
+  if (!record?.driveFileId) return false;
+  await enqueueSync({
+    action: 'upsert',
+    entityType,
+    entityId,
+    provider: 'googleDrive',
+    expectedDriveVersion: record.driveVersion,
+  });
+  if (!navigator.onLine) await markEntityModifiedOffline(entityType, entityId);
+  else queueMicrotask(() => void flushDriveSyncQueue());
+  return true;
+}
 
 const dispatch = (summary: SyncQueueSummary) => {
   window.dispatchEvent(new CustomEvent<SyncQueueSummary>('orbidoc:sync-status', { detail: summary }));

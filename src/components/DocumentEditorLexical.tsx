@@ -89,6 +89,7 @@ import {
   type AutosaveStatus,
 } from '../services/offlinePersistence';
 import { type HistoryItem, type SavedProject } from '../types';
+import { queueGoogleDriveEntitySync } from '../services/driveSyncQueue';
 import { $createOrbiDocImageNode, OrbiDocImageNode } from '../editor/lexical/OrbiDocImageNode';
 import { OFFICE_FONTS } from '../lib/officeStudio';
 
@@ -494,17 +495,25 @@ function PersistencePlugin({
     () => createDebouncedAutosave<PersistedSnapshot>(async (snapshot) => {
       onStatus('saving');
       const updatedAt = new Date().toISOString();
+      const origin = project.cloudOrigin?.provider === 'googleDrive' ? project.cloudOrigin : undefined;
+      const rawBlob = origin && (origin.fileName.toLowerCase().endsWith('.docx') || origin.mimeType.includes('wordprocessingml'))
+        ? (await exportRichHtmlToDocx(snapshot.html, snapshot.title)).blob
+        : new Blob([snapshot.html], { type: 'text/html;charset=utf-8' });
       await saveDocumentLocal({
         id: project.id,
         title: snapshot.title,
         contentJSON: snapshot.editorState,
-        rawBlob: new Blob([snapshot.html], { type: 'text/html;charset=utf-8' }),
+        rawBlob,
         updatedAt,
+        driveFileId: origin?.fileId,
+        driveVersion: origin?.version,
+        driveModifiedTime: origin?.modifiedTime,
         isSynced: false,
-        syncState: navigator.onLine ? 'local' : 'modified-offline',
-        fileName: `${SAFE_FILE_NAME(snapshot.title)}.docx`,
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        syncState: origin && !navigator.onLine ? 'modified-offline' : 'local',
+        fileName: origin?.fileName || `${SAFE_FILE_NAME(snapshot.title)}.docx`,
+        mimeType: origin?.mimeType || rawBlob.type || 'text/html;charset=utf-8',
       });
+      if (origin) await queueGoogleDriveEntitySync('document', project.id);
       onProjectChange({
         ...project,
         title: snapshot.title,

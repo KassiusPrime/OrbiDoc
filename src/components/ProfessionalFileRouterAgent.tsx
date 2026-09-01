@@ -5,13 +5,13 @@ import { SpreadsheetEditorFortune } from './SpreadsheetEditorFortune';
 import { PdfStudio } from './PdfStudio';
 import { xlsxArrayBufferToFortuneSheets } from '../lib/fortuneSpreadsheet';
 import { savePdfLocal } from '../services/offlinePersistence';
-import type { SavedProject } from '../types';
+import type { CloudFileOrigin, SavedProject } from '../types';
 
 const PROFESSIONAL_FILE_EVENT = 'orbidoc:open-professional-file';
 
-export type ProfessionalFileOpenDetail = { file: File };
+export type ProfessionalFileOpenDetail = { file: File; cloudOrigin?: CloudFileOrigin };
 
-const newProject = (type: SavedProject['type'], title: string, content?: unknown): SavedProject => {
+const newProject = (type: SavedProject['type'], title: string, content?: unknown, cloudOrigin?: CloudFileOrigin): SavedProject => {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
@@ -20,7 +20,8 @@ const newProject = (type: SavedProject['type'], title: string, content?: unknown
     createdAt: now,
     updatedAt: now,
     previewSnippet: 'Arquivo aberto pelo sistema operacional.',
-    tags: ['Abrir com'],
+    tags: cloudOrigin ? ['Abrir com', 'Google Drive'] : ['Abrir com'],
+    cloudOrigin,
     content,
   };
 };
@@ -41,8 +42,8 @@ async function docxToHtml(file: File) {
 
 const extensionOf = (file: File) => file.name.split('.').pop()?.toLowerCase() || '';
 
-export function dispatchProfessionalFile(file: File) {
-  window.dispatchEvent(new CustomEvent<ProfessionalFileOpenDetail>(PROFESSIONAL_FILE_EVENT, { detail: { file } }));
+export function dispatchProfessionalFile(file: File, cloudOrigin?: CloudFileOrigin) {
+  window.dispatchEvent(new CustomEvent<ProfessionalFileOpenDetail>(PROFESSIONAL_FILE_EVENT, { detail: { file, cloudOrigin } }));
 }
 
 export function isProfessionalOfficeFile(file: File) {
@@ -61,7 +62,9 @@ export const ProfessionalFileRouterAgent: React.FC = () => {
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const file = (event as CustomEvent<ProfessionalFileOpenDetail>).detail?.file;
+      const detail = (event as CustomEvent<ProfessionalFileOpenDetail>).detail;
+      const file = detail?.file;
+      const cloudOrigin = detail?.cloudOrigin;
       if (!file) return;
       setError('');
       setNotice(null);
@@ -70,19 +73,19 @@ export const ProfessionalFileRouterAgent: React.FC = () => {
         const title = file.name.replace(/\.[^/.]+$/, '') || file.name;
         if (extension === 'docx' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
           const html = await docxToHtml(file);
-          setProject(newProject('word', title, html));
+          setProject(newProject('word', title, html, cloudOrigin));
           setKind('word');
           return;
         }
         if (['xlsx', 'xls', 'ods', 'csv', 'tsv'].includes(extension)
           || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
           const sheets = xlsxArrayBufferToFortuneSheets(await file.arrayBuffer());
-          setProject(newProject('excel', title, sheets));
+          setProject(newProject('excel', title, sheets, cloudOrigin));
           setKind('excel');
           return;
         }
         if (extension === 'pdf' || file.type === 'application/pdf') {
-          const next = newProject('extract', title, { pdfStudio: { fileName: file.name } });
+          const next = newProject('extract', title, { pdfStudio: { fileName: file.name } }, cloudOrigin);
           await savePdfLocal({
             id: next.id,
             title,
@@ -90,8 +93,11 @@ export const ProfessionalFileRouterAgent: React.FC = () => {
             annotationsJSON: [],
             updatedAt: next.updatedAt,
             fileName: file.name,
-            isSynced: false,
-            syncState: 'local',
+            driveFileId: cloudOrigin?.fileId,
+            driveVersion: cloudOrigin?.version,
+            driveModifiedTime: cloudOrigin?.modifiedTime,
+            isSynced: Boolean(cloudOrigin),
+            syncState: cloudOrigin ? 'synced' : 'local',
           });
           setProject(next);
           setKind('pdf');

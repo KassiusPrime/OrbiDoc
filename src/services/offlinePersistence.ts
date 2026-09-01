@@ -46,19 +46,43 @@ export function createDebouncedAutosave<T>(
 const now = () => new Date().toISOString();
 
 export async function saveDocumentLocal(record: Omit<LocalDocumentRecord, 'updatedAt'> & { updatedAt?: string }) {
-  const next: LocalDocumentRecord = { ...record, updatedAt: record.updatedAt || now() };
+  const existing = await orbiDocDb.documents.get(record.id);
+  const sameDriveFile = Boolean(existing?.driveFileId && existing.driveFileId === record.driveFileId);
+  const next: LocalDocumentRecord = {
+    ...existing,
+    ...record,
+    driveVersion: sameDriveFile ? existing?.driveVersion || record.driveVersion : record.driveVersion,
+    driveModifiedTime: sameDriveFile ? existing?.driveModifiedTime || record.driveModifiedTime : record.driveModifiedTime,
+    updatedAt: record.updatedAt || now(),
+  };
   await orbiDocDb.documents.put(next);
   return next;
 }
 
 export async function saveSheetLocal(record: Omit<LocalSheetRecord, 'updatedAt'> & { updatedAt?: string }) {
-  const next: LocalSheetRecord = { ...record, updatedAt: record.updatedAt || now() };
+  const existing = await orbiDocDb.sheets.get(record.id);
+  const sameDriveFile = Boolean(existing?.driveFileId && existing.driveFileId === record.driveFileId);
+  const next: LocalSheetRecord = {
+    ...existing,
+    ...record,
+    driveVersion: sameDriveFile ? existing?.driveVersion || record.driveVersion : record.driveVersion,
+    driveModifiedTime: sameDriveFile ? existing?.driveModifiedTime || record.driveModifiedTime : record.driveModifiedTime,
+    updatedAt: record.updatedAt || now(),
+  };
   await orbiDocDb.sheets.put(next);
   return next;
 }
 
 export async function savePdfLocal(record: Omit<LocalPdfRecord, 'updatedAt'> & { updatedAt?: string }) {
-  const next: LocalPdfRecord = { ...record, updatedAt: record.updatedAt || now() };
+  const existing = await orbiDocDb.pdf_store.get(record.id);
+  const sameDriveFile = Boolean(existing?.driveFileId && existing.driveFileId === record.driveFileId);
+  const next: LocalPdfRecord = {
+    ...existing,
+    ...record,
+    driveVersion: sameDriveFile ? existing?.driveVersion || record.driveVersion : record.driveVersion,
+    driveModifiedTime: sameDriveFile ? existing?.driveModifiedTime || record.driveModifiedTime : record.driveModifiedTime,
+    updatedAt: record.updatedAt || now(),
+  };
   await orbiDocDb.pdf_store.put(next);
   return next;
 }

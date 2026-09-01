@@ -94,6 +94,15 @@ export interface MicrosoftUserProfile {
   expiresAt?: number;
 }
 
+export interface CloudFileOrigin {
+  provider: 'googleDrive';
+  fileId: string;
+  version?: string;
+  modifiedTime?: string;
+  fileName: string;
+  mimeType: string;
+}
+
 export interface SavedProject {
   id: string;
   title: string;
@@ -106,6 +115,7 @@ export interface SavedProject {
   category?: string;
   thumbnailColor?: string;
   tags?: string[];
+  cloudOrigin?: CloudFileOrigin;
   content?: any;
 }
 

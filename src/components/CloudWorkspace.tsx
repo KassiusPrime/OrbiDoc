@@ -11,7 +11,8 @@ import {
 } from '@tabler/icons-react';
 import { saveAs } from 'file-saver';
 import { DriveFile, GoogleUserProfile, MicrosoftUserProfile } from '../types';
-import { listGoogleDriveFiles, uploadToGoogleDrive } from '../services/googleAuthDrive';
+import { downloadGoogleDriveFileBlob, listGoogleDriveFiles, uploadToGoogleDrive } from '../services/googleAuthDrive';
+import { dispatchProfessionalFile } from './ProfessionalFileRouterAgent';
 import { downloadOneDriveFile, listOneDriveFiles, OneDriveFile, uploadToOneDrive } from '../services/microsoftAuthOffice';
 
 interface CloudWorkspaceProps {
@@ -45,6 +46,7 @@ export const CloudWorkspace: React.FC<CloudWorkspaceProps> = ({
   const [microsoftFiles, setMicrosoftFiles] = useState<OneDriveFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [openingGoogleId, setOpeningGoogleId] = useState<string | null>(null);
 
   const load = async (target: Provider) => {
     setLoading(true);
@@ -92,6 +94,32 @@ export const CloudWorkspace: React.FC<CloudWorkspaceProps> = ({
       showNotification(error?.message || 'Falha no upload.', 'error');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const openGoogleInOrbiDoc = async (file: DriveFile) => {
+    if (!googleUser) return;
+    if (!/\.(docx|xlsx?|ods|csv|tsv|pdf)$/i.test(file.name)) {
+      showNotification('Este formato do Drive ainda não possui editor profissional local.', 'error');
+      return;
+    }
+    setOpeningGoogleId(file.id);
+    try {
+      const blob = await downloadGoogleDriveFileBlob(googleUser.accessToken, file.id);
+      const localFile = new File([blob], file.name, { type: file.mimeType || blob.type || 'application/octet-stream' });
+      dispatchProfessionalFile(localFile, {
+        provider: 'googleDrive',
+        fileId: file.id,
+        version: file.version,
+        modifiedTime: file.modifiedTime,
+        fileName: file.name,
+        mimeType: file.mimeType || blob.type || 'application/octet-stream',
+      });
+      showNotification(`${file.name} aberto no OrbiDoc com sincronização do Drive.`, 'success');
+    } catch (error: any) {
+      showNotification(error?.message || 'Falha ao abrir arquivo do Google Drive.', 'error');
+    } finally {
+      setOpeningGoogleId(null);
     }
   };
 
@@ -208,6 +236,11 @@ export const CloudWorkspace: React.FC<CloudWorkspaceProps> = ({
                       <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{file.name}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5">{modified}{size ? ` · ${size}` : ''}</div>
                     </div>
+                    {provider === 'google' && /\.(docx|xlsx?|ods|csv|tsv|pdf)$/i.test(file.name) ? (
+                      <button type="button" disabled={openingGoogleId === file.id} onClick={() => void openGoogleInOrbiDoc(file)} className="w-9 h-9 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-indigo-600 dark:text-indigo-300 flex items-center justify-center disabled:opacity-50" aria-label={`Editar ${file.name} no OrbiDoc`}>
+                        {openingGoogleId === file.id ? <Refresh className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                      </button>
+                    ) : null}
                     {viewUrl ? (
                       <button type="button" onClick={() => window.open(viewUrl, '_blank', 'noopener,noreferrer')} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label={`Abrir ${file.name} na nuvem`}>
                         <ExternalLink className="w-4 h-4" />

@@ -19,6 +19,7 @@ import {
   type FortuneSheet,
 } from '../lib/fortuneSpreadsheet';
 import { createDebouncedAutosave, saveSheetLocal, type AutosaveStatus } from '../services/offlinePersistence';
+import { queueGoogleDriveEntitySync } from '../services/driveSyncQueue';
 
 export interface SpreadsheetEditorFortuneProps {
   project: SavedProject;
@@ -55,16 +56,25 @@ export const SpreadsheetEditorFortune: React.FC<SpreadsheetEditorFortuneProps> =
     () => createDebouncedAutosave<{ sheets: FortuneSheet[]; title: string }>(async (snapshot) => {
       setStatus('saving');
       const updatedAt = new Date().toISOString();
+      const origin = project.cloudOrigin?.provider === 'googleDrive' ? project.cloudOrigin : undefined;
+      const rawBlob = origin?.fileName.toLowerCase().endsWith('.csv')
+        ? fortuneSheetToCsvBlob(snapshot.sheets[0])
+        : fortuneSheetsToXlsxBlob(snapshot.sheets);
       await saveSheetLocal({
         id: project.id,
         title: snapshot.title,
         workbookData: snapshot.sheets,
+        rawBlob,
         updatedAt,
+        driveFileId: origin?.fileId,
+        driveVersion: origin?.version,
+        driveModifiedTime: origin?.modifiedTime,
         isSynced: false,
-        syncState: navigator.onLine ? 'local' : 'modified-offline',
-        fileName: `${safeFileName(snapshot.title)}.xlsx`,
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        syncState: origin && !navigator.onLine ? 'modified-offline' : 'local',
+        fileName: origin?.fileName || `${safeFileName(snapshot.title)}.xlsx`,
+        mimeType: origin?.mimeType || rawBlob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
+      if (origin) await queueGoogleDriveEntitySync('sheet', project.id);
       onProjectChange({
         ...project,
         title: snapshot.title,
