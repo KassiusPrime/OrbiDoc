@@ -64,7 +64,10 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
       n: 1,
       output_format: 'png',
       quality: body.quality === 'high' ? 'high' : 'auto',
-      provider: { allow_fallbacks: true },
+      provider: {
+        allow_fallbacks: false,
+        max_price: { prompt: 0, completion: 0 },
+      },
     };
     const size = requestedSize(body);
     if (size) payload.size = size;
@@ -87,8 +90,9 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
     if (!response.ok) throw new Error(`OpenRouter Image ${response.status}: ${text.slice(0, 260)}`);
 
     const root = JSON.parse(text) as OpenRouterImageResponse;
-    const cost = typeof root.usage?.cost === 'number' ? root.usage.cost : 0;
-    if (cost > 0) {
+    const rawCost = root.usage?.cost;
+    const cost = typeof rawCost === 'number' ? rawCost : typeof rawCost === 'string' ? Number(rawCost) : 0;
+    if (Number.isFinite(cost) && cost > 0) {
       throw new Error(`ZERO_COST_INVARIANT_VIOLATED: OpenRouter reportou custo ${cost} para ${model}.`);
     }
     const first = root.data?.[0];
