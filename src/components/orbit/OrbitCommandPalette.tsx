@@ -1,17 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  IconApps,
-  IconFileCheck,
-  IconFileSpreadsheet,
-  IconFileText,
-  IconFolder,
-  IconHome,
-  IconPalette,
-  IconPresentation,
-  IconRobot,
-  IconSearch,
-  IconSettings,
-  IconX,
+  IconApps as Apps,
+  IconFileCheck as FileCheck,
+  IconFileSpreadsheet as FileSpreadsheet,
+  IconFileText as FileText,
+  IconFolder as Folder,
+  IconHome as Home,
+  IconPalette as Palette,
+  IconPresentation as Presentation,
+  IconRobot as Robot,
+  IconSearch as Search,
+  IconSettings as Settings,
+  IconX as X,
 } from '@tabler/icons-react';
 
 type PaletteMode = 'commands' | 'files';
