@@ -15,6 +15,7 @@ import { NativeViewportAgent } from './components/NativeViewportAgent';
 import { OfflineSyncStatus } from './components/OfflineSyncStatus';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
+import { ProfessionalFileRouterAgent } from './components/ProfessionalFileRouterAgent';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
@@ -73,6 +74,7 @@ ReactDOM.createRoot(root).render(
       <NativeViewportAgent />
       <AccountSyncAgent />
       <SystemFileOpenAgent />
+      <ProfessionalFileRouterAgent />
       <GitHubProjectsWorkspace />
       <MediaToolsLauncher />
       <VersionHistoryLauncher />
