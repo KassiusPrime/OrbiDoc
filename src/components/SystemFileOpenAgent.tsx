@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { saveAs } from 'file-saver';
 import { OrbiDocLogo } from './OrbiDocLogo';
+import { dispatchProfessionalFile, isProfessionalOfficeFile } from './ProfessionalFileRouterAgent';
 import { READER_ACCEPT, readArchiveEntry, readDocumentFile, releaseReaderDocument, type ReaderDocument } from '../lib/documentReader';
 
 type LaunchFileHandle = { getFile: () => Promise<File> };
@@ -41,6 +42,11 @@ export const SystemFileOpenAgent: React.FC = () => {
 
   const loadFile = async (file: File) => {
     setError('');
+    if (isProfessionalOfficeFile(file)) {
+      replaceDocument(null);
+      dispatchProfessionalFile(file);
+      return;
+    }
     replaceDocument(await readDocumentFile(file));
   };
 
