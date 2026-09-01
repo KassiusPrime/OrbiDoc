@@ -1,8 +1,12 @@
 const TOKEN_URL = 'https://github.com/login/oauth/access_token';
 
+function requestHost(req: any) {
+  return String(req.headers?.['x-forwarded-host'] || req.headers?.host || '').trim();
+}
+
 function sameOriginRequest(req: any) {
   const origin = String(req.headers?.origin || '').trim();
-  const host = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '').trim();
+  const host = requestHost(req);
   if (!origin || !host) return true;
   try {
     return new URL(origin).host === host;
@@ -11,7 +15,19 @@ function sameOriginRequest(req: any) {
   }
 }
 
+function validRedirectUri(req: any, redirectUri: string) {
+  const host = requestHost(req);
+  if (!host || !redirectUri) return false;
+  try {
+    const url = new URL(redirectUri);
+    return url.host === host && url.pathname === '/auth/github' && /^https?:$/.test(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req: any, res: any) {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     res.status(405).json({ error: 'Método não permitido.' });
@@ -35,21 +51,24 @@ export default async function handler(req: any, res: any) {
 
   if (action === 'refresh') {
     const refreshToken = String(req.body?.refreshToken || '').trim();
-    if (!refreshToken) {
-      res.status(400).json({ error: 'Refresh token GitHub ausente.' });
+    if (!refreshToken || refreshToken.length > 2048) {
+      res.status(400).json({ error: 'Refresh token GitHub ausente ou inválido.' });
       return;
     }
     params.set('grant_type', 'refresh_token');
     params.set('refresh_token', refreshToken);
-  } else {
+  } else if (action === 'exchange') {
     const code = String(req.body?.code || '').trim();
     const redirectUri = String(req.body?.redirectUri || '').trim();
-    if (!code || !redirectUri) {
-      res.status(400).json({ error: 'Código ou redirect URI GitHub ausente.' });
+    if (!code || code.length > 1024 || !validRedirectUri(req, redirectUri)) {
+      res.status(400).json({ error: 'Código ou redirect URI GitHub inválido.' });
       return;
     }
     params.set('code', code);
     params.set('redirect_uri', redirectUri);
+  } else {
+    res.status(400).json({ error: 'Ação OAuth GitHub inválida.' });
+    return;
   }
 
   try {
@@ -58,7 +77,7 @@ export default async function handler(req: any, res: any) {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'OrbiDoc',
+        'User-Agent': 'Orbit',
       },
       body: params,
     });
@@ -70,7 +89,6 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({
       accessToken: String(data.access_token),
       expiresIn: Number(data.expires_in) || 0,
