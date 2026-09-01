@@ -98,11 +98,14 @@ const assertions = [
   [fabMenu.includes('rounded-t-[20px]'), 'Create Sheet não respeita o radius máximo de 20px do Design System.'],
 
   [nexus.includes('Virtuoso'), 'Nexus AI não virtualiza a conversa.'],
-  [nexus.includes('orbit-context-strip'), 'Nexus AI não possui contextual toolbar compacta.'],
-  [nexus.includes('orbit-feature-bar'), 'Nexus AI não usa Feature Bar compartilhada.'],
-  [nexus.includes('Como posso ajudar?'), 'Estado vazio do Nexus AI não segue a referência.'],
+  [nexus.includes('Assistente unificado do Orbispace'), 'Nexus AI não expõe a identidade unificada aprovada.'],
+  [nexus.includes('IA unificada · orquestração gratuita ativa'), 'Nexus AI não comunica orquestração gratuita sem revelar modelos.'],
+  [nexus.includes("{ id: 'chat', label: 'Chat' }") && nexus.includes("{ id: 'write', label: 'Escrever' }") && nexus.includes("{ id: 'analyze', label: 'Analisar' }") && nexus.includes("{ id: 'automation', label: 'Automação' }"), 'Nexus AI não possui modos compactos de trabalho.'],
+  [nexus.includes('Como posso ajudar você hoje?'), 'Estado vazio do Nexus AI não segue o mockup aprovado.'],
+  [nexus.includes('Resumir documento') && nexus.includes('Analisar planilha') && nexus.includes('Extrair áudio de vídeo') && nexus.includes('Processar YouTube/Shorts/Reels/TikTok') && nexus.includes('Melhorar imagem') && nexus.includes('Criar apresentação'), 'Ações rápidas aprovadas do Nexus AI estão incompletas.'],
+  [nexus.includes('Ferramentas de mídia') && nexus.includes('Vídeos longos') && nexus.includes('Vídeos curtos') && nexus.includes('Legendas') && nexus.includes('Conversor'), 'Rail contextual de mídia aprovado não está presente.'],
+  [nexus.includes('Documento atual') && nexus.includes('Adicionar contexto') && nexus.includes('Peça ao Nexus AI para escrever, analisar, extrair, converter ou pesquisar'), 'Composer contextual aprovado não está completo.'],
   [nexus.includes('Resumir') && nexus.includes('Analisar') && nexus.includes('Pesquisar') && nexus.includes('Programar'), 'Nexus AI não expõe chips compactos de ação.'],
-  [nexus.includes('Pergunte ao Nexus AI'), 'Composer do Nexus AI não está identificado.'],
   [nexus.includes('Orbit está offline') && nexus.includes('nenhuma chamada remota foi simulada'), 'Nexus AI não falha honestamente quando offline.'],
   [nexus.includes('Abrir no Orbit Nova'), 'Nexus AI não oferece continuidade contextual para documentos.'],
   [!/<select|<optgroup/.test(nexus), 'Nexus AI voltou a expor seletor de provider/modelo.'],
@@ -120,4 +123,4 @@ const assertions = [
 
 const failures = assertions.filter(([ok]) => !ok).map(([, message]) => message);
 if (failures.length) throw new Error(`Auditoria mobile falhou:\n- ${failures.join('\n- ')}`);
-console.log('Orbit UI audit OK: V2 shell, design tokens/primitives, module registry, command palette, Nexus tool layout, safe areas, keyboard/IME, bottom navigation, create sheet and offline honesty are wired.');
+console.log('Orbit UI audit OK: approved dense Nexus layout, unified AI, media rail, contextual composer, V2 shell, design tokens/primitives, module registry, command palette, safe areas, keyboard/IME, bottom navigation, create sheet and offline honesty are wired.');
