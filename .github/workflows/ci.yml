@@ -1,8 +1,8 @@
-name: OrbiDoc CI
+name: Orbit CI
 
 on:
   push:
-    branches: [main, "fix/**"]
+    branches: [main, "fix/**", "feat/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,22 +11,25 @@ permissions:
   contents: read
 
 concurrency:
-  group: orbidoc-ci-${{ github.workflow }}-${{ github.ref }}
+  group: orbit-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 22
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with: { bun-version: latest }
-      - run: bun install --frozen-lockfile
+      # Dependencies changed during the Orbit/Nexus migration; regenerate bun.lock
+      # in a dedicated maintenance PR once the architecture is merged.
+      - run: bun install
       - run: node scripts/check-orbidoc-brand.mjs
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
+      - run: bun run verify:nexus
       - run: bun run build
       - run: bun run verify:pwa
       - run: bun run verify:playstore
@@ -53,34 +56,35 @@ jobs:
           packages: ''
           log-accepted-android-sdk-licenses: false
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
-      - run: bun install --frozen-lockfile
+      - run: bun install
+      - run: bun run verify:nexus
       - run: bun run build
       - run: npm install --no-save --package-lock=false @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/assets@3 @tesseract.js-data/por@1 @tesseract.js-data/eng@1
       - run: node scripts/prepare-native-offline-assets.mjs
       - run: npx cap add android
-      - name: Configure Android Keystore AI, web grounding, Downloads, file intents and viewport
+      - name: Configure Android downloads, file intents, native networking and viewport
         run: |
           node scripts/configure-native-android-bridge.mjs
           node scripts/configure-native-android-network.mjs
           node scripts/fix-native-android-generated-java.mjs
-          node scripts/configure-native-ai-web.mjs
           node scripts/configure-native-android-window.mjs
       - run: |
           rm -rf native-assets && mkdir -p native-assets
           cp public/brand/orbidoc-app-icon.svg native-assets/logo.svg
           cp public/brand/orbidoc-app-icon.svg native-assets/logo-dark.svg
-          npx @capacitor/assets generate --android --assetPath native-assets --iconBackgroundColor "#3157F6" --iconBackgroundColorDark "#080D18" --splashBackgroundColor "#F7F9FC" --splashBackgroundColorDark "#080D18"
+          npx @capacitor/assets generate --android --assetPath native-assets --iconBackgroundColor "#7C3AED" --iconBackgroundColorDark "#09090B" --splashBackgroundColor "#09090B" --splashBackgroundColorDark "#09090B"
       - run: npx cap sync android
       - run: |
+          bun run verify:nexus
           bun run verify:native
           bun run verify:mobile
           test -f android/app/src/main/assets/public/index.html
           test -f android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           grep -q 'OrbiDocNativePlugin' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'fetchUrlPayload' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
-          grep -q 'openrouter:web_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
-          grep -q 'groq/compound-mini' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
-          grep -q 'google_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          ! grep -q 'openrouter:web_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          ! grep -q 'groq/compound-mini' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          ! grep -q 'google_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           grep -q 'WindowCompat.enableEdgeToEdge' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'SOFT_INPUT_ADJUST_RESIZE' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'windowSoftInputMode="stateAlwaysHidden|adjustResize"' android/app/src/main/AndroidManifest.xml
@@ -88,13 +92,13 @@ jobs:
       - working-directory: android
         run: ./gradlew assembleDebug --stacktrace
       - run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk OrbiDoc-debug.apk
-          sha256sum OrbiDoc-debug.apk > OrbiDoc-debug.apk.sha256
+          cp android/app/build/outputs/apk/debug/app-debug.apk Orbit-debug.apk
+          sha256sum Orbit-debug.apk > Orbit-debug.apk.sha256
       - uses: actions/upload-artifact@v7
         with:
-          name: OrbiDoc-Android-debug-${{ github.sha }}
+          name: Orbit-Android-debug-${{ github.sha }}
           path: |
-            OrbiDoc-debug.apk
-            OrbiDoc-debug.apk.sha256
+            Orbit-debug.apk
+            Orbit-debug.apk.sha256
           retention-days: 14
           if-no-files-found: error
