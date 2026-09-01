@@ -159,7 +159,7 @@ export default defineConfig({
         id: "/",
         name: "Orbit",
         short_name: "Orbit",
-        description: "Orbispace local-first com OrbiDoc para produtividade e Nexus AI unificado via OpenRouter free-only.",
+        description: "Orbit é o workspace local-first que reúne Orbispace, a suíte OrbiDoc e o assistente unificado Nexus AI.",
         lang: "pt-BR",
         dir: "ltr",
         theme_color: "#09090B",
