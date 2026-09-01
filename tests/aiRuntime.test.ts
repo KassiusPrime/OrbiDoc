@@ -1,69 +1,44 @@
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, test } from 'node:test';
-import { gatewayAuthMode, getHealth, getModelCatalog, normalizeProvider } from '../api/_lib/ai';
-import { resolveGatewayCredential } from '../api/_lib/gatewayAuth';
+import { describe, test } from 'node:test';
+import {
+  CircuitBreaker,
+  NEXUS_FREE_MODELS,
+  assertFreeModel,
+} from '../api/_lib/nexusAI';
 
-const KEYS = [
-  'AI_GATEWAY_API_KEY',
-  'VERCEL_OIDC_TOKEN',
-  'GEMINI_API_KEY',
-  'GROQ_API_KEY',
-  'OPENROUTER_API_KEY',
-] as const;
-
-const TEST_OIDC_TOKEN = 'eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDQ2MDQ4MDB9.test';
-const previous = new Map<string, string | undefined>();
-
-beforeEach(() => {
-  previous.clear();
-  for (const key of KEYS) {
-    previous.set(key, process.env[key]);
-    delete process.env[key];
-  }
-});
-
-afterEach(() => {
-  for (const key of KEYS) {
-    const value = previous.get(key);
-    if (value === undefined) delete process.env[key];
-    else process.env[key] = value;
-  }
-});
-
-describe('OrbiDoc AI runtime availability', () => {
-  test('uses Vercel OIDC as an automatic Gateway credential', () => {
-    process.env.VERCEL_OIDC_TOKEN = TEST_OIDC_TOKEN;
-
-    assert.equal(gatewayAuthMode(), 'oidc');
-    assert.equal(normalizeProvider(undefined), 'gateway');
-    assert.equal(getHealth().ai.gateway, true);
-
-    const enabled = getModelCatalog().filter((model) => model.enabled);
-    assert.equal(enabled.some((model) => model.provider === 'gateway' && model.id === 'google/gemini-3.6-flash'), true);
-    assert.equal(enabled.some((model) => model.provider === 'gateway' && model.id === 'openai/gpt-5.6-luna'), true);
+describe('Nexus AI free-only runtime', () => {
+  test('every allowlisted route is OpenRouter free', () => {
+    assert.ok(NEXUS_FREE_MODELS.length >= 2);
+    for (const model of NEXUS_FREE_MODELS) {
+      assert.ok(model === 'openrouter/free' || model.endsWith(':free'), `non-free route found: ${model}`);
+      assert.doesNotThrow(() => assertFreeModel(model));
+    }
   });
 
-  test('runtime credential resolver prefers OIDC over a static Gateway key', async () => {
-    process.env.VERCEL_OIDC_TOKEN = TEST_OIDC_TOKEN;
-    process.env.AI_GATEWAY_API_KEY = 'test-gateway-key';
-
-    const credential = await resolveGatewayCredential();
-    assert.equal(credential.mode, 'oidc');
-    assert.equal(credential.token, TEST_OIDC_TOKEN);
+  test('paid and non-allowlisted models are rejected before any network call', () => {
+    assert.throws(() => assertFreeModel('openai/gpt-5.6'), /PAID_MODEL_FORBIDDEN/);
+    assert.throws(() => assertFreeModel('anthropic/claude-sonnet-4'), /PAID_MODEL_FORBIDDEN/);
+    assert.throws(() => assertFreeModel('example/not-approved:free'), /MODEL_NOT_ALLOWLISTED/);
   });
 
-  test('falls back to an explicit Gateway API key when OIDC is unavailable', async () => {
-    process.env.AI_GATEWAY_API_KEY = 'test-gateway-key';
+  test('circuit breaker opens after threshold and allows a half-open probe after timeout', () => {
+    const breaker = new CircuitBreaker('openrouter/free', {
+      failureThreshold: 2,
+      openDurationMs: 100,
+    });
 
-    const credential = await resolveGatewayCredential();
-    assert.equal(credential.mode, 'api-key');
-    assert.equal(credential.token, 'test-gateway-key');
-  });
+    breaker.begin();
+    breaker.failure();
+    assert.equal(breaker.getState(), 'CLOSED');
 
-  test('does not pretend direct providers are enabled without their secrets', () => {
-    const health = getHealth();
-    assert.equal(health.ai.gemini, false);
-    assert.equal(health.ai.groq, false);
-    assert.equal(health.ai.openrouter, false);
+    breaker.begin();
+    breaker.failure();
+    const openedAt = Date.now();
+    assert.equal(breaker.getState(openedAt), 'OPEN');
+    assert.equal(breaker.getState(openedAt + 101), 'HALF_OPEN');
+
+    breaker.begin();
+    breaker.success();
+    assert.equal(breaker.getState(), 'CLOSED');
   });
 });
