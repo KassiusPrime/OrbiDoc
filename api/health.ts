@@ -1,5 +1,4 @@
-import { getHealth } from './_lib/ai.js';
-import { hydrateGatewayRuntimeAuth } from './_lib/gatewayAuth.js';
+import { nexusAI } from './_lib/nexusAI.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -8,7 +7,20 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  await hydrateGatewayRuntimeAuth();
+  const status = nexusAI.status();
   res.setHeader('Cache-Control', 'no-store');
-  res.status(200).json(getHealth());
+  res.status(200).json({
+    status: 'ok',
+    product: 'Orbit',
+    workspace: 'Orbispace',
+    office: 'OrbiDoc',
+    ai: {
+      assistant: 'Nexus AI',
+      gateway: 'OpenRouter',
+      configured: status.configured,
+      freeOnly: true,
+      healthyModels: status.circuits.filter((circuit) => circuit.state !== 'OPEN').length,
+      totalModels: status.circuits.length,
+    },
+  });
 }
