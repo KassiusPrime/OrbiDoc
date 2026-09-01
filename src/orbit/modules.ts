@@ -12,7 +12,7 @@ export type OrbitModuleDefinition = {
   priority: 'P1' | 'P2' | 'P3';
 };
 
-export const ORBIT_MODULES = Object.freeze({
+export const ORBIT_MODULES: Readonly<Record<OrbitModuleId, OrbitModuleDefinition>> = Object.freeze({
   nova: { id: 'nova', name: 'Orbit Nova', shortName: 'Nova', purpose: 'Documentos', accent: '#3157F6', tab: 'word', priority: 'P1' },
   gravity: { id: 'gravity', name: 'Orbit Gravity', shortName: 'Gravity', purpose: 'Planilhas', accent: '#059669', tab: 'excel', priority: 'P1' },
   aurora: { id: 'aurora', name: 'Orbit Aurora', shortName: 'Aurora', purpose: 'Apresentações', accent: '#C026D3', tab: 'powerpoint', priority: 'P1' },
@@ -22,9 +22,9 @@ export const ORBIT_MODULES = Object.freeze({
   horizon: { id: 'horizon', name: 'Orbit Horizon', shortName: 'Horizon', purpose: 'Analytics & Dashboards', accent: '#1D4ED8', tab: 'analytics', priority: 'P2' },
   pulsar: { id: 'pulsar', name: 'Orbit Pulsar', shortName: 'Pulsar', purpose: 'Formulários & Automação', accent: '#D97706', priority: 'P3' },
   meridian: { id: 'meridian', name: 'Orbit Meridian', shortName: 'Meridian', purpose: 'Agenda & Calendário', accent: '#0891B2', priority: 'P3' },
-} satisfies Record<OrbitModuleId, OrbitModuleDefinition>);
+});
 
-export const ORBIT_MODULE_LIST = Object.freeze(Object.values(ORBIT_MODULES));
+export const ORBIT_MODULE_LIST: readonly OrbitModuleDefinition[] = Object.freeze(Object.values(ORBIT_MODULES));
 
 export function orbitModuleForTab(tab: string): OrbitModuleDefinition | undefined {
   return ORBIT_MODULE_LIST.find((module) => module.tab === tab);
