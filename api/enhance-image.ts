@@ -1,9 +1,12 @@
-import { compactError } from './_lib/ai.js';
 import { enhanceImageResilient } from './_lib/imageRuntime.js';
 
-function parseBody(body: any) {
+function parseBody(body: unknown): unknown {
   if (typeof body !== 'string') return body || {};
-  try { return JSON.parse(body); } catch { return {}; }
+  try { return JSON.parse(body) as unknown; } catch { return {}; }
+}
+
+function compactError(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error ?? 'Falha desconhecida')).replace(/\s+/g, ' ').slice(0, 420);
 }
 
 export default async function handler(req: any, res: any) {
@@ -12,12 +15,11 @@ export default async function handler(req: any, res: any) {
     res.status(405).json({ error: 'Método não permitido.' });
     return;
   }
-
   try {
     const result = await enhanceImageResilient(parseBody(req.body));
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json(result);
   } catch (error) {
-    res.status(502).json({ error: compactError(error) });
+    res.status(503).json({ error: compactError(error) });
   }
 }
