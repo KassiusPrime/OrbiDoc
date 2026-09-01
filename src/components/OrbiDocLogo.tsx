@@ -6,6 +6,10 @@ interface OrbiDocLogoProps {
   className?: string;
 }
 
+/**
+ * Compatibility component name retained to avoid breaking historical imports.
+ * The top-level product is now Orbit; OrbiDoc is the Office module inside it.
+ */
 export const OrbiDocLogo: React.FC<OrbiDocLogoProps> = ({
   size = 'md',
   showText = true,
@@ -19,7 +23,7 @@ export const OrbiDocLogo: React.FC<OrbiDocLogoProps> = ({
   }[size];
 
   return (
-    <div className={`flex items-center gap-2.5 ${className}`} aria-label="OrbiDoc">
+    <div className={`flex items-center gap-2.5 ${className}`} aria-label="Orbit">
       <div className={`relative shrink-0 ${dimensions.icon}`} aria-hidden="true">
         <img
           src="/brand/orbidoc-symbol-light.svg"
@@ -35,12 +39,11 @@ export const OrbiDocLogo: React.FC<OrbiDocLogoProps> = ({
         />
       </div>
 
-      {showText && (
+      {showText ? (
         <div className={`${dimensions.text} font-bold tracking-[-0.035em] leading-none whitespace-nowrap font-inter`}>
-          <span className="text-[#0B1220] dark:text-[#F8FAFF]">Orbi</span>
-          <span className="text-[#3157F6] dark:text-[#7AA2FF]">Doc</span>
+          <span className="text-[#0B1220] dark:text-[#F8FAFF]">Orbit</span>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };
