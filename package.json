@@ -19,12 +19,10 @@
     "start": "node dist/server.cjs"
   },
   "dependencies": {
-    "@google/genai": "^2.13.0",
     "@imagemagick/magick-wasm": "0.0.42",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "@tabler/icons-react": "^3.46.0",
     "@types/file-saver": "^2.0.7",
-    "@vercel/oidc": "3.8.4",
     "ai": "^7.0.0",
     "clsx": "2.1.1",
     "docx": "^9.7.1",
