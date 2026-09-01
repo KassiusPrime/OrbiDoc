@@ -3,16 +3,19 @@ name: Validate offline suite branch
 on:
   push:
     branches: ["feat/offline-first-productivity-suite"]
-    paths: [".github/workflows/validate-offline-suite.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: orbidoc-offline-suite-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
