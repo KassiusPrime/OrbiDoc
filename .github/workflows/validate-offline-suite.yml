@@ -1,0 +1,25 @@
+name: Validate offline suite branch
+
+on:
+  push:
+    branches: ["feat/offline-first-productivity-suite"]
+    paths: [".github/workflows/validate-offline-suite.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+      - run: bun run verify:pwa
