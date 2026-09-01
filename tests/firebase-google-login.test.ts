@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const googleAuth = fs.readFileSync('src/services/firebaseGoogleAuth.ts', 'utf8');
-const authPanel = fs.readFileSync('src/components/OrbiDocAuthPanel.tsx', 'utf8');
+const authPanel = fs.readFileSync('src/components/OrbitAuthPanel.tsx', 'utf8');
 const loginScreen = fs.readFileSync('src/components/OrbiDocLoginScreen.tsx', 'utf8');
 const main = fs.readFileSync('src/main.tsx', 'utf8');
 
-test('OrbiDoc Google login uses Firebase Authentication without requesting Drive access', () => {
+test('Orbit Google login uses Firebase Authentication without requesting Drive access', () => {
   assert.match(googleAuth, /GoogleAuthProvider/);
   assert.match(googleAuth, /signInWithPopup\(auth, googleProvider\(\)\)/);
   assert.match(googleAuth, /prompt: 'select_account'/);
@@ -21,16 +21,17 @@ test('Google-only accounts can reauthenticate before account deletion', () => {
   assert.match(authPanel, /deleteOrbiDocGoogleAccountAndCloudData/);
 });
 
-test('Account panel exposes Google as a first-class OrbiDoc login method', () => {
+test('Account panel exposes Google as a first-class Orbit login method', () => {
   assert.match(authPanel, /Continuar com Google/);
   assert.match(authPanel, /signInOrbiDocWithGoogle/);
-  assert.match(authPanel, /Google autentica somente sua conta OrbiDoc/);
+  assert.match(authPanel, /Google autentica a Conta Orbit/);
 });
 
 test('Dedicated login screen is mounted globally and preserves local-first access', () => {
-  assert.match(loginScreen, /Entrar ou criar conta/);
+  assert.match(loginScreen, /Entrar ou criar Conta Orbit/);
   assert.match(loginScreen, /Continuar sem conta/);
   assert.match(loginScreen, /showBackupControls=\{false\}/);
+  assert.match(loginScreen, /orbit_auth_entry_v1/);
   assert.match(loginScreen, /orbidoc_auth_entry_v1/);
   assert.match(main, /<OrbiDocLoginScreen \/>/);
 });
