@@ -47,6 +47,8 @@ type ChatEntry = {
   webSearch?: boolean;
 };
 
+type NexusMode = 'chat' | 'write' | 'analyze' | 'automation';
+
 const CHAT_STORAGE_KEY = 'orbit_nexus_ai_chat_v1';
 const DRAFT_STORAGE_KEY = 'orbit_nexus_ai_draft_v1';
 const INTERNAL_PROVIDER = 'openrouter';
@@ -98,6 +100,62 @@ const suggestionPrompts = [
   { label: 'Programar', prompt: 'Ajude a implementar ou depurar este código com uma solução objetiva e segura.' },
   { label: 'OrbiDoc', prompt: 'Transforme minha solicitação em conteúdo pronto para trabalhar dentro do OrbiDoc.' },
 ] as const;
+
+const quickActions = [
+  {
+    title: 'Resumir documento',
+    description: 'Extraia os pontos principais',
+    accent: 'text-rose-500 bg-rose-500/10',
+    prompt: 'Resuma o documento atual em tópicos objetivos, destaque decisões, riscos e próximos passos.',
+  },
+  {
+    title: 'Analisar planilha',
+    description: 'Insights e visualizações',
+    accent: 'text-emerald-500 bg-emerald-500/10',
+    prompt: 'Analise a planilha ou dados no contexto atual, identifique padrões, anomalias, riscos e visualizações úteis.',
+  },
+  {
+    title: 'Extrair áudio de vídeo',
+    description: 'MP3, transcrição e legendas',
+    accent: 'text-indigo-500 bg-indigo-500/10',
+    navigate: 'Áudio',
+  },
+  {
+    title: 'Processar YouTube/Shorts/Reels/TikTok',
+    description: 'Baixar, resumir ou extrair',
+    accent: 'text-pink-500 bg-pink-500/10',
+    navigate: 'Mídia',
+  },
+  {
+    title: 'Melhorar imagem',
+    description: 'Ajustes, upscaling e edição',
+    accent: 'text-violet-500 bg-violet-500/10',
+    navigate: 'Imagens',
+  },
+  {
+    title: 'Criar apresentação',
+    description: 'Slides profissionais em segundos',
+    accent: 'text-amber-500 bg-amber-500/10',
+    prompt: 'Crie uma apresentação profissional, enxuta e visualmente coerente a partir do contexto atual. Estruture título, narrativa e slides.',
+  },
+] as const;
+
+const mediaTools = [
+  { title: 'Vídeos longos', subtitle: 'YouTube e similares', navigate: 'Mídia' },
+  { title: 'Vídeos curtos', subtitle: 'Shorts, Reels, TikTok', navigate: 'Mídia' },
+  { title: 'Extrair áudio', subtitle: 'MP3, WAV, M4A', navigate: 'Áudio' },
+  { title: 'Transcrever', subtitle: 'Áudio para texto', navigate: 'Áudio' },
+  { title: 'Legendas', subtitle: 'Gerar e traduzir', navigate: 'Áudio' },
+  { title: 'Baixar mídia', subtitle: 'Vídeos e áudios', navigate: 'Mídia' },
+  { title: 'Conversor', subtitle: 'Formatos e compressão', navigate: 'Mídia' },
+] as const;
+
+const modeLabels: ReadonlyArray<{ id: NexusMode; label: string }> = [
+  { id: 'chat', label: 'Chat' },
+  { id: 'write', label: 'Escrever' },
+  { id: 'analyze', label: 'Analisar' },
+  { id: 'automation', label: 'Automação' },
+];
 
 export const StreamingCursor: React.FC = () => (
   <span aria-hidden="true" className="ml-1 inline-block h-4 w-[2px] rounded-full bg-[#6750D8] animate-pulse align-text-bottom" />
@@ -185,7 +243,7 @@ export const SuggestionChips: React.FC<{ onSelect: (prompt: string) => void }> =
         key={item.label}
         type="button"
         onClick={() => onSelect(item.prompt)}
-        className="min-h-10 rounded-[10px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111318] px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:border-[#7AA2FF] hover:text-[#3157F6]"
+        className="min-h-9 rounded-[10px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111318] px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-slate-200 hover:border-[#7AA2FF] hover:text-[#3157F6]"
       >
         {item.label}
       </button>
@@ -194,38 +252,47 @@ export const SuggestionChips: React.FC<{ onSelect: (prompt: string) => void }> =
 );
 
 export const AIChatHeader: React.FC<{
+  mode: NexusMode;
   webSearch: boolean;
   busy: boolean;
+  onModeChange: (value: NexusMode) => void;
   onWebSearchChange: (value: boolean) => void;
   onClear: () => void;
-}> = ({ webSearch, busy, onWebSearchChange, onClear }) => (
+}> = ({ mode, webSearch, busy, onModeChange, onWebSearchChange, onClear }) => (
   <div className="shrink-0 bg-white dark:bg-[#111318] border-b border-slate-200 dark:border-slate-800">
-    <div className="orbit-context-strip px-2.5 sm:px-4 py-2" aria-label="Ações do Nexus AI">
-      <button type="button" onClick={onClear} disabled={busy} className="orbit-toolbar-control h-10 px-3 inline-flex items-center gap-1.5 text-[11px] font-bold disabled:opacity-50">
-        <Plus className="w-4 h-4" /> Novo
-      </button>
-      <button type="button" onClick={() => clickNavigation('Histórico')} className="orbit-toolbar-control h-10 px-3 inline-flex items-center gap-1.5 text-[11px] font-bold">
-        <History className="w-4 h-4" /> Histórico
-      </button>
-      <button type="button" onClick={() => clickNavigation('Meus arquivos')} className="orbit-toolbar-control h-10 px-3 inline-flex items-center gap-1.5 text-[11px] font-bold">
-        <Folder className="w-4 h-4" /> Arquivos
-      </button>
-      <label className={`orbit-toolbar-control h-10 px-3 inline-flex items-center gap-1.5 text-[11px] font-bold cursor-pointer ${webSearch ? 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300' : ''}`}>
-        <input className="sr-only" type="checkbox" checked={webSearch} onChange={(event) => onWebSearchChange(event.target.checked)} disabled={busy} />
-        <WorldSearch className="w-4 h-4" /> Web
-      </label>
-      <span className="ml-auto hidden md:inline text-[10px] font-semibold text-slate-400">Free-only · roteamento automático interno</span>
+    <div className="px-3 sm:px-4 py-3 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800/80">
+      <span className="h-9 w-9 shrink-0 rounded-[12px] bg-[#F2EFFF] dark:bg-[#211B43] text-[#6750D8] dark:text-[#B8AEFF] inline-flex items-center justify-center">
+        <Sparkles className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-[15px] font-extrabold tracking-tight">Nexus AI</div>
+        <div className="text-[10px] text-slate-500 dark:text-slate-400">Assistente unificado do Orbispace</div>
+      </div>
+      <div className="ml-auto hidden lg:flex items-center gap-2 text-[9px] font-semibold text-slate-500 dark:text-slate-400">
+        <span className="inline-flex items-center gap-1 rounded-full border border-violet-300/60 dark:border-violet-700 px-2.5 py-1 text-violet-700 dark:text-violet-300"><Sparkles className="h-3 w-3" /> Nexus AI</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span>IA unificada · orquestração gratuita ativa</span>
+      </div>
     </div>
-    <div className="px-2.5 sm:px-4 pb-2">
-      <div className="orbit-feature-bar">
-        <span className="h-8 w-8 shrink-0 rounded-[10px] bg-[#F2EFFF] dark:bg-[#211B43] text-[#6750D8] dark:text-[#B8AEFF] inline-flex items-center justify-center">
-          <Sparkles className="w-4 h-4" />
-        </span>
-        <div className="orbit-feature-bar__copy">
-          <div className="orbit-feature-bar__title">Nexus AI</div>
-          <div className="orbit-feature-bar__description">Pesquisa · análise · documentos · código · arquivos</div>
-        </div>
-        <button type="button" onClick={() => clickNavigation('Meus arquivos')} className="hidden sm:inline-flex h-8 px-2.5 rounded-[8px] text-[10px] font-bold text-[#3157F6] hover:bg-[#EEF3FF] dark:hover:bg-[#111D4A]">Contexto</button>
+
+    <div className="flex min-w-0 items-center overflow-x-auto px-2.5 sm:px-4">
+      {modeLabels.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onModeChange(item.id)}
+          className={`h-11 shrink-0 border-b-2 px-3 text-[11px] font-bold transition-colors ${mode === item.id ? 'border-[#6750D8] text-[#6750D8] dark:text-[#B8AEFF]' : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}
+        >
+          {item.label}
+        </button>
+      ))}
+      <div className="ml-auto flex items-center gap-1.5 pl-2">
+        <button type="button" onClick={onClear} disabled={busy} className="h-9 px-2.5 rounded-[10px] text-[10px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 inline-flex items-center gap-1.5">
+          <Plus className="w-3.5 h-3.5" /> Novo
+        </button>
+        <button type="button" onClick={() => clickNavigation('Histórico')} className="h-9 w-9 rounded-[10px] text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 inline-flex items-center justify-center" aria-label="Abrir histórico">
+          <History className="w-4 h-4" />
+        </button>
       </div>
     </div>
   </div>
@@ -253,7 +320,18 @@ export const AIComposer: React.FC<{
 
   return (
     <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111318] px-2.5 sm:px-4 pt-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))]">
-      <div className="mx-auto max-w-4xl rounded-[14px] border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B0D11] p-1.5 focus-within:border-[#7AA2FF] focus-within:ring-2 focus-within:ring-[#7AA2FF]/15">
+      <div className="mx-auto max-w-5xl rounded-[14px] border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B0D11] overflow-hidden focus-within:border-[#7AA2FF] focus-within:ring-2 focus-within:ring-[#7AA2FF]/15">
+        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-b border-slate-200/80 dark:border-slate-800 px-2 py-1.5">
+          <label className={`h-8 px-2.5 rounded-[9px] inline-flex shrink-0 items-center gap-1.5 text-[9px] font-bold cursor-pointer ${webSearch ? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800'}`}>
+            <input className="sr-only" type="checkbox" checked={webSearch} onChange={(event) => onWebSearchChange(event.target.checked)} disabled={busy} />
+            <WorldSearch className="h-3.5 w-3.5" /> Web
+          </label>
+          <button type="button" onClick={() => clickNavigation('Documento')} className="h-8 px-2.5 rounded-[9px] shrink-0 text-[9px] font-bold text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800 inline-flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Documento atual</button>
+          <button type="button" onClick={() => clickNavigation('Meus arquivos')} className="h-8 px-2.5 rounded-[9px] shrink-0 text-[9px] font-bold text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800 inline-flex items-center gap-1.5"><Folder className="h-3.5 w-3.5" /> Arquivos</button>
+          <button type="button" onClick={() => clickNavigation('Mídia')} className="h-8 px-2.5 rounded-[9px] shrink-0 text-[9px] font-bold text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800 inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Mídia</button>
+          <button type="button" onClick={() => fileRef.current?.click()} className="ml-auto h-8 px-2.5 rounded-[9px] shrink-0 text-[9px] font-bold text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800 inline-flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar contexto</button>
+        </div>
+        <input ref={fileRef} type="file" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) onAttach(file); event.currentTarget.value = ''; }} />
         <textarea
           ref={ref}
           value={value}
@@ -265,20 +343,15 @@ export const AIComposer: React.FC<{
             }
           }}
           rows={1}
-          placeholder="Pergunte ao Nexus AI…"
+          placeholder="Peça ao Nexus AI para escrever, analisar, extrair, converter ou pesquisar…"
           aria-label="Mensagem para Nexus AI"
-          className="block w-full resize-none bg-transparent px-2.5 py-2 text-sm leading-relaxed outline-none placeholder:text-slate-400"
+          className="block w-full resize-none bg-transparent px-3 py-3 text-sm leading-relaxed outline-none placeholder:text-slate-400"
         />
-        <div className="flex items-center gap-1.5 px-1 pb-1">
-          <input ref={fileRef} type="file" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) onAttach(file); event.currentTarget.value = ''; }} />
+        <div className="flex items-center gap-1.5 px-2 pb-2">
           <button type="button" onClick={() => fileRef.current?.click()} className="h-9 w-9 rounded-[10px] text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Adicionar arquivo ao contexto">
             <Paperclip className="h-4 w-4" />
           </button>
-          <label className={`h-9 px-2.5 rounded-[10px] inline-flex items-center gap-1.5 text-[10px] font-bold cursor-pointer ${webSearch ? 'bg-violet-100 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300' : 'text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800'}`}>
-            <input className="sr-only" type="checkbox" checked={webSearch} onChange={(event) => onWebSearchChange(event.target.checked)} disabled={busy} />
-            <WorldSearch className="h-4 w-4" /> Web
-          </label>
-          <span className="ml-auto hidden sm:inline text-[9px] text-slate-400">Enter envia · Shift+Enter quebra linha</span>
+          <span className="ml-auto hidden sm:inline text-[9px] text-slate-400">Enter envia · Shift+Enter nova linha</span>
           {busy ? (
             <button type="button" onClick={onStop} className="h-9 px-3 rounded-[10px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold inline-flex items-center gap-1.5">
               <Stop className="h-4 w-4" /> Parar
@@ -309,11 +382,28 @@ export class ErrorBoundaryAI extends Component<{ children: React.ReactNode }, { 
   }
 }
 
+const MediaToolRail: React.FC = () => (
+  <aside className="hidden xl:flex w-[252px] shrink-0 flex-col border-l border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0D1016]/70 p-3" aria-label="Ferramentas de mídia">
+    <div className="px-1 pb-2 text-[12px] font-extrabold">Ferramentas de mídia</div>
+    <div className="space-y-1.5">
+      {mediaTools.map((tool, index) => (
+        <button key={tool.title} type="button" onClick={() => clickNavigation(tool.navigate)} className="w-full rounded-[11px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111318] px-2.5 py-2 text-left hover:border-[#7AA2FF] transition-colors flex items-center gap-2.5">
+          <span className={`h-7 w-7 shrink-0 rounded-[8px] inline-flex items-center justify-center ${index % 3 === 0 ? 'bg-rose-500/10 text-rose-500' : index % 3 === 1 ? 'bg-amber-500/10 text-amber-500' : 'bg-sky-500/10 text-sky-500'}`}><Sparkles className="h-3.5 w-3.5" /></span>
+          <span className="min-w-0 flex-1"><span className="block truncate text-[10px] font-bold">{tool.title}</span><span className="block truncate text-[8px] text-slate-500 dark:text-slate-400">{tool.subtitle}</span></span>
+          <span className="text-slate-400">›</span>
+        </button>
+      ))}
+    </div>
+    <button type="button" onClick={() => clickNavigation('Mídia')} className="mt-auto h-9 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111318] text-[9px] font-bold hover:border-[#7AA2FF]">Abrir central de mídia</button>
+  </aside>
+);
+
 export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNotification = () => {} }) => {
   const [messages, setMessages] = useState<ChatEntry[]>(loadMessages);
   const [input, setInput] = useState(() => localStorage.getItem(DRAFT_STORAGE_KEY) || '');
   const [busy, setBusy] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
+  const [mode, setMode] = useState<NexusMode>('chat');
   const controllerRef = useRef<AbortController | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
@@ -410,34 +500,55 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
     }
   };
 
+  const runQuickAction = (action: typeof quickActions[number]) => {
+    if ('prompt' in action && action.prompt) void submit(action.prompt);
+    else if ('navigate' in action && action.navigate) clickNavigation(action.navigate);
+  };
+
   return (
     <section className="orbidoc-ai-studio orbit-workspace-surface h-[calc(100dvh-7.5rem)] min-h-[520px] overflow-hidden flex flex-col" aria-label="Nexus AI">
-      <AIChatHeader webSearch={webSearch} busy={busy} onWebSearchChange={setWebSearch} onClear={clear} />
+      <AIChatHeader mode={mode} webSearch={webSearch} busy={busy} onModeChange={setMode} onWebSearchChange={setWebSearch} onClear={clear} />
 
-      {!hasMessages ? (
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 sm:py-8 flex items-center justify-center">
-          <div className="w-full max-w-2xl text-center">
-            <div className="mx-auto h-10 w-10 rounded-[12px] bg-[#F2EFFF] dark:bg-[#211B43] text-[#6750D8] dark:text-[#B8AEFF] flex items-center justify-center">
-              <Sparkles className="h-5 w-5" />
+      <div className="flex flex-1 min-h-0">
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          {!hasMessages ? (
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5 flex items-center justify-center">
+              <div className="w-full max-w-4xl text-center">
+                <div className="mx-auto h-10 w-10 rounded-[12px] bg-[#F2EFFF] dark:bg-[#211B43] text-[#6750D8] dark:text-[#B8AEFF] flex items-center justify-center">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <h1 className="mt-3 text-xl sm:text-2xl font-bold tracking-tight">Como posso ajudar você hoje?</h1>
+                <p className="mx-auto mt-1.5 max-w-2xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                  Peça ao Nexus AI para escrever, analisar, extrair, converter ou pesquisar informações.
+                </p>
+
+                <div className="mx-auto mt-4 grid max-w-3xl grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {quickActions.map((action) => (
+                    <button key={action.title} type="button" onClick={() => runQuickAction(action)} className="min-h-[66px] rounded-[12px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111318] px-3 py-2.5 text-left hover:border-[#7AA2FF] hover:-translate-y-px transition-all flex items-center gap-3">
+                      <span className={`h-8 w-8 shrink-0 rounded-[9px] inline-flex items-center justify-center ${action.accent}`}><Sparkles className="h-4 w-4" /></span>
+                      <span className="min-w-0"><span className="block text-[10px] font-extrabold leading-tight">{action.title}</span><span className="mt-1 block text-[8px] leading-tight text-slate-500 dark:text-slate-400">{action.description}</span></span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4"><SuggestionChips onSelect={(prompt) => void submit(prompt)} /></div>
+              </div>
             </div>
-            <h1 className="mt-3 text-xl sm:text-2xl font-bold tracking-tight">Como posso ajudar?</h1>
-            <p className="mx-auto mt-1.5 max-w-xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Um único assistente para pesquisar, analisar, criar e trabalhar com o contexto autorizado do Orbit.
-            </p>
-            <div className="mt-4"><SuggestionChips onSelect={(prompt) => void submit(prompt)} /></div>
-          </div>
+          ) : (
+            <MessageList messages={messages} onCopy={copy} onSendToWord={onSendToWord} onRetry={lastUser ? () => void submit(lastUser.content) : undefined} virtuosoRef={virtuosoRef} />
+          )}
+
+          {hasMessages ? (
+            <button type="button" onClick={() => virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, align: 'end', behavior: 'smooth' })} className="absolute right-5 bottom-24 z-10 h-9 w-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-md hidden sm:flex items-center justify-center" aria-label="Ir para a resposta mais recente">
+              <ArrowDown className="h-4 w-4" />
+            </button>
+          ) : null}
+
+          <AIComposer value={input} busy={busy} webSearch={webSearch} onChange={setInput} onSubmit={() => void submit()} onStop={stop} onAttach={(file) => void attach(file)} onWebSearchChange={setWebSearch} />
         </div>
-      ) : (
-        <MessageList messages={messages} onCopy={copy} onSendToWord={onSendToWord} onRetry={lastUser ? () => void submit(lastUser.content) : undefined} virtuosoRef={virtuosoRef} />
-      )}
 
-      {hasMessages ? (
-        <button type="button" onClick={() => virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, align: 'end', behavior: 'smooth' })} className="absolute right-5 bottom-24 z-10 h-9 w-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-md hidden sm:flex items-center justify-center" aria-label="Ir para a resposta mais recente">
-          <ArrowDown className="h-4 w-4" />
-        </button>
-      ) : null}
-
-      <AIComposer value={input} busy={busy} webSearch={webSearch} onChange={setInput} onSubmit={() => void submit()} onStop={stop} onAttach={(file) => void attach(file)} onWebSearchChange={setWebSearch} />
+        <MediaToolRail />
+      </div>
     </section>
   );
 };
