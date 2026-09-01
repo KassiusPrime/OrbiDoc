@@ -3,41 +3,41 @@ import { afterEach, beforeEach, describe, test } from 'node:test';
 import { editImageResilient, generateImageResilient } from '../api/_lib/imageRuntime';
 
 const originalFetch = globalThis.fetch;
-const originalGatewayKey = process.env.AI_GATEWAY_API_KEY;
-const originalOidc = process.env.VERCEL_OIDC_TOKEN;
+const originalKey = process.env.OPENROUTER_API_KEY;
+const originalImageModel = process.env.OPENROUTER_FREE_IMAGE_MODEL;
 
 beforeEach(() => {
-  process.env.AI_GATEWAY_API_KEY = 'test-gateway-key';
-  delete process.env.VERCEL_OIDC_TOKEN;
+  process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
+  delete process.env.OPENROUTER_FREE_IMAGE_MODEL;
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  if (originalGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
-  else process.env.AI_GATEWAY_API_KEY = originalGatewayKey;
-  if (originalOidc === undefined) delete process.env.VERCEL_OIDC_TOKEN;
-  else process.env.VERCEL_OIDC_TOKEN = originalOidc;
+  if (originalKey === undefined) delete process.env.OPENROUTER_API_KEY;
+  else process.env.OPENROUTER_API_KEY = originalKey;
+  if (originalImageModel === undefined) delete process.env.OPENROUTER_FREE_IMAGE_MODEL;
+  else process.env.OPENROUTER_FREE_IMAGE_MODEL = originalImageModel;
 });
 
-function installGatewayMock(expectedImage: string) {
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+function installOpenRouterImageMock(expectedBase64: string, cost = 0) {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    assert.equal(String(input), 'https://openrouter.ai/api/v1/images');
     assert.equal(init?.method, 'POST');
     const headers = new Headers(init?.headers);
-    assert.equal(headers.get('authorization'), 'Bearer test-gateway-key');
-    const body = JSON.parse(String(init?.body || '{}'));
-    assert.deepEqual(body.modalities, ['image']);
-    assert.equal(body.model, 'google/gemini-3.1-flash-image');
+    assert.equal(headers.get('authorization'), 'Bearer test-openrouter-key');
+    const body = JSON.parse(String(init?.body || '{}')) as {
+      model?: string;
+      provider?: { allow_fallbacks?: boolean; max_price?: { prompt?: number; completion?: number } };
+      input_references?: unknown[];
+    };
+    assert.equal(body.model, 'example/free-image:free');
+    assert.equal(body.provider?.allow_fallbacks, false);
+    assert.equal(body.provider?.max_price?.prompt, 0);
+    assert.equal(body.provider?.max_price?.completion, 0);
 
     return new Response(JSON.stringify({
-      id: 'chatcmpl-image-test',
-      model: 'google/gemini-3.1-flash-image',
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: null,
-          images: [{ type: 'image_url', image_url: { url: expectedImage } }],
-        },
-      }],
+      data: [{ b64_json: expectedBase64, media_type: 'image/png' }],
+      usage: { cost },
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -45,29 +45,53 @@ function installGatewayMock(expectedImage: string) {
   }) as typeof fetch;
 }
 
-describe('OrbiDoc image runtime', () => {
-  test('generates images through AI Gateway when authenticated', async () => {
-    const expectedImage = 'data:image/png;base64,ZmFrZS1pbWFnZQ==';
-    installGatewayMock(expectedImage);
-
-    const result = await generateImageResilient({ prompt: 'Crie uma órbita minimalista.' });
-    assert.equal(result.imageUrl, expectedImage);
-    assert.equal(result.provider, 'gateway');
-    assert.equal(result.model, 'google/gemini-3.1-flash-image');
-    assert.equal(result.fallbackUsed, false);
+describe('Orbit image runtime', () => {
+  test('fails closed when no free image model is configured', async () => {
+    await assert.rejects(
+      generateImageResilient({ prompt: 'Crie uma órbita minimalista.' }),
+      /não oferece modelo de imagem :free|não fará fallback para um modelo pago/,
+    );
   });
 
-  test('edits an image through the multimodal Gateway request', async () => {
-    const expectedImage = 'data:image/png;base64,ZWRpdGVkLWltYWdl';
-    installGatewayMock(expectedImage);
+  test('rejects a configured paid image model before any network call', async () => {
+    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'vendor/paid-image';
+    await assert.rejects(
+      generateImageResilient({ prompt: 'Crie uma órbita minimalista.' }),
+      /PAID_IMAGE_MODEL_FORBIDDEN/,
+    );
+  });
+
+  test('uses OpenRouter only when an explicit :free image route is configured', async () => {
+    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
+    installOpenRouterImageMock('ZmFrZS1pbWFnZQ==');
+
+    const result = await generateImageResilient({ prompt: 'Crie uma órbita minimalista.' });
+    assert.equal(result.imageUrl, 'data:image/png;base64,ZmFrZS1pbWFnZQ==');
+    assert.equal(result.provider, 'openrouter');
+    assert.equal(result.assistant, 'Nexus AI');
+    assert.equal(result.freeOnly, true);
+  });
+
+  test('image edits use the same free-only OpenRouter guardrails', async () => {
+    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
+    installOpenRouterImageMock('ZWRpdGVkLWltYWdl');
 
     const result = await editImageResilient({
       image: 'data:image/png;base64,c291cmNlLWltYWdl',
       prompt: 'Troque apenas o fundo por azul escuro.',
     });
 
-    assert.equal(result.imageUrl, expectedImage);
-    assert.equal(result.provider, 'gateway');
-    assert.equal(result.model, 'google/gemini-3.1-flash-image');
+    assert.equal(result.imageUrl, 'data:image/png;base64,ZWRpdGVkLWltYWdl');
+    assert.equal(result.provider, 'openrouter');
+  });
+
+  test('rejects a non-zero provider-reported image cost', async () => {
+    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
+    installOpenRouterImageMock('ZmFrZQ==', 0.01);
+
+    await assert.rejects(
+      generateImageResilient({ prompt: 'Teste de custo.' }),
+      /ZERO_COST_INVARIANT_VIOLATED/,
+    );
   });
 });
