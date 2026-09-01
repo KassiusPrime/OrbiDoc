@@ -36,7 +36,7 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import LexicalErrorBoundary from '@lexical/react/LexicalErrorBoundary';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import { $createHeadingNode, $createQuoteNode, HeadingNode, QuoteNode } from '@lexical/rich-text';
@@ -420,7 +420,7 @@ function LexicalToolbar({
           <option value="p">Normal</option><option value="h1">Título 1</option><option value="h2">Título 2</option><option value="h3">Título 3</option><option value="h4">Título 4</option><option value="quote">Citação</option>
         </select>
         <select defaultValue="Inter" onChange={(event) => applyInlineStyle('font-family', event.target.value)} className="orbidoc-ribbon-select" aria-label="Fonte">
-          {OFFICE_FONTS.map((font) => <option key={font} value={font}>{font}</option>)}
+          {OFFICE_FONTS.map((font) => <option key={font.value} value={font.value}>{font.label}</option>)}
         </select>
         <select defaultValue="12" onChange={(event) => applyInlineStyle('font-size', `${event.target.value}px`)} className="orbidoc-ribbon-select orbidoc-font-size-select" aria-label="Tamanho da fonte">
           {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72].map((size) => <option key={size} value={size}>{size}</option>)}

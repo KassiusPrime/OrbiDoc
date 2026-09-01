@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  IconArrowClockwise,
+  IconRotateClockwise,
   IconCopy,
   IconDownload,
   IconFilePlus,
@@ -408,7 +408,7 @@ export const PdfStudio: React.FC<PdfStudioProps> = ({ project, onProjectChange, 
     const copied = await target.copyPages(source, targets.map((page) => page - 1));
     copied.forEach((page) => target.addPage(page));
     const bytes = await target.save();
-    await saveLocalFile(new Blob([bytes], { type: 'application/pdf' }), {
+    await saveLocalFile(new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: 'application/pdf' }), {
       suggestedName: `${safeName(fileName.replace(/\.pdf$/i, ''))}-paginas-${targets.join('-')}.pdf`,
       mimeType: 'application/pdf',
       extensions: ['.pdf'],
@@ -490,7 +490,7 @@ export const PdfStudio: React.FC<PdfStudioProps> = ({ project, onProjectChange, 
         <button type="button" className={annotationMode === 'underline' ? 'is-active' : ''} onClick={() => setAnnotationMode((mode) => mode === 'underline' ? null : 'underline')} title="Sublinhar"><IconUnderline /></button>
         <button type="button" className={annotationMode === 'text' ? 'is-active' : ''} onClick={() => setAnnotationMode((mode) => mode === 'text' ? null : 'text')} title="Caixa de texto"><IconTextCaption /></button>
         <span className="orbidoc-pdf-divider" />
-        <button type="button" onClick={() => void rotatePages()}><IconArrowClockwise /> Girar</button>
+        <button type="button" onClick={() => void rotatePages()}><IconRotateClockwise /> Girar</button>
         <button type="button" onClick={() => void extractPages()}><IconCopy /> Extrair</button>
         <button type="button" onClick={() => void deletePages()} className="danger"><IconTrash /> Excluir</button>
       </header>

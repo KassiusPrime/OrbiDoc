@@ -90,7 +90,6 @@ export const ProfessionalFileRouterAgent: React.FC = () => {
             annotationsJSON: [],
             updatedAt: next.updatedAt,
             fileName: file.name,
-            mimeType: 'application/pdf',
             isSynced: false,
             syncState: 'local',
           });

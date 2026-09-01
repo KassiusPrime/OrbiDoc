@@ -74,7 +74,7 @@ function toFortuneValue(cell: XLSX.CellObject): FortuneCell {
   const value = cell.v as string | number | boolean | undefined;
   const result: FortuneCell = {
     v: value,
-    m: cell.w ?? value,
+    m: cell.w ?? (typeof value === 'boolean' ? String(value) : value),
   };
   if (formula) result.f = formula;
   if (cell.z) result.ct = { fa: String(cell.z), t: typeof value === 'number' ? 'n' : 'g' };
