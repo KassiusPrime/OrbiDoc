@@ -1,14 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { compactError, getHealth } from './api/_lib/ai.js';
-import {
-  getModelCatalogV2,
-  getProviderStatusV2,
-  runChatV2,
-  streamChatV2,
-} from './api/_lib/aiRuntimeV2.js';
-import { hydrateGatewayRuntimeAuth } from './api/_lib/gatewayAuth.js';
+import { NEXUS_FREE_MODELS, nexusAI, type NexusBody } from './api/_lib/nexusAI.js';
 import { editImageResilient, enhanceImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
@@ -18,7 +11,13 @@ const IMAGE_RATE_MAX_REQUESTS = 30;
 type RateEntry = { count: number; resetAt: number };
 const rateBuckets = new Map<string, RateEntry>();
 
-function clientIp(req: express.Request) {
+function compactError(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error ?? 'Falha desconhecida'))
+    .replace(/\s+/g, ' ')
+    .slice(0, 420);
+}
+
+function clientIp(req: express.Request): string {
   const forwarded = req.headers['x-forwarded-for'];
   const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0];
   return (raw || req.ip || 'unknown').trim();
@@ -45,43 +44,58 @@ function rateLimit(maxRequests: number) {
   };
 }
 
-async function startServer() {
+async function startServer(): Promise<void> {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '12mb' }));
-  app.use('/api', async (_req, _res, next) => {
-    try {
-      await hydrateGatewayRuntimeAuth();
-      next();
-    } catch (error) {
-      next(error);
-    }
+
+  app.get('/api/ai/models', (_req, res) => {
+    const status = nexusAI.status();
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      assistant: 'Nexus AI',
+      gateway: 'OpenRouter',
+      unified: true,
+      userSelectableModels: false,
+      freeOnly: true,
+      configured: status.configured,
+      internalPoolSize: NEXUS_FREE_MODELS.length,
+    });
   });
 
-  app.get('/api/ai/models', async (_req, res) => {
+  app.get('/api/ai/status', (_req, res) => {
+    const status = nexusAI.status();
     res.setHeader('Cache-Control', 'no-store');
-    try {
-      res.json({ models: await getModelCatalogV2(), strictRouting: true });
-    } catch (error) {
-      res.status(502).json({ error: compactError(error), models: [] });
-    }
-  });
-
-  app.get('/api/ai/status', async (_req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    try {
-      res.json(await getProviderStatusV2());
-    } catch (error) {
-      res.status(502).json({ error: compactError(error) });
-    }
+    res.json({
+      assistant: status.assistant,
+      gateway: status.gateway,
+      configured: status.configured,
+      freeOnly: status.freeOnly,
+      healthyModels: status.circuits.filter((circuit) => circuit.state !== 'OPEN').length,
+      unavailableModels: status.circuits.filter((circuit) => circuit.state === 'OPEN').length,
+      totalModels: status.circuits.length,
+    });
   });
 
   app.get('/api/health', (_req, res) => {
+    const status = nexusAI.status();
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ ...getHealth(), aiRouting: 'strict-v2', research: 'groq-compound+gemini-search+openrouter-web' });
+    res.json({
+      status: 'ok',
+      product: 'Orbit',
+      workspace: 'Orbispace',
+      office: 'OrbiDoc',
+      ai: {
+        assistant: 'Nexus AI',
+        gateway: 'OpenRouter',
+        configured: status.configured,
+        freeOnly: true,
+        internalPoolSize: status.circuits.length,
+      },
+    });
   });
 
   app.post('/api/chat/stream', rateLimit(RATE_MAX_REQUESTS), async (req, res) => {
@@ -92,7 +106,11 @@ async function startServer() {
 
     const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
     try {
-      await streamChatV2(req.body || {}, write);
+      await nexusAI.stream(
+        (req.body || {}) as NexusBody,
+        (chunk) => write({ chunk }),
+        (meta) => write({ meta }),
+      );
     } catch (error) {
       write({ error: compactError(error) });
     } finally {
@@ -103,9 +121,9 @@ async function startServer() {
 
   const chatHandler = async (req: express.Request, res: express.Response) => {
     try {
-      const result = await runChatV2(req.body || {});
+      const result = await nexusAI.complete((req.body || {}) as NexusBody);
       res.setHeader('Cache-Control', 'no-store');
-      res.setHeader('X-OrbiDoc-Request-Id', result.requestId);
+      res.setHeader('X-Orbit-Request-Id', result.requestId);
       res.json(result);
     } catch (error) {
       res.status(502).json({ error: compactError(error) });
@@ -120,7 +138,7 @@ async function startServer() {
       res.setHeader('Cache-Control', 'no-store');
       res.json(await generateImageResilient(req.body || {}));
     } catch (error) {
-      res.status(502).json({ error: compactError(error) });
+      res.status(503).json({ error: compactError(error) });
     }
   });
 
@@ -129,7 +147,7 @@ async function startServer() {
       res.setHeader('Cache-Control', 'no-store');
       res.json(await editImageResilient(req.body || {}));
     } catch (error) {
-      res.status(502).json({ error: compactError(error) });
+      res.status(503).json({ error: compactError(error) });
     }
   });
 
@@ -138,7 +156,7 @@ async function startServer() {
       res.setHeader('Cache-Control', 'no-store');
       res.json(await enhanceImageResilient(req.body || {}));
     } catch (error) {
-      res.status(502).json({ error: compactError(error) });
+      res.status(503).json({ error: compactError(error) });
     }
   });
 
@@ -154,10 +172,10 @@ async function startServer() {
     app.use((_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
-  app.listen(PORT, '0.0.0.0', () => console.log(`OrbiDoc server listening on port ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`Orbit server listening on port ${PORT}`));
 }
 
 startServer().catch((error) => {
-  console.error('Fatal server startup error:', error);
+  console.error('Fatal Orbit server startup error:', error);
   process.exitCode = 1;
 });
