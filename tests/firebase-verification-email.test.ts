@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const firebaseService = fs.readFileSync('src/services/firebase.ts', 'utf8');
-const authPanel = fs.readFileSync('src/components/OrbiDocAuthPanel.tsx', 'utf8');
+const authPanel = fs.readFileSync('src/components/OrbitAuthPanel.tsx', 'utf8');
 
 test('Firebase account creation never swallows verification email failures', () => {
   assert.doesNotMatch(firebaseService, /sendEmailVerification\([^)]*\)\.catch\(\(\) => undefined\)/);
