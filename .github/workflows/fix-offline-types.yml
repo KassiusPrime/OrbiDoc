@@ -1,0 +1,66 @@
+name: Fix offline suite type errors
+
+on:
+  push:
+    branches: ["feat/offline-first-productivity-suite"]
+    paths: [".github/workflows/fix-offline-types.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - name: Apply targeted TypeScript repairs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          lexical = Path('src/components/DocumentEditorLexical.tsx')
+          text = lexical.read_text()
+          text = text.replace("import LexicalErrorBoundary from '@lexical/react/LexicalErrorBoundary';", "import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';")
+          old = "{OFFICE_FONTS.map((font) => <option key={font} value={font}>{font}</option>)}"
+          new = "{OFFICE_FONTS.map((font) => <option key={font.value} value={font.value}>{font.label}</option>)}"
+          if old not in text:
+              raise SystemExit('OFFICE_FONTS option anchor not found')
+          text = text.replace(old, new, 1)
+          lexical.write_text(text)
+
+          pdf = Path('src/components/PdfStudio.tsx')
+          text = pdf.read_text()
+          text = text.replace('IconArrowClockwise,', 'IconRotateClockwise,', 1)
+          text = text.replace('<IconArrowClockwise /> Girar', '<IconRotateClockwise /> Girar', 1)
+          old = "new Blob([bytes], { type: 'application/pdf' })"
+          new = "new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: 'application/pdf' })"
+          if old not in text:
+              raise SystemExit('PDF Blob bytes anchor not found')
+          text = text.replace(old, new, 1)
+          pdf.write_text(text)
+
+          router = Path('src/components/ProfessionalFileRouterAgent.tsx')
+          text = router.read_text()
+          text = text.replace("            mimeType: 'application/pdf',\n", '', 1)
+          router.write_text(text)
+
+          fortune = Path('src/lib/fortuneSpreadsheet.ts')
+          text = fortune.read_text()
+          old = '    m: cell.w ?? value,\n'
+          new = "    m: cell.w ?? (typeof value === 'boolean' ? String(value) : value),\n"
+          if old not in text:
+              raise SystemExit('Fortune display value anchor not found')
+          text = text.replace(old, new, 1)
+          fortune.write_text(text)
+          PY
+      - name: Commit repairs atomically
+        run: |
+          rm .github/workflows/fix-offline-types.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(core): repair offline suite TypeScript contracts"
+          git pull --rebase origin feat/offline-first-productivity-suite
+          git push origin HEAD:feat/offline-first-productivity-suite
