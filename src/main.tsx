@@ -35,6 +35,7 @@ import './orbidoc-overlay-safety.css';
 import './orbidoc-layout-safety-v2.css';
 import './orbidoc-product-polish.css';
 import './offline-suite.css';
+import './lexical-editor.css';
 import './scan-reader.css';
 
 migrateLegacyBrandStorage();
