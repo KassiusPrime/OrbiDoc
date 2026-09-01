@@ -8,6 +8,7 @@ const google = read('src/services/googleAuthDrive.ts');
 const microsoft = read('src/services/microsoftAuthOffice.ts');
 const github = read('src/services/githubProjects.ts');
 const githubApi = read('api/github/oauth-token.ts');
+const server = read('server.ts');
 const linked = read('src/services/linkedAccounts.ts');
 
 const expect = (condition, message) => { if (!condition) failures.push(message); };
@@ -32,7 +33,11 @@ expect(github.includes('permissions?.push'), 'Escrita GitHub não verifica permi
 
 expect(githubApi.includes('GITHUB_CLIENT_SECRET'), 'Troca OAuth GitHub não exige secret server-side.');
 expect(githubApi.includes('sameOriginRequest'), 'Endpoint OAuth GitHub não valida origem.');
+expect(githubApi.includes('validRedirectUri'), 'Endpoint OAuth GitHub não fixa o callback autorizado.');
 expect(githubApi.includes("Cache-Control', 'no-store'"), 'Endpoint OAuth GitHub não desabilita cache da resposta de token.');
+expect(server.includes("app.post('/api/github/oauth-token'"), 'Servidor Express/self-hosted não oferece a mesma troca OAuth GitHub.');
+expect(server.includes('validGitHubRedirect'), 'Servidor Express não valida redirect URI GitHub.');
+expect(server.includes('OAUTH_RATE_MAX_REQUESTS'), 'Servidor Express não aplica rate limit específico ao OAuth GitHub.');
 
 expect(!linked.includes('accessToken:'), 'Registro persistente de contas vinculadas contém accessToken.');
 expect(!linked.includes('refreshToken:'), 'Registro persistente de contas vinculadas contém refreshToken.');
@@ -49,5 +54,5 @@ if (failures.length) {
 }
 
 console.log('Orbit Accounts: Microsoft usa Authorization Code + PKCE S256; Google usa drive.file e remove tokens persistentes do localStorage; GitHub usa GitHub App + troca server-side.');
-console.log('Orbit Accounts: linkedAccounts sincroniza somente metadados não secretos.');
+console.log('Orbit Accounts: GitHub OAuth tem paridade entre Function e servidor self-hosted; linkedAccounts sincroniza somente metadados não secretos.');
 warnings.forEach((warning) => console.log(`Aviso: ${warning}`));
