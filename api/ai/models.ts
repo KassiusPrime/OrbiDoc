@@ -1,5 +1,4 @@
-import { getModelCatalogV2 } from '../_lib/aiRuntimeV2.js';
-import { hydrateGatewayRuntimeAuth } from '../_lib/gatewayAuth.js';
+import { NEXUS_FREE_MODELS, nexusAI } from '../_lib/nexusAI.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -8,7 +7,15 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  await hydrateGatewayRuntimeAuth();
+  const status = nexusAI.status();
   res.setHeader('Cache-Control', 'no-store');
-  res.status(200).json({ models: await getModelCatalogV2(), strictRouting: true });
+  res.status(200).json({
+    assistant: 'Nexus AI',
+    gateway: 'OpenRouter',
+    unified: true,
+    userSelectableModels: false,
+    freeOnly: true,
+    configured: status.configured,
+    internalPoolSize: NEXUS_FREE_MODELS.length,
+  });
 }
