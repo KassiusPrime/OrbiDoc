@@ -1,6 +1,6 @@
 {
   "appId": "app.orbidoc.workspace",
-  "appName": "OrbiDoc",
+  "appName": "Orbit",
   "webDir": "dist",
-  "backgroundColor": "#F7F9FC"
+  "backgroundColor": "#09090B"
 }
