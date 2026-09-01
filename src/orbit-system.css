@@ -1,0 +1,270 @@
+:root {
+  --orbit-space-1: 4px;
+  --orbit-space-2: 8px;
+  --orbit-space-3: 12px;
+  --orbit-space-4: 16px;
+  --orbit-space-5: 20px;
+  --orbit-space-6: 24px;
+  --orbit-space-8: 32px;
+  --orbit-space-10: 40px;
+
+  --orbit-radius-sm: 8px;
+  --orbit-radius-md: 12px;
+  --orbit-radius-lg: 16px;
+  --orbit-radius-xl: 20px;
+
+  --orbit-bg: #f4f7fb;
+  --orbit-surface: #ffffff;
+  --orbit-surface-elevated: #ffffff;
+  --orbit-border: #dfe6ef;
+  --orbit-border-strong: #cbd6e4;
+  --orbit-text: #111827;
+  --orbit-muted: #64748b;
+  --orbit-subtle: #94a3b8;
+  --orbit-blue: #3157f6;
+  --orbit-blue-strong: #2446d8;
+  --orbit-blue-soft: #eef3ff;
+  --orbit-nexus: #6750d8;
+  --orbit-nexus-soft: #f2efff;
+  --orbit-focus: #7aa2ff;
+  --orbit-danger: #be123c;
+  --orbit-success: #047857;
+  --orbit-shadow-canvas: 0 12px 32px rgba(15, 23, 42, 0.08);
+  --orbit-shadow-overlay: 0 18px 48px rgba(15, 23, 42, 0.16);
+  --orbit-z-content: 0;
+  --orbit-z-toolbar: 20;
+  --orbit-z-header: 30;
+  --orbit-z-bottom-nav: 40;
+  --orbit-z-dropdown: 50;
+  --orbit-z-popover: 60;
+  --orbit-z-sheet: 70;
+  --orbit-z-dialog: 80;
+  --orbit-z-toast: 90;
+}
+
+.dark {
+  --orbit-bg: #0b0d11;
+  --orbit-surface: #111318;
+  --orbit-surface-elevated: #151820;
+  --orbit-border: #252a35;
+  --orbit-border-strong: #343b49;
+  --orbit-text: #f8fafc;
+  --orbit-muted: #a4afbf;
+  --orbit-subtle: #748094;
+  --orbit-blue-soft: #111d4a;
+  --orbit-nexus-soft: #211b43;
+  --orbit-shadow-canvas: 0 14px 36px rgba(0, 0, 0, 0.26);
+  --orbit-shadow-overlay: 0 22px 56px rgba(0, 0, 0, 0.4);
+}
+
+.orbit-app-shell {
+  width: 100%;
+  height: var(--orbidoc-visual-height, 100dvh);
+  min-height: 0;
+  background: var(--orbit-bg);
+  color: var(--orbit-text);
+  overflow: hidden;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.orbit-app-shell__content {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.orbit-skip-link {
+  position: fixed;
+  top: max(8px, var(--orbidoc-safe-top));
+  left: max(8px, var(--orbidoc-safe-left));
+  z-index: 120;
+  transform: translateY(-180%);
+  border-radius: var(--orbit-radius-md);
+  background: var(--orbit-text);
+  color: var(--orbit-surface);
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.orbit-skip-link:focus {
+  transform: translateY(0);
+}
+
+.orbit-offline-banner {
+  position: fixed;
+  top: max(6px, var(--orbidoc-safe-top));
+  left: 50%;
+  z-index: var(--orbit-z-toast);
+  max-width: min(92vw, 720px);
+  transform: translateX(-50%);
+  border: 1px solid #f2c66d;
+  border-radius: var(--orbit-radius-md);
+  background: #fff8df;
+  color: #7a4c00;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: var(--orbit-shadow-overlay);
+}
+
+.dark .orbit-offline-banner {
+  border-color: #765b27;
+  background: #2a2110;
+  color: #f5d889;
+}
+
+.orbit-workspace-surface {
+  border: 1px solid var(--orbit-border);
+  border-radius: var(--orbit-radius-lg);
+  background: var(--orbit-surface);
+}
+
+.orbit-elevated-surface {
+  border: 1px solid var(--orbit-border);
+  border-radius: var(--orbit-radius-lg);
+  background: var(--orbit-surface-elevated);
+  box-shadow: var(--orbit-shadow-canvas);
+}
+
+.orbit-context-strip {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--orbit-space-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+
+.orbit-context-strip > * {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.orbit-toolbar-control {
+  min-height: 44px;
+  border: 1px solid var(--orbit-border);
+  border-radius: var(--orbit-radius-md);
+  background: var(--orbit-surface);
+  color: var(--orbit-text);
+}
+
+.orbit-feature-bar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--orbit-space-3);
+  border: 1px solid var(--orbit-border);
+  border-radius: var(--orbit-radius-md);
+  background: color-mix(in srgb, var(--orbit-blue-soft) 52%, var(--orbit-surface));
+  padding: 8px 10px;
+}
+
+.orbit-feature-bar__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.orbit-feature-bar__title {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.orbit-feature-bar__description {
+  margin-top: 2px;
+  color: var(--orbit-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.orbit-page-title {
+  font-size: clamp(20px, 2vw, 24px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.orbit-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.orbit-meta {
+  color: var(--orbit-muted);
+  font-size: 12px;
+}
+
+.orbit-focus-ring:focus-visible,
+.orbit-app-shell button:focus-visible,
+.orbit-app-shell a:focus-visible,
+.orbit-app-shell input:focus-visible,
+.orbit-app-shell textarea:focus-visible,
+.orbit-app-shell select:focus-visible {
+  outline: 2px solid var(--orbit-focus);
+  outline-offset: 2px;
+}
+
+/* Product-wide visual cleanup: Orbit is a tool, not a landing page. */
+.orbit-app-shell [class*="rounded-[28px]"],
+.orbit-app-shell [class*="rounded-[30px]"],
+.orbit-app-shell [class*="rounded-[32px]"] {
+  border-radius: var(--orbit-radius-xl) !important;
+}
+
+.orbit-app-shell [class*="shadow-xl"],
+.orbit-app-shell [class*="shadow-2xl"] {
+  --tw-shadow-color: rgba(15, 23, 42, 0.14);
+}
+
+.orbit-app-shell main {
+  background: var(--orbit-bg);
+}
+
+@media (max-width: 599px) {
+  .orbit-app-shell {
+    --orbit-shell-gutter: max(12px, var(--orbidoc-safe-left));
+  }
+
+  .orbit-offline-banner {
+    top: calc(var(--orbidoc-safe-top) + 6px);
+    font-size: 10px;
+  }
+
+  .orbit-feature-bar {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 1023px) {
+  .orbit-app-shell {
+    --orbit-shell-gutter: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .orbit-app-shell {
+    --orbit-shell-gutter: 20px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .orbit-app-shell {
+    --orbit-shell-gutter: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-app-shell *,
+  .orbit-app-shell *::before,
+  .orbit-app-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
