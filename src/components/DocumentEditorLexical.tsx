@@ -92,6 +92,7 @@ import { type HistoryItem, type SavedProject } from '../types';
 import { queueGoogleDriveEntitySync } from '../services/driveSyncQueue';
 import { $createOrbiDocImageNode, OrbiDocImageNode } from '../editor/lexical/OrbiDocImageNode';
 import { OFFICE_FONTS } from '../lib/officeStudio';
+import { LexicalFindReplacePlugin } from './LexicalFindReplacePlugin';
 
 export interface DocumentEditorLexicalProps {
   project: SavedProject;
@@ -618,6 +619,7 @@ export const DocumentEditorLexical: React.FC<DocumentEditorLexicalProps> = ({
         <LinkPlugin />
         <TablePlugin hasCellMerge hasCellBackgroundColor hasTabHandler />
         <HorizontalRulePlugin />
+        <LexicalFindReplacePlugin />
         <PersistencePlugin project={project} title={title} onProjectChange={onProjectChange} onStatus={(status, savedAt) => { setAutosaveStatus(status); if (savedAt) setLastSaved(savedAt); }} />
         <DocumentMetrics onMetrics={setMetrics} />
       </LexicalComposer>

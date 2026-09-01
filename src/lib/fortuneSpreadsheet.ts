@@ -56,7 +56,8 @@ const PT_FORMULA_ALIASES: Array<[RegExp, string]> = [
 
 export function normalizePtBrFormula(formula: string) {
   if (!formula || !formula.startsWith('=')) return formula;
-  return PT_FORMULA_ALIASES.reduce((source, [pattern, replacement]) => source.replace(pattern, replacement), formula);
+  const orderedAliases = [...PT_FORMULA_ALIASES].sort(([left], [right]) => right.source.length - left.source.length);
+  return orderedAliases.reduce((source, [pattern, replacement]) => source.replace(pattern, replacement), formula);
 }
 
 export function normalizeFortuneSheetFormulas(sheets: FortuneSheet[]) {
