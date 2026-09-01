@@ -4,7 +4,7 @@ const [configRaw, deployConfigRaw, localAccount, authPanel] = await Promise.all(
   fs.readFile('firebase-applet-config.json', 'utf8'),
   fs.readFile('firebase.json', 'utf8'),
   fs.readFile('src/services/localAccount.ts', 'utf8'),
-  fs.readFile('src/components/OrbiDocAuthPanel.tsx', 'utf8'),
+  fs.readFile('src/components/OrbitAuthPanel.tsx', 'utf8'),
 ]);
 const config = JSON.parse(configRaw);
 const deployConfig = JSON.parse(deployConfigRaw);
@@ -26,8 +26,8 @@ if (config.firestoreDatabaseId && !firestoreEntries.some((entry) => entry?.datab
 for (const token of ['PBKDF2', "hash: 'SHA-256'", '310_000', 'crypto.getRandomValues', 'passwordHash', 'SESSION_KEY']) {
   if (!localAccount.includes(token)) throw new Error(`Conta local segura incompleta: ${token} ausente.`);
 }
-for (const token of ['createLocalOrbiDocAccount', 'signInLocalOrbiDocAccount', 'Conta local']) {
-  if (!authPanel.includes(token)) throw new Error(`Painel de autenticação não contém o fallback local esperado: ${token}.`);
+for (const token of ['createLocalOrbiDocAccount', 'signInLocalOrbiDocAccount', 'Conta Orbit local']) {
+  if (!authPanel.includes(token)) throw new Error(`Painel ativo da Conta Orbit não contém o fallback local esperado: ${token}.`);
 }
 
 const strict = process.env.ORBIDOC_REQUIRE_PASSWORD_AUTH === 'true';
@@ -36,8 +36,8 @@ const response = await fetch(endpoint, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    email: `orbidoc-health-${Date.now()}@invalid.example`,
-    password: 'OrbiDoc-health-check-not-a-real-password',
+    email: `orbit-health-${Date.now()}@invalid.example`,
+    password: 'Orbit-health-check-not-a-real-password',
     returnSecureToken: true,
   }),
 });
@@ -58,7 +58,7 @@ if (providerDisabled) {
 
   if (strict) throw new Error(`${message}\n${remediation.map((item) => `- ${item}`).join('\n')}`);
 
-  console.warn(`${message} Conta local segura PBKDF2/SHA-256 validada como fallback funcional; nuvem não será simulada.`);
+  console.warn(`${message} Conta Orbit local segura PBKDF2/SHA-256 validada como fallback funcional; nuvem não será simulada.`);
   console.warn(remediation.map((item) => `  - ${item}`).join('\n'));
   if (process.env.GITHUB_ACTIONS === 'true') {
     console.warn(`::warning title=Firebase Email/Password desativado::${message} Consulte docs/FIREBASE_AUTH_SETUP.md para habilitar o provedor.`);
@@ -78,4 +78,4 @@ if (!/INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND|INVALID_PASSWORD|USER_DISABLED/.
 
 console.log(`Firebase Authentication está acessível e o provedor e-mail/senha responde corretamente (${code}).`);
 console.log(`Firestore rules estão associadas ao banco ${config.firestoreDatabaseId || '(default)'}.`);
-console.log('Conta local segura também permanece disponível como opção offline.');
+console.log('Conta Orbit local segura também permanece disponível como opção offline.');
