@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const failures = [];
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+const exists = (file) => fs.existsSync(path.join(root, file));
 
 const runtime = read('api/_lib/nexusAI.ts');
 const web = read('api/_lib/zeroCostWebSearch.ts');
@@ -13,6 +14,7 @@ const server = read('server.ts');
 const nativeBridge = read('src/lib/nativeAndroidBridge.ts');
 const imageRuntime = read('api/_lib/imageRuntime.ts');
 const manifest = read('vite.config.ts');
+const packageJson = read('package.json');
 
 const requiredRuntimeTokens = [
   'createOpenRouter',
@@ -25,6 +27,15 @@ const requiredRuntimeTokens = [
   'maxRetries: 0',
   'fallbackUsed',
   'Nexus AI',
+  'max_price',
+  'allow_fallbacks: false',
+  'usage: { include: true }',
+  'providerMetadata',
+  'ZERO_COST_INVARIANT_VIOLATED',
+  'data_collection',
+  'zdr: true',
+  'FRESHNESS_RE',
+  'EXPLICIT_WEB_RE',
 ];
 for (const token of requiredRuntimeTokens) {
   if (!runtime.includes(token)) failures.push(`nexusAI.ts não contém ${token}.`);
@@ -62,6 +73,27 @@ if (/ai-gateway\.vercel|GEMINI_API_KEY|GROQ_API_KEY/.test(imageRuntime)) failure
 if (!manifest.includes('name: "Orbit"') || !manifest.includes('short_name: "Orbit"')) failures.push('Manifest PWA não está nomeado Orbit.');
 if (/pollinations/i.test(manifest)) failures.push('Manifest/cache ainda referencia geração de imagem fora da política OpenRouter.');
 
+for (const obsolete of [
+  'api/_lib/ai.ts',
+  'api/_lib/aiRuntimeV2.ts',
+  'api/_lib/aiSafeStream.ts',
+  'api/_lib/gatewayAuth.ts',
+  'api/_lib/webGrounding.ts',
+  'src/components/AiWorkspaceLegacy.tsx',
+  'src/components/AiDiagnosticsPanel.tsx',
+  'src/components/NativeAiSettingsLauncher.tsx',
+  'src/App.tsx',
+  'src/AppV2.tsx',
+  'src/AppV3.tsx',
+  'src/AppV4.tsx',
+]) {
+  if (exists(obsolete)) failures.push(`Artefato legado ainda existe: ${obsolete}.`);
+}
+
+for (const obsoleteDependency of ['@google/genai', '@vercel/oidc']) {
+  if (packageJson.includes(`\"${obsoleteDependency}\"`)) failures.push(`Dependência antiga ainda instalada: ${obsoleteDependency}.`);
+}
+
 if (failures.length) {
   console.error('\nFalhas da política Nexus AI:');
   failures.forEach((failure) => console.error(`- ${failure}`));
@@ -69,6 +101,7 @@ if (failures.length) {
 }
 
 console.log(`Nexus AI: ${internalModels.length} rotas gratuitas detectadas; nenhuma rota paga permitida.`);
+console.log('Nexus AI: request routing exige max_price=0 e valida custo reportado pelo OpenRouter.');
 console.log('Nexus AI: Vercel AI SDK + OpenRouter são a única superfície de inferência remota do assistente.');
 console.log('Nexus AI: pesquisa Web opera em modo zero-spend e falha fechada quando a cota gratuita termina.');
 console.log('Orbit: Web/PWA/Android compartilham o mesmo backend de IA; seleção de modelos não é exposta ao usuário.');
