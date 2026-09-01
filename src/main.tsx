@@ -10,7 +10,6 @@ import { GitHubProjectsWorkspace } from './components/GitHubProjectsWorkspace';
 import { ImageResizeLauncher } from './components/ImageResizeLauncher';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
-import { NativeAiSettingsLauncher } from './components/NativeAiSettingsLauncher';
 import { NativeViewportAgent } from './components/NativeViewportAgent';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
@@ -19,7 +18,7 @@ import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
 import { installAiInternetAgent } from './lib/aiInternet';
 import { migrateLegacyBrandStorage } from './lib/legacyBrandMigration';
-import { installNativeAiApiBridge, installNativeFileOpenBridge } from './lib/nativeAndroidBridge';
+import { installNativeFileOpenBridge } from './lib/nativeAndroidBridge';
 import { applyOrbiDocNativeRuntimeProfile } from './lib/nativeRuntime';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import { mountPwaInstallStateAgent } from './lib/pwaInstall';
@@ -36,10 +35,7 @@ import './scan-reader.css';
 
 migrateLegacyBrandStorage();
 const nativeRuntime = applyOrbiDocNativeRuntimeProfile();
-if (nativeRuntime) {
-  installNativeAiApiBridge();
-  installNativeFileOpenBridge();
-}
+if (nativeRuntime) installNativeFileOpenBridge();
 installAiInternetAgent();
 applyOrbiDocPlatformProfile();
 mountPwaInstallStateAgent();
@@ -48,13 +44,13 @@ if (!nativeRuntime) {
   registerSW({
     immediate: true,
     onRegisterError(error) {
-      console.error('OrbiDoc service worker registration failed:', error);
+      console.error('Orbit service worker registration failed:', error);
     },
   });
 }
 
 const root = document.getElementById('root');
-if (!root) throw new Error('Elemento raiz do OrbiDoc não foi encontrado.');
+if (!root) throw new Error('Elemento raiz do Orbit não foi encontrado.');
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
@@ -71,10 +67,9 @@ ReactDOM.createRoot(root).render(
       <VersionHistoryLauncher />
       <QuickScanReaderLauncher />
       <AiRuntimeStatus />
-      <NativeAiSettingsLauncher />
       <LocalUtilitiesLauncher />
       <AdvancedFreeToolsLauncher />
       <ImageResizeLauncher />
     </AppErrorBoundary>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
