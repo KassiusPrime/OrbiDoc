@@ -37,6 +37,7 @@ import './orbidoc-product-polish.css';
 import './offline-suite.css';
 import './lexical-editor.css';
 import './fortune-sheet.css';
+import './pdf-studio.css';
 import './scan-reader.css';
 
 migrateLegacyBrandStorage();
