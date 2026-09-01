@@ -41,45 +41,29 @@ const TABS: BottomTab[] = [
 
 const spring = { type: 'spring' as const, stiffness: 430, damping: 34, mass: 0.72 };
 
-export const BottomNavBar: React.FC<BottomNavBarProps> = ({
-  activeTab,
-  onNavigate,
-  onOpenFab,
-}) => (
+export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onNavigate, onOpenFab }) => (
   <nav
     aria-label="Navegação principal"
-    className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#101827]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] px-2 pt-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))]"
+    className="orbidoc-bottom-nav orbit-mobile-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/98 dark:bg-[#111318]/98 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-1.5 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))]"
   >
-    <div className="max-w-lg mx-auto grid grid-cols-5 items-end justify-items-center">
+    <div className="max-w-lg mx-auto grid grid-cols-5 items-center justify-items-center">
       {TABS.map((tab) => {
         if (tab.kind === 'fab') {
           return (
-            <div key="fab" className="relative -top-3 flex justify-center col-span-1">
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.9 }}
-                whileHover={{ y: -1 }}
-                transition={spring}
-                onClick={onOpenFab}
-                aria-label="Criar novo"
-                className="relative w-14 h-14 rounded-2xl bg-[#3157F6] hover:bg-[#2446D8] text-white flex items-center justify-center shadow-lg shadow-indigo-500/25 border-4 border-white dark:border-[#101827] focus-visible:ring-2 focus-visible:ring-[#7AA2FF] overflow-hidden"
-              >
-                <motion.span
-                  aria-hidden="true"
-                  className="absolute inset-0 rounded-[inherit] bg-white/0"
-                  whileTap={{ backgroundColor: 'rgba(255,255,255,.13)' }}
-                />
-                <motion.span
-                  animate={{ rotate: 0, scale: 1 }}
-                  whileTap={{ rotate: 90, scale: 0.9 }}
-                  transition={spring}
-                  className="relative z-10"
-                >
-                  <IconPlus className="w-6 h-6 stroke-[2.4]" />
-                </motion.span>
-              </motion.button>
-              <span className="absolute -bottom-4 text-[10px] font-bold text-slate-600 dark:text-slate-300">Criar</span>
-            </div>
+            <motion.button
+              key="fab"
+              type="button"
+              whileTap={{ scale: 0.94 }}
+              transition={spring}
+              onClick={onOpenFab}
+              aria-label="Criar novo"
+              className="min-w-[58px] min-h-[54px] px-2 flex flex-col items-center justify-center rounded-[12px] text-[#3157F6] dark:text-[#7AA2FF]"
+            >
+              <span className="w-10 h-8 rounded-[10px] bg-[#3157F6] text-white flex items-center justify-center shadow-sm">
+                <IconPlus className="w-5 h-5 stroke-[2.3]" />
+              </span>
+              <span className="mt-0.5 text-[10px] leading-tight font-semibold">Criar</span>
+            </motion.button>
           );
         }
 
@@ -89,36 +73,17 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
           <motion.button
             type="button"
             key={tab.id}
-            whileTap={{ scale: 0.93 }}
+            whileTap={{ scale: 0.95 }}
             transition={spring}
             onClick={() => onNavigate(tab.id)}
             aria-current={active ? 'page' : undefined}
             aria-label={tab.label}
-            className="relative min-w-[56px] min-h-[52px] px-2 pt-1 pb-1 flex flex-col items-center justify-center rounded-xl"
+            className={`min-w-[58px] min-h-[54px] px-2 flex flex-col items-center justify-center rounded-[12px] ${active ? 'text-[#3157F6] dark:text-[#7AA2FF]' : 'text-slate-500 dark:text-slate-400'}`}
           >
-            <div className="relative w-10 h-8 rounded-xl flex items-center justify-center">
-              {active && (
-                <motion.div
-                  layoutId="orbidoc-bottom-active-pill"
-                  className="absolute inset-0 rounded-xl bg-[#EFF4FF] dark:bg-[#0D1E5B]/60"
-                  transition={spring}
-                />
-              )}
-              <motion.div
-                className={`relative z-10 ${active ? 'text-[#3157F6] dark:text-[#7AA2FF]' : 'text-slate-500 dark:text-slate-400'}`}
-                animate={{ y: active ? -1 : 0, scale: active ? 1.06 : 1 }}
-                transition={spring}
-              >
-                <Icon className={`w-5 h-5 ${active ? 'stroke-[2.3]' : 'stroke-[1.8]'}`} />
-              </motion.div>
-            </div>
-            <motion.span
-              className={`mt-0.5 text-[10px] leading-tight font-semibold ${active ? 'text-[#3157F6] dark:text-[#7AA2FF]' : 'text-slate-500 dark:text-slate-400'}`}
-              animate={{ opacity: active ? 1 : 0.86 }}
-              transition={{ duration: 0.16 }}
-            >
-              {tab.label}
-            </motion.span>
+            <span className={`w-10 h-8 rounded-[10px] flex items-center justify-center ${active ? 'bg-[#EEF3FF] dark:bg-[#111D4A]' : ''}`}>
+              <Icon className={`w-5 h-5 ${active ? 'stroke-[2.3]' : 'stroke-[1.8]'}`} />
+            </span>
+            <span className="mt-0.5 text-[10px] leading-tight font-semibold">{tab.label}</span>
           </motion.button>
         );
       })}
