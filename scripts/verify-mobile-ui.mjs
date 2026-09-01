@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 
 const read = (path) => fs.readFile(path, 'utf8');
-const [main, platform, overlaySafety, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, installHub, localTools, fabMenu, experienceShell, orbitShell, orbitSystem, nexus, bottomNav, home] = await Promise.all([
+const [main, platform, overlaySafety, viewportAgent, windowScript, nativeWorkflow, ciWorkflow, installHub, localTools, fabMenu, experienceShell, orbitShell, orbitSystem, nexus, bottomNav, home, commandPalette, primitives, modules] = await Promise.all([
   read('src/main.tsx'),
   read('src/platform.css'),
   read('src/orbidoc-overlay-safety.css'),
@@ -18,18 +18,23 @@ const [main, platform, overlaySafety, viewportAgent, windowScript, nativeWorkflo
   read('src/components/AiWorkspace.tsx'),
   read('src/components/BottomNavBar.tsx'),
   read('src/components/HomeDashboard.tsx'),
+  read('src/components/orbit/OrbitCommandPalette.tsx'),
+  read('src/components/orbit/OrbitPrimitives.tsx'),
+  read('src/orbit/modules.ts'),
 ]);
 
 const assertions = [
   [main.includes('NativeViewportAgent'), 'NativeViewportAgent não está montado no app.'],
   [main.includes('LocalUtilitiesLauncher'), 'Ferramentas locais gratuitas não estão montadas.'],
   [main.includes('OrbitAppShell'), 'OrbitAppShell V2 não envolve o produto.'],
+  [main.includes('OrbitCommandPalette'), 'Paleta global de comandos não está montada.'],
   [main.includes("./orbit-system.css"), 'Design tokens Orbit V2 não são carregados.'],
   [!main.includes('<AiRuntimeStatus'), 'Telemetria interna do Nexus AI ainda está exposta como launcher global.'],
   [main.includes("./orbidoc-overlay-safety.css"), 'Regras globais de overlays fullscreen não são carregadas.'],
 
   [orbitShell.includes('data-orbit-shell="v2"'), 'OrbitAppShell não expõe sua versão estrutural.'],
   [orbitShell.includes('orbit-skip-link'), 'OrbitAppShell não oferece skip link.'],
+  [orbitShell.includes("main.id = 'orbit-main-workspace'"), 'Skip link não é associado à área principal ativa.'],
   [orbitShell.includes('orbit-offline-banner'), 'OrbitAppShell não possui estado offline explícito.'],
   [orbitShell.includes('nenhuma chamada remota') || orbitShell.includes('tarefas remotas'), 'OrbitAppShell não comunica degradação remota offline.'],
 
@@ -42,6 +47,20 @@ const assertions = [
   [orbitSystem.includes('@media (min-width: 1024px)'), 'Design System não possui breakpoint desktop explícito.'],
   [orbitSystem.includes('@media (min-width: 1440px)'), 'Design System não possui breakpoint web-large explícito.'],
   [orbitSystem.includes('prefers-reduced-motion'), 'Design System não respeita reduced motion.'],
+
+  [primitives.includes('OrbitWorkspace') && primitives.includes('OrbitHeader'), 'Primitivos de shell Orbit Workspace/Header estão ausentes.'],
+  [primitives.includes('OrbitToolbar') && primitives.includes('OrbitToolbarGroup'), 'Primitivos de toolbar compartilhada estão ausentes.'],
+  [primitives.includes('OrbitFeatureBar') && primitives.includes('OrbitPanel') && primitives.includes('OrbitCard'), 'Primitivos de superfícies compartilhadas estão incompletos.'],
+  [primitives.includes('OrbitEmptyState') && primitives.includes('OrbitBottomSheet'), 'Primitivos de estados vazios/sheets estão ausentes.'],
+
+  [modules.includes('Orbit Nova') && modules.includes('Orbit Gravity') && modules.includes('Orbit Aurora'), 'Registry oficial não contém módulos P1.'],
+  [modules.includes('Orbit Comet') && modules.includes('Orbit Nebula') && modules.includes('Orbit Satellite'), 'Registry oficial não contém módulos de criação/arquivos.'],
+  [modules.includes('Orbit Horizon') && modules.includes('Orbit Pulsar') && modules.includes('Orbit Meridian'), 'Registry oficial não contém módulos P2/P3.'],
+
+  [commandPalette.includes("event.key.toLowerCase() === 'k'"), 'Command Palette não responde a Ctrl/Cmd+K.'],
+  [commandPalette.includes("event.key.toLowerCase() === 'p'"), 'Busca rápida de arquivos não responde a Ctrl/Cmd+P.'],
+  [commandPalette.includes('aria-modal="true"'), 'Command Palette não expõe semântica de dialog modal.'],
+  [commandPalette.includes('Orbit Nova') && commandPalette.includes('Orbit Gravity') && commandPalette.includes('Orbit Aurora'), 'Command Palette não cria pelos nomes oficiais.'],
 
   [platform.includes('--orbidoc-visual-height'), 'CSS não usa a altura visual dinâmica.'],
   [platform.includes("data-orbidoc-keyboard='open'"), 'CSS não possui estado específico para teclado virtual.'],
@@ -76,7 +95,7 @@ const assertions = [
   [fabMenu.includes('Orbit Nova') && fabMenu.includes('Orbit Gravity') && fabMenu.includes('Orbit Aurora') && fabMenu.includes('Orbit Comet') && fabMenu.includes('Orbit Nebula'), 'Create Sheet não usa nomenclatura cósmica oficial.'],
   [fabMenu.includes('orbidoc-fab-footer'), 'Bottom sheet de criação rápida não identifica o footer seguro.'],
   [fabMenu.includes("document.body.style.overflow = 'hidden'"), 'Bottom sheet de criação rápida não bloqueia scroll do fundo.'],
-  [fabMenu.includes('rounded-t-[20px]'), 'Create Sheet ainda usa radius excessivo fora do Design System.'],
+  [fabMenu.includes('rounded-t-[20px]'), 'Create Sheet não respeita o radius máximo de 20px do Design System.'],
 
   [nexus.includes('Virtuoso'), 'Nexus AI não virtualiza a conversa.'],
   [nexus.includes('orbit-context-strip'), 'Nexus AI não possui contextual toolbar compacta.'],
@@ -101,4 +120,4 @@ const assertions = [
 
 const failures = assertions.filter(([ok]) => !ok).map(([, message]) => message);
 if (failures.length) throw new Error(`Auditoria mobile falhou:\n- ${failures.join('\n- ')}`);
-console.log('Orbit UI audit OK: V2 shell, design tokens, Nexus tool layout, safe areas, keyboard/IME, bottom navigation, create sheet and offline honesty are wired.');
+console.log('Orbit UI audit OK: V2 shell, design tokens/primitives, module registry, command palette, Nexus tool layout, safe areas, keyboard/IME, bottom navigation, create sheet and offline honesty are wired.');
