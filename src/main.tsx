@@ -5,7 +5,6 @@ import App from './AppV5';
 import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AdvancedFreeToolsLauncher } from './components/AdvancedFreeToolsLauncher';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
-import { AiRuntimeStatus } from './components/AiRuntimeStatus';
 import { GitHubProjectsWorkspace } from './components/GitHubProjectsWorkspace';
 import { ImageResizeLauncher } from './components/ImageResizeLauncher';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
@@ -13,6 +12,7 @@ import { MediaToolsLauncher } from './components/MediaToolsLauncher';
 import { NativeViewportAgent } from './components/NativeViewportAgent';
 import { OrbiDocExperienceShell } from './components/OrbiDocExperienceShell';
 import { OrbiDocLoginScreen } from './components/OrbiDocLoginScreen';
+import { OrbitAppShell } from './components/orbit/OrbitAppShell';
 import { QuickScanReaderLauncher } from './components/QuickScanReaderLauncher';
 import { SystemFileOpenAgent } from './components/SystemFileOpenAgent';
 import { VersionHistoryLauncher } from './components/VersionHistoryLauncher';
@@ -23,6 +23,7 @@ import { applyOrbiDocNativeRuntimeProfile } from './lib/nativeRuntime';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import { mountPwaInstallStateAgent } from './lib/pwaInstall';
 import './index.css';
+import './orbit-system.css';
 import './orbidoc-ui.css';
 import './orbidoc-motion.css';
 import './orbidoc-native-ui.css';
@@ -55,9 +56,11 @@ if (!root) throw new Error('Elemento raiz do Orbit não foi encontrado.');
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <AppErrorBoundary>
-      <OrbiDocExperienceShell>
-        <App />
-      </OrbiDocExperienceShell>
+      <OrbitAppShell>
+        <OrbiDocExperienceShell>
+          <App />
+        </OrbiDocExperienceShell>
+      </OrbitAppShell>
       <OrbiDocLoginScreen />
       <NativeViewportAgent />
       <AccountSyncAgent />
@@ -66,7 +69,6 @@ ReactDOM.createRoot(root).render(
       <MediaToolsLauncher />
       <VersionHistoryLauncher />
       <QuickScanReaderLauncher />
-      <AiRuntimeStatus />
       <LocalUtilitiesLauncher />
       <AdvancedFreeToolsLauncher />
       <ImageResizeLauncher />
