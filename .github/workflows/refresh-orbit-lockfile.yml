@@ -1,0 +1,29 @@
+name: Refresh Orbit lockfile
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Resolve dependencies and refresh bun.lock
+        run: bun install
+      - name: Verify Nexus static policy before exporting lockfile
+        run: node scripts/verify-nexus-ai.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: orbit-bun-lock-${{ github.sha }}
+          path: bun.lock
+          if-no-files-found: error
+          retention-days: 1
