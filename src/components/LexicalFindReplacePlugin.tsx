@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { $getRoot } from 'lexical';
+import { $getRoot, type TextNode } from 'lexical';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 
 export const LEXICAL_FIND_REPLACE_EVENT = 'orbidoc:lexical-find-replace';
@@ -13,7 +13,7 @@ export type LexicalFindReplaceDetail = {
   occurrenceIndex?: number;
 };
 
-type Match = { node: ReturnType<typeof $getRoot>['getAllTextNodes'] extends () => Array<infer T> ? T : never; start: number };
+type Match = { node: TextNode; start: number };
 
 function collectMatches(find: string, caseSensitive: boolean): Match[] {
   if (!find) return [];
@@ -26,7 +26,7 @@ function collectMatches(find: string, caseSensitive: boolean): Match[] {
     while (from <= source.length - target.length) {
       const index = source.indexOf(target, from);
       if (index < 0) break;
-      matches.push({ node: node as Match['node'], start: index });
+      matches.push({ node, start: index });
       from = index + Math.max(1, find.length);
     }
   }
