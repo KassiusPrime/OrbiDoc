@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import { resolveGatewayCredential } from './gatewayAuth.js';
+import { runFreeWebSearchChat } from './freeWebSearch.js';
 
-export type ProviderIdV2 = 'gateway' | 'gemini' | 'openrouter' | 'groq';
+export type ProviderIdV2 = 'gateway' | 'gemini' | 'openrouter' | 'groq' | 'free';
 export type ChatMessageV2 = { role: 'system' | 'user' | 'assistant'; content: string; files?: unknown[] };
 export type RuntimeMetaV2 = {
   requestId: string;
@@ -30,7 +31,14 @@ const CURATED_MODELS: Array<{
   webSearch?: boolean;
   research?: boolean;
   router?: boolean;
+  free?: boolean;
 }> = [
+  // Motor gratuito para todos: busca keyless (DuckDuckGo) + síntese pelo modelo
+  // gratuito do AI Gateway via OIDC. Sem nenhuma chave configurada pelo dono.
+  // Sem "recommended" de propósito: é o motor padrão da Pesquisa Web e o fallback
+  // do copiloto quando nenhum provedor direto está configurado.
+  { id: 'orbidoc/web-free', provider: 'free', label: 'OrbiDoc Web · gratuito para todos', webSearch: true, research: true, free: true },
+
   { id: 'gemini-3.6-flash', provider: 'gemini', label: 'Gemini 3.6 Flash · Google direto', recommended: true, webSearch: true },
   { id: 'gemini-3.5-flash-lite', provider: 'gemini', label: 'Gemini 3.5 Flash-Lite · Google direto', webSearch: true },
   { id: 'gemini-3.1-pro-preview', provider: 'gemini', label: 'Gemini 3.1 Pro · Google direto', preview: true, webSearch: true },
@@ -57,6 +65,7 @@ const CURATED_MODELS: Array<{
 ];
 
 const providerConfigured = (provider: ProviderIdV2) => {
+  if (provider === 'free') return true;
   if (provider === 'gemini') return Boolean(process.env.GEMINI_API_KEY);
   if (provider === 'groq') return Boolean(process.env.GROQ_API_KEY);
   if (provider === 'openrouter') return Boolean(process.env.OPENROUTER_API_KEY);
@@ -91,7 +100,7 @@ function validateMessages(messages: unknown): messages is ChatMessageV2[] {
 }
 
 function normalizeProvider(provider: unknown): ProviderIdV2 {
-  if (provider === 'gateway' || provider === 'gemini' || provider === 'openrouter' || provider === 'groq') return provider;
+  if (provider === 'gateway' || provider === 'gemini' || provider === 'openrouter' || provider === 'groq' || provider === 'free') return provider;
   throw new Error(`Provedor de IA inválido: ${String(provider || 'vazio')}.`);
 }
 
@@ -303,6 +312,16 @@ async function requestGateway(model: string, messages: ChatMessageV2[], systemPr
   return { answer, model: String(data?.model || model), routedModel: typeof data?.model === 'string' ? data.model : undefined };
 }
 
+async function requestFree(model: string, messages: ChatMessageV2[], systemPrompt?: string) {
+  // O motor gratuito é sempre web-grounded: busca keyless + síntese opcional.
+  const result = await runFreeWebSearchChat({ messages, systemPrompt });
+  return {
+    answer: result.answer,
+    model,
+    routedModel: result.routedModel,
+  };
+}
+
 export async function runChatV2(body: any): Promise<ChatResultV2> {
   const provider = normalizeProvider(body?.provider);
   const model = typeof body?.model === 'string' ? body.model.trim() : '';
@@ -319,7 +338,9 @@ export async function runChatV2(body: any): Promise<ChatResultV2> {
         ? await requestGroq(model, body.messages, body.systemPrompt, webSearch)
         : provider === 'openrouter'
           ? await requestOpenRouter(model, body.messages, body.systemPrompt, body.files, webSearch)
-          : await requestGateway(model, body.messages, body.systemPrompt, body.files, webSearch);
+          : provider === 'free'
+            ? await requestFree(model, body.messages, body.systemPrompt)
+            : await requestGateway(model, body.messages, body.systemPrompt, body.files, webSearch);
 
     return {
       answer: result.answer,
@@ -330,7 +351,7 @@ export async function runChatV2(body: any): Promise<ChatResultV2> {
       model: result.model,
       routedModel: 'routedModel' in result ? result.routedModel : undefined,
       fallbackUsed: false,
-      webSearch,
+      webSearch: webSearch || provider === 'free',
     };
   } catch (error) {
     // Deliberately no cross-provider fallback: a selected Groq/OpenRouter/Gateway model
@@ -352,6 +373,7 @@ let modelCache: ModelCache | null = null;
 
 async function fetchModelIds(provider: ProviderIdV2): Promise<Set<string> | null> {
   try {
+    if (provider === 'free') return new Set(['orbidoc/web-free']);
     if (!providerConfigured(provider)) return new Set();
     if (provider === 'gemini') {
       const key = process.env.GEMINI_API_KEY!;
@@ -385,7 +407,7 @@ async function fetchModelIds(provider: ProviderIdV2): Promise<Set<string> | null
 
 async function liveModelMap() {
   if (modelCache && modelCache.expiresAt > Date.now()) return modelCache.values;
-  const providers: ProviderIdV2[] = ['gemini', 'groq', 'openrouter', 'gateway'];
+  const providers: ProviderIdV2[] = ['free', 'gemini', 'groq', 'openrouter', 'gateway'];
   const pairs = await Promise.all(providers.map(async (provider) => [provider, await fetchModelIds(provider)] as const));
   const values = new Map<ProviderIdV2, Set<string> | null>(pairs);
   modelCache = { expiresAt: Date.now() + MODEL_CACHE_MS, values };
@@ -405,6 +427,7 @@ export async function getModelCatalogV2() {
 }
 
 async function probe(provider: ProviderIdV2) {
+  if (provider === 'free') return { configured: true, reachable: true, modelCount: 1 };
   if (!providerConfigured(provider)) return { configured: false, reachable: false, reason: 'not-configured' };
   const ids = await fetchModelIds(provider);
   return { configured: true, reachable: ids !== null, modelCount: ids?.size || 0 };
@@ -415,6 +438,7 @@ export async function getProviderStatusV2() {
     probe('gateway'), probe('gemini'), probe('openrouter'), probe('groq'),
   ]);
   return {
+    free: { configured: true, reachable: true, modelCount: 1, strictRouting: true, webSearch: true, researchModel: 'orbidoc/web-free', keyless: true },
     gateway: { ...gateway, strictRouting: true },
     gemini: { ...gemini, strictRouting: true, webSearch: true },
     openrouter: { ...openrouter, strictRouting: true, webSearch: true },

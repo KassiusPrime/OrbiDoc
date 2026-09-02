@@ -578,6 +578,8 @@ export function getHealth() {
     status: 'ok',
     app: 'OrbiDoc',
     ai: {
+      // Motor gratuito de pesquisa web: sempre disponível, sem chave de API.
+      freeWeb: true,
       gateway: providerEnabled('gateway'),
       gemini: providerEnabled('gemini'),
       openrouter: providerEnabled('openrouter'),

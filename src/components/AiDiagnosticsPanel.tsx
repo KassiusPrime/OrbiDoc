@@ -16,6 +16,7 @@ type ProviderStatus = {
   strictRouting?: boolean;
   webSearch?: boolean;
   researchModel?: string;
+  keyless?: boolean;
   reason?: string;
 };
 
@@ -31,8 +32,9 @@ type TestResult = {
   message?: string;
 };
 
-const PROVIDERS = ['gemini', 'groq', 'openrouter', 'gateway'] as const;
+const PROVIDERS = ['free', 'gemini', 'groq', 'openrouter', 'gateway'] as const;
 const providerLabel = (provider: string) => ({
+  free: 'OrbiDoc Web · Grátis',
   gemini: 'Google Gemini',
   groq: 'Groq',
   openrouter: 'OpenRouter',
@@ -43,13 +45,14 @@ const fallbackStatusFromCatalog = (catalog: AiModelOption[]): StatusPayload => O
   const models = catalog.filter((model) => model.provider === provider);
   const active = models.length > 0;
   return [provider, {
-    configured: active,
-    reachable: active,
-    modelCount: models.length,
+    configured: provider === 'free' ? true : active,
+    reachable: provider === 'free' ? true : active,
+    modelCount: provider === 'free' ? Math.max(1, models.length) : models.length,
     strictRouting: true,
-    webSearch: provider !== 'gateway' ? active : models.some((model) => /^openai\//i.test(model.id)),
-    researchModel: provider === 'groq' && models.some((model) => model.id === 'groq/compound') ? 'groq/compound' : undefined,
-    reason: active ? 'catalog-fallback' : 'not-configured',
+    webSearch: provider !== 'gateway' ? provider === 'free' ? true : active : models.some((model) => /^openai\//i.test(model.id)),
+    researchModel: provider === 'free' ? 'orbidoc/web-free' : provider === 'groq' && models.some((model) => model.id === 'groq/compound') ? 'groq/compound' : undefined,
+    keyless: provider === 'free' || undefined,
+    reason: provider === 'free' ? 'keyless' : active ? 'catalog-fallback' : 'not-configured',
   }];
 }));
 
@@ -154,7 +157,8 @@ export const AiDiagnosticsPanel: React.FC<{
           return <article key={provider} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 p-4">
             <div className="flex items-start gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ready ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600' : state.configured ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{ready ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}</div>
-              <div className="min-w-0 flex-1"><div className="text-sm font-black">{providerLabel(provider)}</div><div className="mt-0.5 text-[9px] text-slate-400">{state.configured ? state.reachable ? 'Configurado e alcançável' : 'Configurado, mas não alcançável' : 'Não configurado'} · {models.length} modelo(s) utilizável(is)</div></div>
+              <div className="min-w-0 flex-1"><div className="text-sm font-black">{providerLabel(provider)}</div><div className="mt-0.5 text-[9px] text-slate-400">{state.configured ? state.reachable ? provider === 'free' ? 'Gratuito · sem chave · sempre ativo' : 'Configurado e alcançável' : 'Configurado, mas não alcançável' : 'Não configurado'} · {models.length} modelo(s) utilizável(is)</div></div>
+              {state.keyless && <span className="px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[8px] font-black uppercase">grátis</span>}
               {state.strictRouting && <span className="px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[8px] font-black uppercase">strict</span>}
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-white dark:bg-slate-900 p-2"><div className="text-[8px] uppercase text-slate-400 font-black">Catálogo</div><div className="mt-1 text-xs font-black">{state.modelCount ?? '—'}</div></div><div className="rounded-xl bg-white dark:bg-slate-900 p-2"><div className="text-[8px] uppercase text-slate-400 font-black">Pesquisa</div><div className="mt-1 text-xs font-black">{state.webSearch ? 'Sim' : '—'}</div></div><div className="rounded-xl bg-white dark:bg-slate-900 p-2"><div className="text-[8px] uppercase text-slate-400 font-black">Teste</div><div className={`mt-1 text-xs font-black ${result?.ok ? 'text-emerald-600' : result ? 'text-rose-600' : ''}`}>{result ? result.ok ? 'OK' : 'Falhou' : '—'}</div></div></div>
