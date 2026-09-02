@@ -357,6 +357,47 @@ Para instalar, acesse a aplicação no navegador e clique em "Instalar" ou "Adic
 
 ---
 
+## 🧩 Sistema de layout do workspace (Orbit Workspace UI)
+
+Camada compartilhada que padroniza densidade, aproveitamento de espaço e
+redimensionamento em todos os apps do workspace.
+
+### Primitivos
+
+| Arquivo | Papel |
+| --- | --- |
+| `src/components/orbit/OrbitResizable.tsx` | `OrbitResizablePane` (painel redimensionável e persistente), `OrbitResizeGrip` (alça isolada para colunas/linhas) e `useMediaQuery`. Sem dependências externas. |
+| `src/components/orbit/OrbitEditorFrame.tsx` | Moldura única dos editores: barra densa de 40px, doca lateral de ferramentas e modo foco. |
+| `src/orbit-workspace.css` | Tokens visuais das alças, grades de planilha, doca, régua e modo foco. |
+
+### Comportamento das alças
+
+- Arraste por ponteiro/toque (`setPointerCapture`, `touch-action: none`).
+- Teclado: `←/→` ou `↑/↓` movem 16px, com `Shift` 64px; `Home`/`End` vão aos
+  limites; `Enter`/`Espaço` restauram o padrão.
+- Duplo clique restaura o tamanho padrão (nas colunas de planilha, ajusta ao
+  conteúdo).
+- Cada painel persiste seu tamanho em `localStorage` (`orbit_pane_<chave>`).
+- Semântica ARIA de `separator` com `aria-valuemin/max/now`.
+
+### Aproveitamento de espaço
+
+- Editores e o Nexus AI são renderizados em modo *full bleed*: sem padding,
+  sem `max-width` e sem scroll externo (`data-orbit-surface="editor"`).
+- Modo foco (`Alt + Z`) esconde sidebar, header e bottom navigation.
+- A sidebar é redimensionável (190–420px) e colapsa para um rail de ícones.
+
+### Painéis por app
+
+| App | Painéis redimensionáveis |
+| --- | --- |
+| Documentos | Estrutura (títulos navegáveis) + doca de ferramentas |
+| Planilhas | Colunas, linhas e painel de resumo do intervalo |
+| Apresentações | Lista de slides + inspetor |
+| Design | Biblioteca + inspetor |
+
+---
+
 ## 📝 Licença
 
 Projeto privado. Todos os direitos reservados.

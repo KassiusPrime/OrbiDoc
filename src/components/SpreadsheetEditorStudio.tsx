@@ -21,6 +21,7 @@ import { jsPDF } from 'jspdf';
 import { sendToVercel } from '../api/chat';
 import { ExcelCell, HistoryItem, SavedProject } from '../types';
 import { OFFICE_FONTS } from '../lib/officeStudio';
+import { OrbitResizeGrip, OrbitResizablePane, useMediaQuery } from './orbit/OrbitResizable';
 
 interface SpreadsheetEditorStudioProps {
   project: SavedProject;
@@ -33,7 +34,7 @@ interface SpreadsheetEditorStudioProps {
 
 type CellFormat = 'general' | 'currency' | 'percent' | 'date';
 type StudioCell = ExcelCell & { underline?: boolean; format?: CellFormat; decimals?: number };
-type SheetState = { id: string; name: string; rows: number; cols: number; cells: Record<string, StudioCell>; columnWidths?: Record<number, number> };
+type SheetState = { id: string; name: string; rows: number; cols: number; cells: Record<string, StudioCell>; columnWidths?: Record<number, number>; rowHeights?: Record<number, number> };
 type WorkbookState = { version: 4; sheets: SheetState[]; activeSheetId: string };
 
 const DEFAULT_ROWS = 80;
@@ -48,7 +49,11 @@ const colName = (index: number) => {
   }
   return name;
 };
-const createSheet = (name = 'Planilha1'): SheetState => ({ id: crypto.randomUUID(), name, rows: DEFAULT_ROWS, cols: DEFAULT_COLS, cells: {}, columnWidths: {} });
+const DEFAULT_COL_WIDTH = 112;
+const DEFAULT_ROW_HEIGHT = 26;
+const MIN_COL_WIDTH = 44;
+const MIN_ROW_HEIGHT = 20;
+const createSheet = (name = 'Planilha1'): SheetState => ({ id: crypto.randomUUID(), name, rows: DEFAULT_ROWS, cols: DEFAULT_COLS, cells: {}, columnWidths: {}, rowHeights: {} });
 const defaultWorkbook = (): WorkbookState => { const sheet = createSheet(); return { version: 4, sheets: [sheet], activeSheetId: sheet.id }; };
 const numeric = (value: string | number | undefined) => { const parsed = Number(String(value ?? '').trim().replace(/\s/g, '').replace(',', '.')); return Number.isFinite(parsed) ? parsed : 0; };
 const sanitizeSheetName = (value: string, fallback: string) => value.replace(/[\\/?*\[\]:]/g, ' ').trim().slice(0, 31) || fallback;
@@ -152,6 +157,7 @@ const migrateWorkbook = (project: SavedProject): WorkbookState => {
       cols: Math.max(DEFAULT_COLS, sheet.cols || 0),
       cells: sheet.cells || {},
       columnWidths: sheet.columnWidths || {},
+      rowHeights: sheet.rowHeights || {},
     })),
   };
   return defaultWorkbook();
@@ -193,6 +199,7 @@ export const SpreadsheetEditorStudio: React.FC<SpreadsheetEditorStudioProps> = (
   const [aiBusy, setAiBusy] = useState(false);
   const [showInsights, setShowInsights] = useState(true);
   const [freezeHeaders, setFreezeHeaders] = useState(true);
+  const compactViewport = useMediaQuery('(max-width: 1023px)');
 
   const sheet = workbook.sheets.find((item) => item.id === workbook.activeSheetId) || workbook.sheets[0];
   const selectedCell = sheet.cells[activeCell] || { value: '' };
@@ -239,6 +246,75 @@ export const SpreadsheetEditorStudio: React.FC<SpreadsheetEditorStudioProps> = (
     if (extend) setSelectionEnd(key);
     else { setSelectionStart(key); setSelectionEnd(key); }
   };
+
+  /** Foca a célula alvo mantendo o cursor dentro da grade (navegação por setas). */
+  const focusCell = (key: string, extend = false) => {
+    selectCell(key, extend);
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLInputElement>(`[data-orbit-cell="${key}"]`)?.focus();
+    });
+  };
+
+  const moveFocus = (rowDelta: number, colDelta: number, extend = false) => {
+    const pos = parseCell(activeCell);
+    if (!pos) return;
+    const row = Math.max(0, Math.min(sheet.rows - 1, pos.row + rowDelta));
+    const col = Math.max(0, Math.min(sheet.cols - 1, pos.column + colDelta));
+    focusCell(`${colName(col)}${row + 1}`, extend);
+  };
+
+  const colWidth = (col: number) => sheet.columnWidths?.[col] ?? DEFAULT_COL_WIDTH;
+  const rowHeight = (row: number) => sheet.rowHeights?.[row] ?? DEFAULT_ROW_HEIGHT;
+
+  const resizeColumn = (col: number, delta: number) => updateSheet((current) => ({
+    ...current,
+    columnWidths: { ...(current.columnWidths || {}), [col]: Math.max(MIN_COL_WIDTH, (current.columnWidths?.[col] ?? DEFAULT_COL_WIDTH) + delta) },
+  }));
+
+  const resizeRow = (row: number, delta: number) => updateSheet((current) => ({
+    ...current,
+    rowHeights: { ...(current.rowHeights || {}), [row]: Math.max(MIN_ROW_HEIGHT, (current.rowHeights?.[row] ?? DEFAULT_ROW_HEIGHT) + delta) },
+  }));
+
+  /** Duplo clique na borda: ajusta a coluna ao conteúdo, como no Excel/Sheets. */
+  const autoFitColumn = (col: number) => updateSheet((current) => {
+    let longest = 3;
+    for (let row = 0; row < current.rows; row += 1) {
+      const cell = current.cells[`${colName(col)}${row + 1}`];
+      if (cell) longest = Math.max(longest, String(cell.value ?? '').length);
+    }
+    return { ...current, columnWidths: { ...(current.columnWidths || {}), [col]: Math.max(MIN_COL_WIDTH, Math.min(420, longest * 7.6 + 18)) } };
+  });
+
+  const selectColumn = (col: number) => {
+    setActiveCell(`${colName(col)}1`);
+    setSelectionStart(`${colName(col)}1`);
+    setSelectionEnd(`${colName(col)}${sheet.rows}`);
+  };
+
+  const selectRow = (row: number) => {
+    setActiveCell(`A${row + 1}`);
+    setSelectionStart(`A${row + 1}`);
+    setSelectionEnd(`${colName(sheet.cols - 1)}${row + 1}`);
+  };
+
+  const selectEverything = () => {
+    setActiveCell('A1');
+    setSelectionStart('A1');
+    setSelectionEnd(`${colName(sheet.cols - 1)}${sheet.rows}`);
+  };
+
+  const selectionBounds = useMemo(() => {
+    const a = parseCell(selectionStart);
+    const b = parseCell(selectionEnd);
+    if (!a || !b) return null;
+    return {
+      minRow: Math.min(a.row, b.row),
+      maxRow: Math.max(a.row, b.row),
+      minCol: Math.min(a.column, b.column),
+      maxCol: Math.max(a.column, b.column),
+    };
+  }, [selectionStart, selectionEnd]);
 
   const pasteBlock = (event: React.ClipboardEvent<HTMLInputElement>, startKey: string) => {
     const text = event.clipboardData.getData('text/plain');
@@ -477,8 +553,8 @@ export const SpreadsheetEditorStudio: React.FC<SpreadsheetEditorStudioProps> = (
   const cols = useMemo(() => Array.from({ length: sheet.cols }, (_, index) => index), [sheet.cols]);
 
   return (
-    <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden min-h-[calc(100dvh-8rem)] flex flex-col">
-      <div className="min-h-12 px-3 sm:px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 flex-wrap">
+    <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
+      <div className="shrink-0 min-h-11 px-2 sm:px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 flex-wrap">
         <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
         <input value={title} onChange={(event) => setTitle(event.target.value)} className="min-w-[180px] flex-1 bg-transparent text-sm font-black outline-none" aria-label="Nome da planilha" />
         <span className="hidden md:inline text-[10px] text-slate-400">{lastSaved ? `Salvo ${lastSaved}` : 'Salvando…'}</span>
@@ -489,7 +565,7 @@ export const SpreadsheetEditorStudio: React.FC<SpreadsheetEditorStudioProps> = (
         <div className="relative group"><button className="h-8 px-2.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black inline-flex items-center gap-1"><Download className="w-3.5 h-3.5" /> Exportar</button><div className="hidden group-hover:block absolute right-0 top-8 z-40 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1">{(['xlsx','csv','pdf','html'] as const).map((format) => <button key={format} onClick={() => void exportWorkbook(format)} className="w-full px-3 py-2 text-left text-[10px] font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">{format.toUpperCase()}</button>)}</div></div>
       </div>
 
-      <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto">
+      <div className="shrink-0 px-2 py-1.5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto">
         <span className="w-14 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-black flex items-center justify-center shrink-0">{activeCell}</span>
         <span className="text-xs font-black text-slate-400">fx</span>
         <input value={formulaInput} onChange={(event) => setFormulaInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') commitFormula(); }} onBlur={commitFormula} className="min-w-[220px] flex-1 h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 text-xs outline-none focus:border-emerald-500" />
@@ -506,36 +582,153 @@ export const SpreadsheetEditorStudio: React.FC<SpreadsheetEditorStudioProps> = (
         <button onClick={() => setShowInsights((value) => !value)} className={`h-8 px-2 rounded-lg text-[10px] font-bold border inline-flex items-center gap-1 ${showInsights ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-slate-200 dark:border-slate-700'}`}><ChartBar className="w-3.5 h-3.5" /> Resumo</button>
       </div>
 
-      <div className={`flex-1 min-h-[540px] grid ${showInsights ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_250px]' : 'grid-cols-1'}`}>
-        <div className="overflow-auto bg-slate-50 dark:bg-slate-950">
-          <table className="border-collapse table-fixed min-w-max text-[11px]">
-            <thead className={freezeHeaders ? 'sticky top-0 z-20' : ''}><tr><th className={`${freezeHeaders ? 'sticky left-0 z-30' : ''} w-12 h-7 bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700`} />{cols.map((col) => <th key={col} style={{ width: sheet.columnWidths?.[col] || 118 }} className="h-7 bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-black text-slate-500">{colName(col)}</th>)}</tr></thead>
-            <tbody>{rows.map((row) => <tr key={row}><th className={`${freezeHeaders ? 'sticky left-0 z-10' : ''} w-12 h-7 bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500 font-black`}>{row + 1}</th>{cols.map((col) => {
-              const key = `${colName(col)}${row + 1}`;
-              const cell = sheet.cells[key] || { value: '' };
-              const active = activeCell === key;
-              const inRange = selectedSet.has(key);
-              return <td key={key} style={{ width: sheet.columnWidths?.[col] || 118, backgroundColor: cell.bgColor || undefined, color: cell.textColor || undefined, textAlign: cell.align || 'left', fontFamily: cell.fontFamily || undefined }} className={`h-7 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0 ${inRange ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : ''} ${active ? 'ring-2 ring-inset ring-emerald-500' : ''}`}><input
-                value={formatCellValue(cell, active)}
-                onFocus={() => { if (activeCell !== key) selectCell(key, false); }}
-                onMouseDown={(event) => selectCell(key, event.shiftKey)}
-                onChange={(event) => setCell(key, event.target.value)}
-                onPaste={(event) => pasteBlock(event, key)}
-                onKeyDown={(event) => {
-                  const pos = parseCell(key);
-                  if (!pos) return;
-                  if (event.key === 'Enter') { event.preventDefault(); selectCell(`${colName(pos.column)}${Math.min(sheet.rows, pos.row + 2)}`); }
-                  else if (event.key === 'Tab') { event.preventDefault(); const nextColumn = Math.max(0, Math.min(sheet.cols - 1, pos.column + (event.shiftKey ? -1 : 1))); selectCell(`${colName(nextColumn)}${pos.row + 1}`); }
-                }}
-                className={`w-full h-full px-1.5 bg-transparent outline-none text-[11px] ${cell.bold ? 'font-bold' : ''} ${cell.italic ? 'italic' : ''}`}
-              /></td>;
-            })}</tr>)}</tbody>
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+        <div className="orbit-sheet-scroll">
+          <table className="orbit-sheet text-[11px]" data-freeze={freezeHeaders}>
+            <thead>
+              <tr>
+                <th
+                  className="orbit-sheet__corner"
+                  style={{ width: 48, minWidth: 48, height: 24 }}
+                  onClick={selectEverything}
+                  title="Selecionar toda a planilha"
+                />
+                {cols.map((col) => (
+                  <th
+                    key={col}
+                    style={{ width: colWidth(col), minWidth: colWidth(col), height: 24 }}
+                    data-selected={selectionBounds ? col >= selectionBounds.minCol && col <= selectionBounds.maxCol : false}
+                    onClick={() => selectColumn(col)}
+                    title={`Coluna ${colName(col)} · arraste a borda para redimensionar`}
+                  >
+                    {colName(col)}
+                    <OrbitResizeGrip
+                      axis="x"
+                      label={`Largura da coluna ${colName(col)}`}
+                      onResize={(delta, phase) => { if (phase === 'move' && delta) resizeColumn(col, delta); }}
+                      onReset={() => autoFitColumn(col)}
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row}>
+                  <th
+                    style={{ width: 48, minWidth: 48, height: rowHeight(row) }}
+                    data-selected={selectionBounds ? row >= selectionBounds.minRow && row <= selectionBounds.maxRow : false}
+                    onClick={() => selectRow(row)}
+                    title={`Linha ${row + 1} · arraste a borda para redimensionar`}
+                  >
+                    {row + 1}
+                    <OrbitResizeGrip
+                      axis="y"
+                      label={`Altura da linha ${row + 1}`}
+                      onResize={(delta, phase) => { if (phase === 'move' && delta) resizeRow(row, delta); }}
+                      onReset={() => resizeRow(row, DEFAULT_ROW_HEIGHT - rowHeight(row))}
+                    />
+                  </th>
+                  {cols.map((col) => {
+                    const key = `${colName(col)}${row + 1}`;
+                    const cell = sheet.cells[key] || { value: '' };
+                    const active = activeCell === key;
+                    return (
+                      <td
+                        key={key}
+                        data-active={active}
+                        data-in-range={selectedSet.has(key)}
+                        style={{
+                          width: colWidth(col),
+                          minWidth: colWidth(col),
+                          height: rowHeight(row),
+                          backgroundColor: cell.bgColor || undefined,
+                          color: cell.textColor || undefined,
+                          textAlign: cell.align || 'left',
+                          fontFamily: cell.fontFamily || undefined,
+                        }}
+                      >
+                        <input
+                          data-orbit-cell={key}
+                          value={formatCellValue(cell, active)}
+                          onFocus={() => { if (activeCell !== key) selectCell(key, false); }}
+                          onMouseDown={(event) => selectCell(key, event.shiftKey)}
+                          onChange={(event) => setCell(key, event.target.value)}
+                          onPaste={(event) => pasteBlock(event, key)}
+                          onKeyDown={(event) => {
+                            const pos = parseCell(key);
+                            if (!pos) return;
+                            const caretAtStart = event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0;
+                            const caretAtEnd = event.currentTarget.selectionStart === event.currentTarget.value.length;
+                            if (event.key === 'Enter') { event.preventDefault(); focusCell(`${colName(pos.column)}${Math.min(sheet.rows, pos.row + 2)}`); }
+                            else if (event.key === 'Tab') { event.preventDefault(); const nextColumn = Math.max(0, Math.min(sheet.cols - 1, pos.column + (event.shiftKey ? -1 : 1))); focusCell(`${colName(nextColumn)}${pos.row + 1}`); }
+                            else if (event.key === 'ArrowDown') { event.preventDefault(); moveFocus(1, 0, event.shiftKey); }
+                            else if (event.key === 'ArrowUp') { event.preventDefault(); moveFocus(-1, 0, event.shiftKey); }
+                            else if (event.key === 'ArrowRight' && caretAtEnd) { event.preventDefault(); moveFocus(0, 1, event.shiftKey); }
+                            else if (event.key === 'ArrowLeft' && caretAtStart) { event.preventDefault(); moveFocus(0, -1, event.shiftKey); }
+                            else if (event.key === 'Escape') event.currentTarget.blur();
+                            else if (event.key === 'Delete' && selectedKeys.length > 1) { event.preventDefault(); styleSelection({ value: '', formula: undefined }); }
+                          }}
+                          className={`${cell.bold ? 'font-bold' : ''} ${cell.italic ? 'italic' : ''}`}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
-        {showInsights && <aside className="border-l border-slate-200 dark:border-slate-800 p-4 bg-white dark:bg-slate-900 space-y-4"><div><div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Intervalo</div><div className="mt-1 text-sm font-black">{selectionStart === selectionEnd ? selectionStart : `${selectionStart}:${selectionEnd}`}</div></div><div className="grid grid-cols-2 gap-2"><Stat label="Células" value={rangeStats.count} /><Stat label="Números" value={rangeStats.numericCount} /><Stat label="Soma" value={Number(rangeStats.sum.toFixed(2))} /><Stat label="Média" value={Number(rangeStats.avg.toFixed(2))} /><Stat label="Mínimo" value={Number(rangeStats.min.toFixed(2))} /><Stat label="Máximo" value={Number(rangeStats.max.toFixed(2))} /></div>{rangeStats.nums.length > 1 && <div><div className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-2">Gráfico rápido</div><MiniBarChart values={rangeStats.nums.slice(0, 20)} /></div>}<div className="rounded-xl bg-slate-50 dark:bg-slate-950 p-3 text-[10px] leading-relaxed text-slate-500">Dica: segure Shift e clique em outra célula para selecionar um intervalo. Você também pode colar blocos copiados do Excel ou Google Sheets.</div></aside>}
+
+        {showInsights ? (
+          compactViewport ? (
+            <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 px-3 py-1.5 flex items-center gap-3 overflow-x-auto text-[10px] font-bold text-slate-500">
+              <span className="font-black text-slate-700 dark:text-slate-200">{selectionStart === selectionEnd ? selectionStart : `${selectionStart}:${selectionEnd}`}</span>
+              <span>Células {rangeStats.count}</span>
+              <span>Soma {Number(rangeStats.sum.toFixed(2))}</span>
+              <span>Média {Number(rangeStats.avg.toFixed(2))}</span>
+              <span>Mín {Number(rangeStats.min.toFixed(2))}</span>
+              <span>Máx {Number(rangeStats.max.toFixed(2))}</span>
+            </div>
+          ) : (
+            <OrbitResizablePane
+              storageKey="sheet-insights"
+              handle="start"
+              defaultSize={264}
+              min={210}
+              max={480}
+              label="painel de resumo"
+              className="border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            >
+              <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Intervalo</div>
+                  <div className="mt-1 text-sm font-black">{selectionStart === selectionEnd ? selectionStart : `${selectionStart}:${selectionEnd}`}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Stat label="Células" value={rangeStats.count} />
+                  <Stat label="Números" value={rangeStats.numericCount} />
+                  <Stat label="Soma" value={Number(rangeStats.sum.toFixed(2))} />
+                  <Stat label="Média" value={Number(rangeStats.avg.toFixed(2))} />
+                  <Stat label="Mínimo" value={Number(rangeStats.min.toFixed(2))} />
+                  <Stat label="Máximo" value={Number(rangeStats.max.toFixed(2))} />
+                </div>
+                {rangeStats.nums.length > 1 ? (
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-2">Gráfico rápido</div>
+                    <MiniBarChart values={rangeStats.nums.slice(0, 20)} />
+                  </div>
+                ) : null}
+                <p className="rounded-xl bg-slate-50 dark:bg-slate-950 p-3 text-[10px] leading-relaxed text-slate-500">
+                  Shift + clique seleciona intervalos, clique no cabeçalho seleciona a coluna ou a linha inteira e o duplo clique na borda ajusta a largura ao conteúdo.
+                </p>
+              </div>
+            </OrbitResizablePane>
+          )
+        ) : null}
       </div>
 
-      <div className="h-11 border-t border-slate-200 dark:border-slate-800 px-2 flex items-center gap-1 overflow-x-auto">{workbook.sheets.map((item) => <button key={item.id} onClick={() => { setWorkbook((current) => ({ ...current, activeSheetId: item.id })); selectCell('A1'); }} onDoubleClick={() => { const name = window.prompt('Nome da aba:', item.name); if (name) setWorkbook((current) => ({ ...current, sheets: current.sheets.map((sheetItem) => sheetItem.id === item.id ? { ...sheetItem, name: sanitizeSheetName(name, item.name) } : sheetItem) })); }} className={`h-8 px-3 rounded-lg text-[10px] font-bold ${workbook.activeSheetId === item.id ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500'}`}>{item.name}</button>)}<button onClick={addSheet} className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><Plus className="w-4 h-4 mx-auto" /></button>{workbook.sheets.length > 1 && <button onClick={deleteActiveSheet} className="w-8 h-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-500"><Trash className="w-4 h-4 mx-auto" /></button>}</div>
+      <div className="h-9 shrink-0 border-t border-slate-200 dark:border-slate-800 px-2 flex items-center gap-1 overflow-x-auto">{workbook.sheets.map((item) => <button key={item.id} onClick={() => { setWorkbook((current) => ({ ...current, activeSheetId: item.id })); selectCell('A1'); }} onDoubleClick={() => { const name = window.prompt('Nome da aba:', item.name); if (name) setWorkbook((current) => ({ ...current, sheets: current.sheets.map((sheetItem) => sheetItem.id === item.id ? { ...sheetItem, name: sanitizeSheetName(name, item.name) } : sheetItem) })); }} className={`h-8 px-3 rounded-lg text-[10px] font-bold ${workbook.activeSheetId === item.id ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500'}`}>{item.name}</button>)}<button onClick={addSheet} className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><Plus className="w-4 h-4 mx-auto" /></button>{workbook.sheets.length > 1 && <button onClick={deleteActiveSheet} className="w-8 h-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-500"><Trash className="w-4 h-4 mx-auto" /></button>}</div>
     </div>
   );
 };

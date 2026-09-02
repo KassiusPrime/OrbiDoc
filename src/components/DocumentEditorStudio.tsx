@@ -19,7 +19,6 @@ import {
   IconMinus as Minus,
   IconPhoto as Photo,
   IconPrinter as Printer,
-  IconSearch as Search,
   IconSparkles as Sparkles,
   IconStrikethrough as Strikethrough,
   IconTable as Table,
@@ -101,7 +100,6 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
     return { size: 'a4', margins: 'normal', lineHeight: 1.5 };
   });
   const [lastSaved, setLastSaved] = useState('');
-  const [search, setSearch] = useState('');
   const [zoom, setZoom] = useState(100);
   const [aiBusy, setAiBusy] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
@@ -242,7 +240,6 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
   };
 
   const stats = useMemo(() => { const text = richHtmlToText(html); const words = text.trim() ? text.trim().split(/\s+/).length : 0; return { words, chars: text.length, pages: Math.max(1, Math.ceil(words / 520)) }; }, [html]);
-  const matches = useMemo(() => { const query = search.trim().toLowerCase(); if (!query) return 0; const source = richHtmlToText(html).toLowerCase(); let count = 0; let index = 0; while ((index = source.indexOf(query, index)) >= 0) { count += 1; index += query.length; } return count; }, [html, search]);
 
   const applyTemplate = (key: keyof typeof DOCUMENT_TEMPLATES) => {
     if (richHtmlToText(html).trim() && !window.confirm('Substituir o conteúdo atual pelo modelo selecionado?')) return;
@@ -250,9 +247,9 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
   };
 
   return (
-    <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-slate-200/50 dark:bg-slate-950 overflow-hidden min-h-[calc(100dvh-8rem)] flex flex-col">
+    <div className="flex-1 min-h-0 flex flex-col bg-slate-200/50 dark:bg-slate-950 overflow-hidden">
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div className="min-h-12 px-3 sm:px-4 py-2 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 flex-wrap">
+        <div className="shrink-0 min-h-10 px-2 sm:px-3 py-1.5 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 flex-wrap">
           <FileText className="w-5 h-5 text-blue-600 shrink-0" />
           <input value={title} onChange={(event) => setTitle(event.target.value)} className="min-w-[180px] flex-1 bg-transparent text-sm font-black outline-none" aria-label="Nome do documento" />
           <span className="hidden md:inline text-[10px] text-slate-400">{lastSaved ? `Salvo ${lastSaved}` : 'Salvando…'}</span>
@@ -263,7 +260,7 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
           <div className="relative group"><button disabled={exportBusy} className="h-8 px-2.5 rounded-lg bg-blue-600 text-white text-[10px] font-black inline-flex items-center gap-1"><Download className="w-3.5 h-3.5" />{exportBusy ? 'Exportando…' : 'Exportar'}</button><div className="hidden group-hover:block absolute right-0 top-8 z-40 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1">{(['docx','pdf','html','txt'] as const).map((format) => <button key={format} onClick={() => void exportAs(format)} className="w-full px-3 py-2 text-left text-[10px] font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">{format.toUpperCase()}</button>)}</div></div>
         </div>
 
-        <div className="px-2 sm:px-3 py-2 flex items-center gap-1 overflow-x-auto">
+        <div className="shrink-0 px-2 py-1.5 flex items-center gap-0.5 overflow-x-auto">
           <select onChange={(event) => exec('formatBlock', event.target.value)} defaultValue="p" className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-[10px] font-bold"><option value="p">Normal</option><option value="h1">Título 1</option><option value="h2">Título 2</option><option value="h3">Título 3</option><option value="blockquote">Citação</option><option value="pre">Código</option></select>
           <select onChange={(event) => exec('fontName', event.target.value)} defaultValue={OFFICE_FONTS[0].value} className="h-8 max-w-36 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-[10px] font-bold">{OFFICE_FONTS.map((font) => <option key={font.label} value={font.value}>{font.label}</option>)}</select>
           <select onChange={(event) => applyFontSize(Number(event.target.value))} defaultValue="15" className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-[10px] font-bold">{[10,11,12,14,15,16,18,20,24,28,32,36,48,60].map((size) => <option key={size} value={size}>{size}</option>)}</select>
@@ -281,14 +278,14 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
         </div>
       </div>
 
-      <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[190px] max-w-sm"><Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Pesquisar no documento…" className="w-full h-8 pl-8 pr-2 rounded-lg bg-slate-100 dark:bg-slate-950 text-[10px] outline-none" /></div>{search && <span className="text-[10px] text-slate-400">{matches} ocorrência(s)</span>}
-        <div className="ml-auto flex items-center gap-2 text-[10px] text-slate-400"><span>{stats.words} palavras</span><span>{stats.chars} caracteres</span><span>{stats.pages} pág.</span><select value={pageSetup.size} onChange={(event) => setPageSetup((current) => ({ ...current, size: event.target.value as PageSize }))} className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"><option value="a4">A4</option><option value="letter">Carta</option></select><select value={pageSetup.margins} onChange={(event) => setPageSetup((current) => ({ ...current, margins: event.target.value as MarginMode }))} className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"><option value="narrow">Margem estreita</option><option value="normal">Margem normal</option><option value="wide">Margem larga</option></select><select value={pageSetup.lineHeight} onChange={(event) => setPageSetup((current) => ({ ...current, lineHeight: Number(event.target.value) }))} className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"><option value="1.2">1,2</option><option value="1.5">1,5</option><option value="2">2,0</option></select><select value={zoom} onChange={(event) => setZoom(Number(event.target.value))} className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"><option value="75">75%</option><option value="90">90%</option><option value="100">100%</option><option value="110">110%</option><option value="125">125%</option></select></div>
+      <div className="shrink-0 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Página</span>
+        <div className="ml-auto flex items-center gap-2 text-[10px] text-slate-400"><span>{stats.words} palavras</span><span>{stats.chars} caracteres</span><span>{stats.pages} pág.</span><select value={pageSetup.size} onChange={(event) => setPageSetup((current) => ({ ...current, size: event.target.value as PageSize }))} className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"><option value="a4">A4</option><option value="letter">Carta</option></select><select value={pageSetup.margins} onChange={(event) => setPageSetup((current) => ({ ...current, margins: event.target.value as MarginMode }))} className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"><option value="narrow">Margem estreita</option><option value="normal">Margem normal</option><option value="wide">Margem larga</option></select><select value={pageSetup.lineHeight} onChange={(event) => setPageSetup((current) => ({ ...current, lineHeight: Number(event.target.value) }))} className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"><option value="1.2">1,2</option><option value="1.5">1,5</option><option value="2">2,0</option></select><select value={zoom} onChange={(event) => setZoom(Number(event.target.value))} className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"><option value="75">75%</option><option value="90">90%</option><option value="100">100%</option><option value="110">110%</option><option value="125">125%</option><option value="150">150%</option></select></div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 sm:p-7 bg-slate-200/60 dark:bg-slate-950">
+      <div className="orbit-doc-canvas flex-1 min-h-0 overflow-auto p-3 sm:p-6 bg-slate-200/60 dark:bg-slate-950">
         <div className="mx-auto bg-white text-slate-900 shadow-lg origin-top" style={{ width: PAGE_WIDTH[pageSetup.size], maxWidth: '100%', minHeight: PAGE_HEIGHT[pageSetup.size], padding: MARGINS[pageSetup.margins], transform: `scale(${zoom / 100})`, transformOrigin: 'top center', marginBottom: `${Math.max(0, (zoom - 100) * 8)}px` }}>
-          <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={syncFromEditor} onBlur={syncFromEditor} className="orbidoc-rich-editor min-h-[820px] outline-none text-[15px]" style={{ lineHeight: pageSetup.lineHeight }} />
+          <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={syncFromEditor} onBlur={syncFromEditor} className="orbidoc-rich-editor min-h-[720px] outline-none text-[15px]" style={{ lineHeight: pageSetup.lineHeight }} />
         </div>
       </div>
     </div>

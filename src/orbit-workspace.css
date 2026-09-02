@@ -1,0 +1,445 @@
+/* ==========================================================================
+   Orbit Workspace UI — densidade, aproveitamento de espaço e redimensionamento
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Painéis redimensionáveis
+   -------------------------------------------------------------------------- */
+.orbit-pane {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.orbit-pane.is-collapsed {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.orbit-pane__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.orbit-pane__handle {
+  position: absolute;
+  z-index: 30;
+  touch-action: none;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.orbit-pane[data-orbit-axis='x'] > .orbit-pane__handle {
+  top: 0;
+  bottom: 0;
+  width: 11px;
+  cursor: col-resize;
+}
+
+.orbit-pane[data-orbit-axis='x'] > .orbit-pane__handle--end { right: -5px; }
+.orbit-pane[data-orbit-axis='x'] > .orbit-pane__handle--start { left: -5px; }
+
+.orbit-pane[data-orbit-axis='y'] > .orbit-pane__handle {
+  left: 0;
+  right: 0;
+  height: 11px;
+  cursor: row-resize;
+}
+
+.orbit-pane[data-orbit-axis='y'] > .orbit-pane__handle--end { bottom: -5px; }
+.orbit-pane[data-orbit-axis='y'] > .orbit-pane__handle--start { top: -5px; }
+
+.orbit-pane__handle::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.orbit-pane[data-orbit-axis='x'] > .orbit-pane__handle::after {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.orbit-pane[data-orbit-axis='y'] > .orbit-pane__handle::after {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.orbit-pane__handle:hover::after,
+.orbit-pane__handle:focus-visible::after,
+.orbit-pane.is-dragging .orbit-pane__handle::after {
+  background: var(--brand-primary, #3157f6);
+}
+
+.orbit-pane[data-orbit-axis='x'] > .orbit-pane__handle:hover::after,
+.orbit-pane[data-orbit-axis='x'] > .orbit-pane__handle:focus-visible::after,
+.orbit-pane.is-dragging .orbit-pane[data-orbit-axis='x'] > .orbit-pane__handle::after {
+  width: 3px;
+}
+
+.orbit-pane__handle:focus-visible {
+  outline: none;
+}
+
+.orbit-pane.is-dragging,
+.orbit-pane.is-dragging * {
+  user-select: none;
+}
+
+/* Alças isoladas (colunas/linhas de planilha) */
+.orbit-grip {
+  position: absolute;
+  z-index: 12;
+  touch-action: none;
+  display: block;
+}
+
+.orbit-grip--x {
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 7px;
+  cursor: col-resize;
+}
+
+.orbit-grip--y {
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 7px;
+  cursor: row-resize;
+}
+
+.orbit-grip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  transition: background 110ms ease;
+}
+
+.orbit-grip:hover::after,
+.orbit-grip:active::after {
+  background: var(--brand-primary, #3157f6);
+}
+
+/* --------------------------------------------------------------------------
+   Shell do workspace: sem scroll duplo, editores ocupando 100% da área útil
+   -------------------------------------------------------------------------- */
+.orbit-workspace-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.orbit-workspace-main[data-orbit-surface='editor'] {
+  overflow: hidden;
+  padding: 0;
+}
+
+.orbit-workspace-main[data-orbit-surface='editor'] > .orbit-workspace-canvas {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: none;
+  margin: 0;
+}
+
+/* Editores herdam a altura total quando montados dentro do shell. */
+.orbit-editor-surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--workspace-surface, #fff);
+}
+
+.orbit-editor-surface > * {
+  min-height: 0;
+}
+
+/* Neutraliza alturas fixas legadas dos estúdios quando dentro do shell. */
+.orbit-editor-surface [class*='min-h-[calc(100dvh'] {
+  min-height: 0 !important;
+}
+
+.orbit-editor-surface .orbit-editor-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Barra de ferramentas densa compartilhada
+   -------------------------------------------------------------------------- */
+.orbit-editor-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--workspace-border, #d9e2f0);
+  background: var(--workspace-surface, #fff);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.orbit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--workspace-muted, #536176);
+  background: transparent;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.orbit-chip:hover { background: var(--workspace-surface-muted, #eef3fa); }
+
+.orbit-chip[data-active='true'] {
+  background: color-mix(in srgb, var(--brand-primary, #3157f6) 12%, transparent);
+  color: var(--brand-primary, #3157f6);
+  border-color: color-mix(in srgb, var(--brand-primary, #3157f6) 28%, transparent);
+}
+
+.orbit-chip--primary {
+  background: var(--brand-primary, #3157f6);
+  color: #fff;
+}
+
+.orbit-chip--primary:hover { background: var(--brand-primary-hover, #2446d8); }
+
+.orbit-chrome-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  background: var(--workspace-border, #d9e2f0);
+}
+
+/* --------------------------------------------------------------------------
+   Doca lateral de ferramentas "Pro" — substitui os banners empilhados
+   -------------------------------------------------------------------------- */
+.orbit-tool-dock {
+  border-left: 1px solid var(--workspace-border, #d9e2f0);
+  background: var(--workspace-bg, #f7f9fc);
+}
+
+.orbit-tool-dock__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px;
+}
+
+/* Painéis legados foram desenhados para largura total: dentro da doca eles
+   voltam a uma coluna, independentemente do breakpoint da janela. */
+.orbit-tool-dock__scroll [class*='grid-cols-'] {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.orbit-tool-dock__scroll section {
+  margin-bottom: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   Planilha: cabeçalhos fixos, seleção por linha/coluna e redimensionamento
+   -------------------------------------------------------------------------- */
+.orbit-sheet-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--workspace-surface-muted, #eef3fa);
+}
+
+.orbit-sheet {
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.orbit-sheet th,
+.orbit-sheet td {
+  position: relative;
+  border-right: 1px solid var(--workspace-border, #d9e2f0);
+  border-bottom: 1px solid var(--workspace-border, #d9e2f0);
+  padding: 0;
+}
+
+.orbit-sheet thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--workspace-surface-muted, #eef3fa);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--workspace-muted, #536176);
+  user-select: none;
+}
+
+.orbit-sheet tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 15;
+  background: var(--workspace-surface-muted, #eef3fa);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--workspace-muted, #536176);
+  user-select: none;
+}
+
+.orbit-sheet thead th.orbit-sheet__corner {
+  left: 0;
+  z-index: 25;
+}
+
+.orbit-sheet th[data-selected='true'] {
+  background: color-mix(in srgb, var(--brand-primary, #3157f6) 18%, transparent);
+  color: var(--brand-primary, #3157f6);
+}
+
+.orbit-sheet td {
+  background: var(--workspace-surface, #fff);
+}
+
+.orbit-sheet td[data-in-range='true'] {
+  background: color-mix(in srgb, var(--brand-primary, #3157f6) 8%, var(--workspace-surface, #fff));
+}
+
+.orbit-sheet td[data-active='true'] {
+  box-shadow: inset 0 0 0 2px var(--brand-primary, #3157f6);
+  z-index: 5;
+}
+
+.orbit-sheet input {
+  width: 100%;
+  height: 100%;
+  padding: 0 5px;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 11px;
+  color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   Documento: painel de estrutura e régua
+   -------------------------------------------------------------------------- */
+.orbit-outline-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--workspace-muted, #536176);
+  cursor: pointer;
+}
+
+.orbit-outline-item:hover { background: var(--workspace-surface-muted, #eef3fa); }
+.orbit-outline-item[data-level='1'] { font-weight: 800; color: var(--workspace-text, #0b1220); }
+.orbit-outline-item[data-level='2'] { padding-left: 18px; font-weight: 600; }
+.orbit-outline-item[data-level='3'] { padding-left: 30px; }
+
+.orbit-doc-ruler {
+  flex: 0 0 auto;
+  height: 18px;
+  background: var(--workspace-bg, #f7f9fc);
+  border-bottom: 1px solid var(--workspace-border, #d9e2f0);
+  background-image: repeating-linear-gradient(
+    to right,
+    color-mix(in srgb, var(--workspace-muted, #536176) 45%, transparent) 0 1px,
+    transparent 1px 37.8px
+  );
+  background-position: center;
+}
+
+/* --------------------------------------------------------------------------
+   Modo foco: esconde cromo global e devolve a tela inteira ao conteúdo
+   -------------------------------------------------------------------------- */
+[data-orbit-focus='true'] .orbit-hide-on-focus {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile: painéis laterais viram blocos empilhados
+   -------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  .orbit-pane[data-orbit-collapse-mobile='true'] {
+    display: none;
+  }
+
+  /* A bottom navigation é fixa: reserva o espaço dela nas telas cheias. */
+  .orbit-workspace-main[data-orbit-surface='editor'] {
+    padding-bottom: calc(58px + env(safe-area-inset-bottom));
+  }
+
+  [data-orbit-focus='true'] .orbit-workspace-main[data-orbit-surface='editor'] {
+    padding-bottom: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-pane__handle,
+  .orbit-pane__handle::after,
+  .orbit-chip {
+    transition: none !important;
+  }
+}
+
+/* Congelamento de cabeçalhos controlado pelo editor. */
+.orbit-sheet[data-freeze='false'] thead th,
+.orbit-sheet[data-freeze='false'] tbody th {
+  position: static;
+}
+
+/* O Nexus AI mantém a classe legada (usada pelo ajuste de viewport mobile),
+   mas em tela cheia ele deve simplesmente preencher a área útil. */
+@media (min-width: 1024px) {
+  .orbit-workspace-main[data-orbit-surface='editor'] .orbidoc-ai-studio {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+/* Páginas de catálogo continuam rolando naturalmente dentro do shell flex. */
+.orbit-workspace-main[data-orbit-surface='page'] > .orbit-workspace-canvas {
+  flex: 0 0 auto;
+}
+
+/* No mobile o shell aplica gutters globais; nas telas cheias devolvemos
+   esse espaço ao conteúdo, preservando apenas a safe area do sistema. */
+html.orbidoc-platform-mobile .orbit-workspace-main[data-orbit-surface='editor'] {
+  padding-left: var(--orbidoc-safe-left, 0px) !important;
+  padding-right: var(--orbidoc-safe-right, 0px) !important;
+}
