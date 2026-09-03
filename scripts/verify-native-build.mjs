@@ -37,6 +37,27 @@ if (!/if \(!nativeRuntime\)[\s\S]*registerSW/.test(main)) failures.push('main.ts
 const nativeRuntime = read('src/lib/nativeRuntime.ts');
 if (!nativeRuntime.includes('isNativePlatform')) failures.push('nativeRuntime.ts não detecta Capacitor nativo.');
 
+const apiOrigin = read('src/lib/orbitApiOrigin.ts');
+for (const token of ['isOrbiDocNativeRuntime', 'orbitApiUrl', 'https://doc-swiss.vercel.app']) {
+  if (!apiOrigin.includes(token)) failures.push(`orbitApiOrigin.ts não contém ${token}.`);
+}
+if (!apiOrigin.includes("url.protocol !== 'https:'")) failures.push('orbitApiOrigin.ts não restringe override nativo a HTTPS.');
+
+const chatClient = read('src/api/chat.ts');
+for (const token of ["orbitApiUrl('/api/chat')", "orbitApiUrl('/api/chat/stream')"]) {
+  if (!chatClient.includes(token)) failures.push(`src/api/chat.ts não usa ${token}.`);
+}
+if (/const\s+CHAT_(?:API|STREAM)_ENDPOINT\s*=\s*['"]\/api\//.test(chatClient)) failures.push('src/api/chat.ts voltou a fixar endpoint relativo incompatível com o APK.');
+
+const nativeCors = read('api/_lib/nativeCors.ts');
+for (const token of ['https://localhost', 'capacitor://localhost', 'Access-Control-Allow-Origin', 'OPTIONS']) {
+  if (!nativeCors.includes(token)) failures.push(`nativeCors.ts não contém ${token}.`);
+}
+for (const routeFile of ['api/chat.ts', 'api/chat/stream.ts']) {
+  const route = read(routeFile);
+  if (!route.includes('applyNativeCors')) failures.push(`${routeFile} não habilita preflight/CORS para o Capacitor.`);
+}
+
 const aiInternet = read('src/lib/aiInternet.ts');
 for (const token of ['shouldUseAiInternet', 'ORBIT_NEXUS_WEB', 'webSearch: true']) {
   if (!aiInternet.includes(token)) failures.push(`aiInternet.ts não contém ${token}.`);
@@ -81,7 +102,7 @@ for (const token of ['MediaStore.Downloads', 'OrbiDocNativePlugin', 'android.int
 }
 
 const networkScript = read('scripts/configure-native-android-network.mjs');
-for (const token of ['fetchUrlPayload', 'HttpURLConnection', '300L * 1024L * 1024L']) {
+for (const token of ['fetchUrlPayload', 'HttpURLConnection', '300L * 1024L * 1024L', 'android.permission.INTERNET']) {
   if (!networkScript.includes(token)) failures.push(`configure-native-android-network.mjs não contém ${token}.`);
 }
 
@@ -107,6 +128,8 @@ if (failures.length) {
 }
 
 console.log('Orbit Android: shell Capacitor local, sem server.url e sem service worker obrigatório.');
+console.log('Orbit Android: `/api` do Nexus é resolvido para HTTPS de produção no runtime nativo e mantém same-origin na Web/PWA.');
+console.log('Orbit Android: API aceita preflight dos origins do Capacitor e o manifesto garante android.permission.INTERNET.');
 console.log('Orbit Android: OCR por+eng lazy-loaded e configurado para assets empacotados no APK/AAB.');
 console.log('Orbit Android: Nexus AI não possui runtime paralelo no WebView; usa o mesmo backend OpenRouter free-only da Web/PWA.');
 console.log('Orbit Android: exports seguem para MediaStore/Downloads e intents de arquivos permanecem habilitadas.');

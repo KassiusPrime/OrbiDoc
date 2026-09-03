@@ -85,6 +85,7 @@ jobs:
           ! grep -q 'openrouter:web_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           ! grep -q 'groq/compound-mini' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
           ! grep -q 'google_search' android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java
+          grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml
           grep -q 'WindowCompat.enableEdgeToEdge' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'SOFT_INPUT_ADJUST_RESIZE' android/app/src/main/java/app/orbidoc/workspace/MainActivity.java
           grep -q 'windowSoftInputMode="stateAlwaysHidden|adjustResize"' android/app/src/main/AndroidManifest.xml
