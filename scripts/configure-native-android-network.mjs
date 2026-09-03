@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const pluginPath = path.resolve('android/app/src/main/java/app/orbidoc/workspace/OrbiDocNativePlugin.java');
+const manifestPath = path.resolve('android/app/src/main/AndroidManifest.xml');
 let source = await fs.readFile(pluginPath, 'utf8');
 
 if (!source.includes('fetchUrlPayload(PluginCall call)')) {
@@ -35,7 +36,7 @@ if (!source.includes('fetchUrlPayload(PluginCall call)')) {
       try {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         conn.setConnectTimeout(15000); conn.setReadTimeout(90000); conn.setInstanceFollowRedirects(true);
-        conn.setRequestProperty("User-Agent", "OrbiDoc/Android");
+        conn.setRequestProperty("User-Agent", "Orbit/Android");
         int status = conn.getResponseCode();
         if (status >= 400) throw new Exception("Download respondeu HTTP " + status + ".");
         long declared = conn.getContentLengthLong();
@@ -67,4 +68,10 @@ if (!source.includes('fetchUrlPayload(PluginCall call)')) {
   await fs.writeFile(pluginPath, source, 'utf8');
 }
 
-console.log('Android native network: direct public URL payload bridge configured.');
+let manifest = await fs.readFile(manifestPath, 'utf8');
+if (!manifest.includes('android.permission.INTERNET')) {
+  manifest = manifest.replace(/<manifest\b[^>]*>/, (opening) => `${opening}\n    <uses-permission android:name="android.permission.INTERNET" />`);
+  await fs.writeFile(manifestPath, manifest, 'utf8');
+}
+
+console.log('Android native network: HTTPS/public payload bridge and INTERNET permission configured.');
