@@ -1,6 +1,6 @@
+import { orbitApiUrl } from '../lib/orbitApiOrigin';
+
 const CLIENT_AI_TIMEOUT_MS = 70_000;
-const CHAT_API_ENDPOINT = '/api/chat';
-const CHAT_STREAM_ENDPOINT = '/api/chat/stream';
 
 export interface AiMessage {
   role: 'system' | 'user' | 'assistant';
@@ -67,7 +67,7 @@ export async function sendToVercel(
   const timeoutId = window.setTimeout(() => controller.abort(), CLIENT_AI_TIMEOUT_MS);
 
   try {
-    const response = await fetch(CHAT_API_ENDPOINT, {
+    const response = await fetch(orbitApiUrl('/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: requestBody(messages, systemPrompt, files, webSearch),
@@ -121,7 +121,7 @@ export async function sendToVercelStream(
   options?.signal?.addEventListener('abort', abortFromCaller, { once: true });
 
   try {
-    const response = await fetch(CHAT_STREAM_ENDPOINT, {
+    const response = await fetch(orbitApiUrl('/api/chat/stream'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: requestBody(messages, options?.systemPrompt, options?.files, Boolean(options?.webSearch)),
