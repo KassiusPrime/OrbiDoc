@@ -1,4 +1,5 @@
 import { nexusAI, type NexusBody } from './_lib/nexusAI.js';
+import { applyNativeCors } from './_lib/nativeCors.js';
 
 function parseBody(body: unknown): NexusBody {
   if (typeof body !== 'string') return (body ?? {}) as NexusBody;
@@ -16,8 +17,10 @@ function compactError(error: unknown): string {
 }
 
 export default async function handler(req: any, res: any) {
+  if (applyNativeCors(req, res)) return;
+
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+    res.setHeader('Allow', 'POST, OPTIONS');
     res.status(405).json({ error: 'Método não permitido.' });
     return;
   }
