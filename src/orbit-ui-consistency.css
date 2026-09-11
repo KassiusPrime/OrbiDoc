@@ -1,6 +1,6 @@
 /* Final compatibility layer: Orbit tokens are the single source of truth.
    Legacy OrbiDoc selectors remain supported, but no longer maintain a second
-   palette/radius system that can drift from the main Orbit shell. */
+   palette/radius system that can drift from the canonical Orbit brand. */
 .orbidoc-app-root {
   --orbi-cloud: var(--orbit-bg);
   --orbi-surface: var(--orbit-surface);
@@ -11,12 +11,13 @@
   --orbi-blue: var(--orbit-blue);
   --orbi-blue-deep: var(--orbit-blue-strong);
   --orbi-blue-soft: var(--orbit-blue-soft);
+  --orbi-cyan: var(--orbit-cyan);
   --orbi-violet: var(--orbit-nexus);
   --orbi-panel-radius: var(--orbit-radius-xl);
   --orbi-control-radius: var(--orbit-radius-md);
 }
 
-/* Legacy hard-coded dark surfaces now resolve to the same Orbit surface tokens. */
+/* Legacy hard-coded dark surfaces now resolve to the canonical brand system. */
 .orbidoc-app-root [class*="dark:bg-[#101827]"],
 .orbidoc-app-root [class*="dark:bg-slate-900"] {
   background-color: var(--orbit-surface) !important;
