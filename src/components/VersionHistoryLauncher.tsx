@@ -94,7 +94,7 @@ export const VersionHistoryLauncher: React.FC = () => {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed z-[71] right-[72px] lg:right-[168px] bottom-[84px] lg:bottom-5 h-12 lg:h-11 w-12 lg:w-auto lg:px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] text-slate-700 dark:text-slate-100 shadow-xl inline-flex items-center justify-center gap-2 text-[10px] font-black hover:border-[#3157F6]/40"
+        className="fixed z-[71] right-[72px] lg:right-[168px] bottom-[var(--orbi-mobile-tools-bottom)] lg:bottom-5 h-12 lg:h-11 w-12 lg:w-auto lg:px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] text-slate-700 dark:text-slate-100 shadow-xl inline-flex items-center justify-center gap-2 text-[10px] font-black hover:border-[#3157F6]/40"
         aria-label="Abrir histórico de versões"
         title="Versões · Ctrl+Shift+H"
       >
