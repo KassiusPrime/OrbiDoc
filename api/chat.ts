@@ -1,4 +1,5 @@
-import { nexusAI, type NexusBody } from './_lib/nexusAI.js';
+import { nexusOrchestrator } from './_lib/nexusOrchestrator.js';
+import type { NexusBody } from './_lib/nexusAI.js';
 import { applyNativeCors } from './_lib/nativeCors.js';
 
 function parseBody(body: unknown): NexusBody {
@@ -26,7 +27,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const result = await nexusAI.complete(parseBody(req.body));
+    const result = await nexusOrchestrator.complete(parseBody(req.body));
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Orbit-Request-Id', result.requestId);
     res.status(200).json(result);

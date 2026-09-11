@@ -13,24 +13,27 @@
   --orbit-radius-lg: 16px;
   --orbit-radius-xl: 20px;
 
-  --orbit-bg: #f4f7fb;
+  /* Canonical Orbital Azure palette — keep UI colors locked to BRAND.md. */
+  --orbit-bg: #f7f9fc;
   --orbit-surface: #ffffff;
   --orbit-surface-elevated: #ffffff;
-  --orbit-border: #dfe6ef;
-  --orbit-border-strong: #cbd6e4;
-  --orbit-text: #111827;
+  --orbit-border: #e2e8f0;
+  --orbit-border-strong: #cbd5e1;
+  --orbit-text: #0b1220;
   --orbit-muted: #64748b;
   --orbit-subtle: #94a3b8;
   --orbit-blue: #3157f6;
   --orbit-blue-strong: #2446d8;
-  --orbit-blue-soft: #eef3ff;
-  --orbit-nexus: #6750d8;
-  --orbit-nexus-soft: #f2efff;
+  --orbit-blue-soft: #eef2ff;
+  --orbit-cyan: #22d3ee;
+  --orbit-cyan-deep: #008ca8;
+  --orbit-nexus: #6d5ef7;
+  --orbit-nexus-soft: #f1efff;
   --orbit-focus: #7aa2ff;
   --orbit-danger: #be123c;
   --orbit-success: #047857;
-  --orbit-shadow-canvas: 0 12px 32px rgba(15, 23, 42, 0.08);
-  --orbit-shadow-overlay: 0 18px 48px rgba(15, 23, 42, 0.16);
+  --orbit-shadow-canvas: 0 12px 32px rgba(11, 18, 32, 0.08);
+  --orbit-shadow-overlay: 0 18px 48px rgba(11, 18, 32, 0.16);
   --orbit-z-content: 0;
   --orbit-z-toolbar: 20;
   --orbit-z-header: 30;
@@ -43,16 +46,22 @@
 }
 
 .dark {
-  --orbit-bg: #0b0d11;
-  --orbit-surface: #111318;
-  --orbit-surface-elevated: #151820;
-  --orbit-border: #252a35;
-  --orbit-border-strong: #343b49;
-  --orbit-text: #f8fafc;
-  --orbit-muted: #a4afbf;
-  --orbit-subtle: #748094;
-  --orbit-blue-soft: #111d4a;
-  --orbit-nexus-soft: #211b43;
+  --orbit-bg: #080d18;
+  --orbit-surface: #101827;
+  --orbit-surface-elevated: #101827;
+  --orbit-border: #243047;
+  --orbit-border-strong: #34415a;
+  --orbit-text: #ffffff;
+  --orbit-muted: #aeb9ca;
+  --orbit-subtle: #7f8da3;
+  --orbit-blue: #7aa2ff;
+  --orbit-blue-strong: #3157f6;
+  --orbit-blue-soft: #14234f;
+  --orbit-cyan: #22d3ee;
+  --orbit-cyan-deep: #22d3ee;
+  --orbit-nexus: #6d5ef7;
+  --orbit-nexus-soft: #241f4d;
+  --orbit-focus: #7aa2ff;
   --orbit-shadow-canvas: 0 14px 36px rgba(0, 0, 0, 0.26);
   --orbit-shadow-overlay: 0 22px 56px rgba(0, 0, 0, 0.4);
 }
@@ -217,7 +226,7 @@
 
 .orbit-app-shell [class*="shadow-xl"],
 .orbit-app-shell [class*="shadow-2xl"] {
-  --tw-shadow-color: rgba(15, 23, 42, 0.14);
+  --tw-shadow-color: rgba(11, 18, 32, 0.14);
 }
 
 .orbit-app-shell main {

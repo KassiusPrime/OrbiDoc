@@ -1,4 +1,6 @@
-import { nexusAI, type NexusBody } from '../_lib/nexusAI.js';
+import { nexusOrchestrator } from '../_lib/nexusOrchestrator.js';
+import type { NexusBody } from '../_lib/nexusAI.js';
+import type { NexusClientMeta } from '../_lib/nexusAI.js';
 import { applyNativeCors } from '../_lib/nativeCors.js';
 
 function parseBody(body: unknown): NexusBody {
@@ -32,10 +34,10 @@ export default async function handler(req: any, res: any) {
 
   const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
   try {
-    await nexusAI.stream(
+    await nexusOrchestrator.stream(
       parseBody(req.body),
       (chunk) => write({ chunk }),
-      (meta) => write({ meta }),
+      (meta: NexusClientMeta) => write({ meta }),
     );
   } catch (error) {
     write({ error: compactError(error) });
