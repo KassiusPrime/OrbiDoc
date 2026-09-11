@@ -7,6 +7,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const exists = (file) => fs.existsSync(path.join(root, file));
 
 const runtime = read('api/_lib/nexusAI.ts');
+const orchestrator = read('api/_lib/nexusOrchestrator.ts');
 const web = read('api/_lib/zeroCostWebSearch.ts');
 const client = read('src/api/chat.ts');
 const workspace = read('src/components/AiWorkspace.tsx');
@@ -52,6 +53,25 @@ for (const forbidden of ['GEMINI_API_KEY', 'GROQ_API_KEY', 'ai-gateway.vercel.sh
   if (runtime.includes(forbidden)) failures.push(`Runtime Nexus AI contém integração proibida: ${forbidden}.`);
 }
 
+const requiredOrchestrationTokens = [
+  'NexusCollaborationMode',
+  'SPECIALISTS',
+  'Promise.allSettled',
+  'synthesisPrompt',
+  'agentsUsed',
+  'nexusAI.complete',
+  'nexusAI.stream',
+];
+for (const token of requiredOrchestrationTokens) {
+  if (!orchestrator.includes(token)) failures.push(`Orquestrador Nexus não contém ${token}.`);
+}
+if (!/SPECIALISTS\.map/.test(orchestrator)) failures.push('Especialistas do Nexus não são executados em paralelo.');
+if (!orchestrator.includes('result.status !== \'fulfilled\'')) failures.push('Orquestração não trata falhas individuais de especialistas.');
+if (!orchestrator.includes('if (reports.length === 0)')) failures.push('Orquestração não possui fallback quando todos os especialistas falham.');
+if (!server.includes('nexusOrchestrator.complete') || !server.includes('nexusOrchestrator.stream')) failures.push('Servidor local não usa o orquestrador Nexus unificado.');
+if (server.includes('await nexusAI.complete((req.body || {}) as NexusBody)')) failures.push('Servidor ainda possui rota de chat que ignora o orquestrador.');
+if (server.includes('await nexusAI.stream(\n        (req.body || {}) as NexusBody')) failures.push('Streaming local ainda ignora o orquestrador.');
+
 if (!web.includes('tavily-free')) failures.push('Pesquisa zero-cost não identifica o motor gratuito.');
 if (!web.includes('não fará fallback para uma busca paga')) failures.push('Pesquisa zero-cost não documenta fail-closed.');
 for (const paidWebToken of ['openrouter:web_search', 'openrouter:web_fetch', "id: 'web'"]) {
@@ -62,7 +82,6 @@ if (!client.includes('provider/model are deliberately ignored')) failures.push('
 if (!workspace.includes('Nexus AI')) failures.push('UI não apresenta Nexus AI.');
 if (/<select|<optgroup/.test(workspace)) failures.push('UI Nexus AI ainda contém seletor de modelo/provedor.');
 if (!workspace.includes('Virtuoso')) failures.push('Lista de mensagens não está virtualizada.');
-if (!server.includes('nexusAI.complete') || !server.includes('nexusAI.stream')) failures.push('Servidor local não usa Nexus AI unificado.');
 if (/runChatV2|streamChatV2|hydrateGatewayRuntimeAuth/.test(server)) failures.push('Servidor ainda referencia runtime multi-provider antigo.');
 if (!nativeBridge.includes('installNativeAiApiBridge(): false')) failures.push('Android ainda pode interceptar a IA e divergir do backend Nexus.');
 
@@ -103,5 +122,6 @@ if (failures.length) {
 console.log(`Nexus AI: ${internalModels.length} rotas gratuitas detectadas; nenhuma rota paga permitida.`);
 console.log('Nexus AI: request routing exige max_price=0 e valida custo reportado pelo OpenRouter.');
 console.log('Nexus AI: Vercel AI SDK + OpenRouter são a única superfície de inferência remota do assistente.');
+console.log('Nexus AI: tarefas complexas usam especialistas paralelos + síntese; falhas individuais não derrubam a rodada.');
 console.log('Nexus AI: pesquisa Web opera em modo zero-spend e falha fechada quando a cota gratuita termina.');
 console.log('Orbit: Web/PWA/Android compartilham o mesmo backend de IA; seleção de modelos não é exposta ao usuário.');
