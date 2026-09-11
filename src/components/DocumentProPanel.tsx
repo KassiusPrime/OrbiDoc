@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { IconAccessible as Accessible, IconMessage as Message, IconNotes as Notes, IconSection as Section } from '@tabler/icons-react';
 
-type Props = { showNotification?: (message: string, type?: 'success' | 'error') => void };
+type Props = { showNotification?: (message: string, type?: 'success' | 'error') => void; defaultOpen?: boolean };
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const editor = () => document.querySelector<HTMLElement>('.orbidoc-rich-editor');
 const sync = (root: HTMLElement) => root.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
 
-export const DocumentProPanel: React.FC<Props> = ({ showNotification = () => {} }) => {
-  const [open, setOpen] = useState(false);
+export const DocumentProPanel: React.FC<Props> = ({ showNotification = () => {}, defaultOpen = false }) => {
+  const [open, setOpen] = useState(defaultOpen);
   const [header, setHeader] = useState('');
   const [footer, setFooter] = useState('');
   const [auditNonce, setAuditNonce] = useState(0);
@@ -59,9 +59,9 @@ export const DocumentProPanel: React.FC<Props> = ({ showNotification = () => {} 
     sync(root); setAuditNonce((value) => value + 1); showNotification('Sumário estrutural atualizado.', 'success');
   };
 
-  return <section className="mb-3 rounded-2xl border border-sky-200/70 dark:border-sky-900 bg-sky-50/40 dark:bg-sky-950/10 overflow-hidden">
+  return <section className="rounded-2xl border border-sky-200/70 dark:border-sky-900 bg-sky-50/40 dark:bg-sky-950/10 overflow-hidden">
     <button onClick={() => { setOpen((value) => !value); setAuditNonce((value) => value + 1); }} className="w-full min-h-11 px-3 sm:px-4 flex items-center gap-2 text-left"><Section className="w-4 h-4 text-sky-600" /><span className="text-xs font-black">Documento Pro</span><span className="text-[9px] text-slate-500 dark:text-slate-400">Estrutura · comentários · notas · acessibilidade</span><span className="ml-auto text-[10px] font-black text-sky-700 dark:text-sky-300">{open ? 'Recolher' : 'Abrir'}</span></button>
-    {open && <div className="p-3 sm:p-4 border-t border-sky-200/60 dark:border-sky-900 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+    {open && <div className="p-3 border-t border-sky-200/60 dark:border-sky-900 grid grid-cols-1 gap-3">
       <div className="rounded-xl border bg-white dark:bg-slate-900 p-3"><div className="text-[10px] font-black">Cabeçalho & rodapé</div><input value={header} onChange={(event) => setHeader(event.target.value)} placeholder="Cabeçalho" className="mt-2 w-full h-9 rounded-lg border bg-slate-50 dark:bg-slate-950 px-2 text-[9px]" /><input value={footer} onChange={(event) => setFooter(event.target.value)} placeholder="Rodapé" className="mt-2 w-full h-9 rounded-lg border bg-slate-50 dark:bg-slate-950 px-2 text-[9px]" /><button onMouseDown={(event) => event.preventDefault()} onClick={applyHeaderFooter} className="mt-2 w-full h-9 rounded-lg bg-sky-600 text-white text-[9px] font-black">Aplicar ao documento</button></div>
       <div className="rounded-xl border bg-white dark:bg-slate-900 p-3"><div className="flex items-center gap-1.5 text-[10px] font-black"><Message className="w-4 h-4 text-amber-600" /> Revisão</div><p className="mt-2 text-[9px] text-slate-500">Selecione um trecho no editor e adicione um comentário persistente. O texto fica destacado e o comentário aparece como tooltip.</p><button onMouseDown={(event) => event.preventDefault()} onClick={addComment} className="mt-2 w-full h-9 rounded-lg bg-amber-500 text-white text-[9px] font-black">Comentar seleção</button><button onMouseDown={(event) => event.preventDefault()} onClick={addFootnote} className="mt-2 w-full h-9 rounded-lg border text-[9px] font-black inline-flex items-center justify-center gap-1"><Notes className="w-3.5 h-3.5" /> Inserir nota de rodapé</button></div>
       <div className="rounded-xl border bg-white dark:bg-slate-900 p-3"><div className="text-[10px] font-black">Sumário estrutural</div><p className="mt-2 text-[9px] text-slate-500">Lê Títulos 1–3 e cria uma lista hierárquica no início, sem alterar o restante do documento.</p><button onMouseDown={(event) => event.preventDefault()} onClick={createSummary} className="mt-3 w-full h-9 rounded-lg bg-violet-600 text-white text-[9px] font-black">Gerar / atualizar sumário</button></div>
