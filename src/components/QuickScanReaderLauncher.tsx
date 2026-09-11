@@ -71,7 +71,7 @@ export const QuickScanReaderLauncher: React.FC = () => {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed z-[72] right-4 bottom-[84px] lg:bottom-5 h-12 lg:h-11 px-3 lg:px-4 rounded-2xl bg-[#3157F6] hover:bg-[#2446D8] text-white shadow-xl shadow-[#3157F6]/25 inline-flex items-center gap-2 text-[10px] font-black active:scale-95 transition-transform"
+        className="fixed z-[72] right-4 bottom-[var(--orbi-mobile-tools-bottom)] lg:bottom-5 h-12 lg:h-11 px-3 lg:px-4 rounded-2xl bg-[#3157F6] hover:bg-[#2446D8] text-white shadow-xl shadow-[#3157F6]/25 inline-flex items-center gap-2 text-[10px] font-black active:scale-95 transition-transform"
         aria-label="Abrir Scan e Reader"
         title="Scan & Reader · Ctrl+Shift+O"
       >
