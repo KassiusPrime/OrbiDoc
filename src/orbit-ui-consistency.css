@@ -1,0 +1,59 @@
+/* Final compatibility layer: Orbit tokens are the single source of truth.
+   Legacy OrbiDoc selectors remain supported, but no longer maintain a second
+   palette/radius system that can drift from the main Orbit shell. */
+.orbidoc-app-root {
+  --orbi-cloud: var(--orbit-bg);
+  --orbi-surface: var(--orbit-surface);
+  --orbi-surface-muted: color-mix(in srgb, var(--orbit-surface) 72%, var(--orbit-bg));
+  --orbi-line: var(--orbit-border);
+  --orbi-ink: var(--orbit-text);
+  --orbi-muted: var(--orbit-muted);
+  --orbi-blue: var(--orbit-blue);
+  --orbi-blue-deep: var(--orbit-blue-strong);
+  --orbi-blue-soft: var(--orbit-blue-soft);
+  --orbi-violet: var(--orbit-nexus);
+  --orbi-panel-radius: var(--orbit-radius-xl);
+  --orbi-control-radius: var(--orbit-radius-md);
+}
+
+/* Keep all app-level overlays inside the same z-index vocabulary. */
+.orbidoc-app-root .fixed.z-\[50\] { z-index: var(--orbit-z-dropdown); }
+.orbidoc-app-root .fixed.z-\[70\],
+.orbidoc-app-root .fixed.z-\[71\],
+.orbidoc-app-root .fixed.z-\[72\] { z-index: var(--orbit-z-sheet); }
+.orbidoc-app-root .fixed.z-\[90\] { z-index: var(--orbit-z-toast); }
+
+/* Keyboard/focus states must remain visible even on dense editor controls. */
+.orbidoc-app-root button:focus-visible,
+.orbidoc-app-root a:focus-visible,
+.orbidoc-app-root input:focus-visible,
+.orbidoc-app-root textarea:focus-visible,
+.orbidoc-app-root select:focus-visible {
+  outline: 2px solid var(--orbit-focus);
+  outline-offset: 2px;
+}
+
+/* Do not let dense desktop cards become edge-to-edge on narrow phones. */
+@media (max-width: 639px) {
+  .orbidoc-app-root main section.rounded-3xl,
+  .orbidoc-app-root main article.rounded-3xl,
+  .orbidoc-app-root main div.rounded-3xl.border {
+    border-radius: var(--orbit-radius-lg) !important;
+  }
+
+  .orbidoc-app-root main {
+    scroll-padding-bottom: calc(var(--orbi-mobile-nav-height) + 12px);
+  }
+}
+
+/* Respect reduced-motion preferences without disabling essential interaction. */
+@media (prefers-reduced-motion: reduce) {
+  .orbidoc-app-root *,
+  .orbidoc-app-root *::before,
+  .orbidoc-app-root *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
