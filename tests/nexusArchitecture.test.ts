@@ -3,16 +3,21 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 const runtime = fs.readFileSync(new URL('../api/_lib/nexusAI.ts', import.meta.url), 'utf8');
+const orchestrator = fs.readFileSync(new URL('../api/_lib/nexusOrchestrator.ts', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
 const client = fs.readFileSync(new URL('../src/api/chat.ts', import.meta.url), 'utf8');
 const workspace = fs.readFileSync(new URL('../src/components/AiWorkspace.tsx', import.meta.url), 'utf8');
 const internet = fs.readFileSync(new URL('../src/lib/aiInternet.ts', import.meta.url), 'utf8');
 const native = fs.readFileSync(new URL('../src/lib/nativeAndroidBridge.ts', import.meta.url), 'utf8');
 
-test('Nexus AI is the single server runtime and does not expose internal model selection', () => {
-  assert.match(server, /nexusAI\.complete/);
-  assert.match(server, /nexusAI\.stream/);
+test('Nexus AI is the single server runtime and complex requests pass through orchestration', () => {
+  assert.match(server, /nexusOrchestrator\.complete/);
+  assert.match(server, /nexusOrchestrator\.stream/);
+  assert.doesNotMatch(server, /nexusAI\.complete\(\(req\.body|nexusAI\.stream\(\s*\(req\.body/);
   assert.doesNotMatch(server, /runChatV2|streamChatV2|hydrateGatewayRuntimeAuth/);
+  assert.match(orchestrator, /SPECIALISTS/);
+  assert.match(orchestrator, /Promise\.allSettled/);
+  assert.match(orchestrator, /synthesisPrompt/);
   assert.match(client, /provider\/model are deliberately ignored/i);
   assert.doesNotMatch(workspace, /<select|<optgroup/);
   assert.match(workspace, /Nexus AI/);
