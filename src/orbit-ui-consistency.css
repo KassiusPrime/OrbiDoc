@@ -16,6 +16,17 @@
   --orbi-control-radius: var(--orbit-radius-md);
 }
 
+/* Legacy hard-coded dark surfaces now resolve to the same Orbit surface tokens. */
+.orbidoc-app-root [class*="dark:bg-[#101827]"],
+.orbidoc-app-root [class*="dark:bg-slate-900"] {
+  background-color: var(--orbit-surface) !important;
+}
+
+.orbidoc-app-root [class*="dark:bg-[#080D18]"],
+.orbidoc-app-root [class*="dark:bg-slate-950"] {
+  background-color: var(--orbit-bg) !important;
+}
+
 /* Keep all app-level overlays inside the same z-index vocabulary. */
 .orbidoc-app-root .fixed.z-\[50\] { z-index: var(--orbit-z-dropdown); }
 .orbidoc-app-root .fixed.z-\[70\],
