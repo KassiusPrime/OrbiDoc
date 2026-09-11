@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, test } from 'vitest';
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtime = fs.readFileSync(path.join(root, 'api/_lib/nexusOrchestrator.ts'), 'utf8');
@@ -12,25 +13,23 @@ function countSpecialists(source: string): number {
   return (source.match(/role:\s*'/g) || []).length;
 }
 
-describe('Nexus AI collaboration', () => {
-  test('keeps one public assistant while using multiple internal specialists', () => {
-    expect(runtime).toContain('nexusAI');
-    expect(runtime).toContain('SPECIALISTS');
-    expect(countSpecialists(runtime)).toBeGreaterThanOrEqual(3);
-    expect(runtime).toContain('Promise.all');
-    expect(runtime).toContain('synthesisPrompt');
-  });
+test('Nexus keeps one public assistant while using multiple internal specialists', () => {
+  assert.match(runtime, /nexusAI/);
+  assert.match(runtime, /SPECIALISTS/);
+  assert.ok(countSpecialists(runtime) >= 3);
+  assert.match(runtime, /Promise\.all/);
+  assert.match(runtime, /synthesisPrompt/);
+});
 
-  test('routes both normal and streaming chat through the orchestrator', () => {
-    expect(chat).toContain('nexusOrchestrator.complete');
-    expect(chat).not.toContain('nexusAI.complete');
-    expect(stream).toContain('nexusOrchestrator.stream');
-    expect(stream).not.toContain('nexusAI.stream');
-  });
+test('normal and streaming chat route through the orchestrator', () => {
+  assert.match(chat, /nexusOrchestrator\.complete/);
+  assert.doesNotMatch(chat, /nexusAI\.complete/);
+  assert.match(stream, /nexusOrchestrator\.stream/);
+  assert.doesNotMatch(stream, /nexusAI\.stream/);
+});
 
-  test('does not expose internal model selection to the collaboration API', () => {
-    expect(runtime).not.toMatch(/modelId\s*:/);
-    expect(runtime).not.toMatch(/preferredModel/);
-    expect(runtime).toContain("NexusCollaborationMode = 'auto' | 'single' | 'team'");
-  });
+test('internal model selection is not exposed by the collaboration layer', () => {
+  assert.doesNotMatch(runtime, /modelId\s*:/);
+  assert.doesNotMatch(runtime, /preferredModel/);
+  assert.match(runtime, /NexusCollaborationMode = 'auto' \| 'single' \| 'team'/);
 });
