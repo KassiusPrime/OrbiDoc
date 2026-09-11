@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { NEXUS_FREE_MODELS, nexusAI, type NexusBody } from './api/_lib/nexusAI.js';
+import { nexusOrchestrator } from './api/_lib/nexusOrchestrator.js';
 import { editImageResilient, enhanceImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
@@ -206,7 +207,7 @@ async function startServer(): Promise<void> {
 
     const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
     try {
-      await nexusAI.stream(
+      await nexusOrchestrator.stream(
         (req.body || {}) as NexusBody,
         (chunk) => write({ chunk }),
         (meta) => write({ meta }),
@@ -221,7 +222,7 @@ async function startServer(): Promise<void> {
 
   const chatHandler = async (req: express.Request, res: express.Response) => {
     try {
-      const result = await nexusAI.complete((req.body || {}) as NexusBody);
+      const result = await nexusOrchestrator.complete((req.body || {}) as NexusBody);
       res.setHeader('Cache-Control', 'no-store');
       res.setHeader('X-Orbit-Request-Id', result.requestId);
       res.json(result);
