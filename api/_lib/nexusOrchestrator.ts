@@ -61,7 +61,26 @@ function synthesisPrompt(reports: string[]): string {
 }
 
 function withSystem(body: NexusBody, systemPrompt: string): NexusBody {
-  return { ...body, systemPrompt, collaboration: 'single' } as NexusBody & { collaboration: 'single' };
+  const original = typeof body.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
+  const combined = original ? `${original}\n\n${systemPrompt}` : systemPrompt;
+  return { ...body, systemPrompt: combined, collaboration: 'single' } as NexusBody & { collaboration: 'single' };
+}
+
+async function specialistReports(body: NexusBody, messages: NexusMessage[], signal?: AbortSignal): Promise<string[]> {
+  const settled = await Promise.allSettled(
+    SPECIALISTS.map(async ({ role, hint }) => {
+      const result = await nexusAI.complete(
+        withSystem({ ...body, messages, taskHint: hint }, specialistPrompt(role)),
+        signal,
+      );
+      return result.answer.trim();
+    }),
+  );
+
+  return settled.flatMap((result) => {
+    if (result.status !== 'fulfilled' || !result.value) return [];
+    return [result.value];
+  });
 }
 
 export class NexusOrchestrator {
@@ -72,12 +91,11 @@ export class NexusOrchestrator {
       return { ...result, orchestrated: false, agentsUsed: 1 };
     }
 
-    const reports = await Promise.all(
-      SPECIALISTS.map(async ({ role, hint }) => {
-        const result = await nexusAI.complete(withSystem({ ...body, taskHint: hint }, specialistPrompt(role)), signal);
-        return result.answer;
-      }),
-    );
+    const reports = await specialistReports(body, messages, signal);
+    if (reports.length === 0) {
+      const result = await nexusAI.complete(body, signal);
+      return { ...result, orchestrated: false, agentsUsed: 1 };
+    }
 
     const finalBody = withSystem(
       {
@@ -88,7 +106,7 @@ export class NexusOrchestrator {
       synthesisPrompt(reports),
     );
     const result = await nexusAI.complete(finalBody, signal);
-    return { ...result, orchestrated: true, agentsUsed: MAX_TEAM_AGENTS + 1 };
+    return { ...result, orchestrated: true, agentsUsed: reports.length + 1 };
   }
 
   async stream(
@@ -103,12 +121,11 @@ export class NexusOrchestrator {
       return;
     }
 
-    const reports = await Promise.all(
-      SPECIALISTS.map(async ({ role, hint }) => {
-        const result = await nexusAI.complete(withSystem({ ...body, taskHint: hint }, specialistPrompt(role)), signal);
-        return result.answer;
-      }),
-    );
+    const reports = await specialistReports(body, messages, signal);
+    if (reports.length === 0) {
+      await nexusAI.stream(body, onChunk, onMeta, signal);
+      return;
+    }
 
     const finalBody = withSystem(
       {
