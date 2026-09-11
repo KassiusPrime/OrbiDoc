@@ -387,11 +387,37 @@ redimensionamento em todos os apps do workspace.
 - Modo foco (`Alt + Z`) esconde sidebar, header e bottom navigation.
 - A sidebar é redimensionável (190–420px) e colapsa para um rail de ícones.
 
+
+### Editor de documentos — hierarquia Google Docs (v2)
+
+Estrutura de cima para baixo, sem barras empilhadas:
+
+1. **Context bar** — ícone, título editável, "Salvo …", Modelos, Importar, **Avançado**, Imprimir e Exportar.
+2. **Toolbar** — bloco, fonte, tamanho, undo/redo, negrito/itálico/sublinhado/tachado, cores,
+   alinhamento, listas, recuo, link/tabela/imagem/linha, limpar formatação e o grupo violeta de IA
+   (Melhorar · Resumir · Expandir). Rola na horizontal em telas estreitas.
+3. **Página** — folha branca central com sombra suave em fundo neutro, A4/Carta, margens e zoom.
+4. **Status bar** — palavras · páginas · caracteres, busca e configuração de página.
+
+Ferramentas avançadas ficam em um **drawer lateral** (redimensionável e persistente no desktop,
+tela cheia até `max-w-md` no mobile) com quatro abas:
+
+| Aba | Conteúdo |
+| --- | --- |
+| Estrutura | `DocumentOutlinePane` — títulos navegáveis com filtro |
+| Localizar | `DocumentFindReplaceBar` completo (Ctrl+H / Ctrl+F, Enter na busca da status bar) |
+| Documento Pro | `DocumentProPanel` — cabeçalho/rodapé, comentários, notas, sumário e auditoria |
+| Projeto | Versão restaurável, backup portátil, atalhos e modo foco (`Alt + Z`) |
+
+Nada disso é montado acima da página: `DocumentEditor.tsx` é um shell mínimo que renderiza o
+`DocumentEditorStudio` e o drawer. As ações de projeto (versão, backup, atalhos, foco) saíram para
+`src/components/orbit/OrbitProjectTools.tsx`, compartilhado com os demais editores.
+
 ### Painéis por app
 
 | App | Painéis redimensionáveis |
 | --- | --- |
-| Documentos | Estrutura (títulos navegáveis) + doca de ferramentas |
+| Documentos | Drawer avançado (estrutura, busca, pro, projeto) |
 | Planilhas | Colunas, linhas e painel de resumo do intervalo |
 | Apresentações | Lista de slides + inspetor |
 | Design | Biblioteca + inspetor |

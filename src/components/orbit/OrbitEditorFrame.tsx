@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   IconArrowsMaximize as Maximize,
   IconArrowsMinimize as Minimize,
@@ -9,42 +9,11 @@ import {
   IconLayoutSidebarRightExpand as DockOpen,
   IconX as X,
 } from '@tabler/icons-react';
-import { saveAs } from 'file-saver';
-import { snapshotAllProjects } from '../../lib/projectVersions';
 import type { SavedProject } from '../../types';
 import { OrbitResizablePane, useMediaQuery } from './OrbitResizable';
+import { OrbitShortcutsDialog, useOrbitFocusMode, useProjectTools, type OrbitEditorKind } from './OrbitProjectTools';
 
-export type OrbitEditorKind = 'word' | 'excel' | 'powerpoint' | 'canva';
-
-const SHORTCUTS: Record<OrbitEditorKind, Array<[string, string]>> = {
-  word: [
-    ['Ctrl/Cmd + B', 'Negrito'],
-    ['Ctrl/Cmd + I', 'Itálico'],
-    ['Ctrl/Cmd + Z', 'Desfazer'],
-    ['Ctrl/Cmd + H', 'Localizar e substituir'],
-    ['Alt + Z', 'Modo foco (tela cheia)'],
-  ],
-  excel: [
-    ['Setas', 'Navegar entre células'],
-    ['Enter / Tab', 'Avançar linha / coluna'],
-    ['Shift + clique', 'Selecionar intervalo'],
-    ['Arrastar borda do cabeçalho', 'Redimensionar coluna ou linha'],
-    ['Alt + Z', 'Modo foco (tela cheia)'],
-  ],
-  powerpoint: [
-    ['Arrastar', 'Mover elemento'],
-    ['Arrastar alça', 'Redimensionar elemento'],
-    ['Shift ao redimensionar', 'Preservar proporção'],
-    ['Alt + Z', 'Modo foco (tela cheia)'],
-  ],
-  canva: [
-    ['Ctrl/Cmd + Z', 'Desfazer'],
-    ['Ctrl/Cmd + D', 'Duplicar elemento'],
-    ['Setas / Shift + setas', 'Mover 1px / 10px'],
-    ['Delete', 'Excluir elemento'],
-    ['Alt + Z', 'Modo foco (tela cheia)'],
-  ],
-};
+export type { OrbitEditorKind } from './OrbitProjectTools';
 
 const DOCK_LABEL: Record<OrbitEditorKind, string> = {
   word: 'Ferramentas do documento',
@@ -53,27 +22,7 @@ const DOCK_LABEL: Record<OrbitEditorKind, string> = {
   canva: 'Ferramentas do design',
 };
 
-/** Modo foco global: esconde sidebar, header e bottom nav do shell. */
-export const useOrbitFocusMode = () => {
-  const [focus, setFocus] = useState(false);
-
-  useEffect(() => {
-    if (focus) document.documentElement.dataset.orbitFocus = 'true';
-    else delete document.documentElement.dataset.orbitFocus;
-    return () => { delete document.documentElement.dataset.orbitFocus; };
-  }, [focus]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.altKey && event.key.toLowerCase() === 'z') { event.preventDefault(); setFocus((value) => !value); }
-      if (event.key === 'Escape') setFocus(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  return [focus, setFocus] as const;
-};
+export { useOrbitFocusMode };
 
 export interface OrbitEditorFrameProps {
   kind: OrbitEditorKind;
@@ -87,13 +36,18 @@ export interface OrbitEditorFrameProps {
 }
 
 /**
- * Moldura única para os apps do workspace.
+ * Moldura única para os apps do workspace que ainda mantêm uma barra de ações
+ * acima do conteúdo (planilha, apresentação e design).
  *
  * Antes cada editor empilhava três a quatro banners de largura total acima do
  * conteúdo (Studio Pro + painéis Pro + localizar/substituir), consumindo até
  * 280px verticais dentro de uma área que já rolava. Aqui tudo isso vira uma
  * barra de 40px + uma doca lateral redimensionável, no mesmo espírito de
  * Google Docs/Sheets e do painel de tarefas do Office.
+ *
+ * O editor de documentos não usa mais esta moldura: ele segue a hierarquia do
+ * Google Docs (context bar + toolbar + página + status bar) e leva as
+ * ferramentas avançadas para um drawer, conforme as instruções v2.
  */
 export const OrbitEditorFrame: React.FC<OrbitEditorFrameProps> = ({
   kind,
@@ -107,25 +61,7 @@ export const OrbitEditorFrame: React.FC<OrbitEditorFrameProps> = ({
   const [dockOpen, setDockOpen] = useState(false);
   const [focus, setFocus] = useOrbitFocusMode();
   const compact = useMediaQuery('(max-width: 1023px)');
-
-  const backup = useCallback(() => {
-    try {
-      const payload = JSON.stringify({ format: 'orbidoc-project', version: 1, exportedAt: new Date().toISOString(), project }, null, 2);
-      const safe = (project.title || 'projeto').replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').trim() || 'projeto';
-      saveAs(new Blob([payload], { type: 'application/json;charset=utf-8' }), `${safe}.orbidoc-project.json`);
-      showNotification('Backup do projeto exportado.', 'success');
-    } catch (error: unknown) {
-      showNotification(error instanceof Error ? error.message : 'Falha ao exportar backup.', 'error');
-    }
-  }, [project, showNotification]);
-
-  const snapshot = useCallback(() => {
-    const count = snapshotAllProjects(true);
-    showNotification(
-      count ? 'Versão local criada. Restaure em Histórico de versões.' : 'Não foi possível criar a versão.',
-      count ? 'success' : 'error',
-    );
-  }, [showNotification]);
+  const { backup, snapshot } = useProjectTools(project, showNotification);
 
   return (
     <div className="orbit-editor-surface">
@@ -197,29 +133,7 @@ export const OrbitEditorFrame: React.FC<OrbitEditorFrameProps> = ({
         ) : null}
       </div>
 
-      {shortcutsOpen ? (
-        <div
-          className="fixed inset-0 z-[145] bg-slate-950/45 backdrop-blur-sm flex items-center justify-center p-4"
-          onMouseDown={(event) => { if (event.target === event.currentTarget) setShortcutsOpen(false); }}
-        >
-          <section role="dialog" aria-modal="true" aria-label="Atalhos do editor" className="w-full max-w-md rounded-[20px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] shadow-2xl overflow-hidden">
-            <header className="h-12 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center">
-              <div className="flex-1 text-sm font-black">Atalhos do editor</div>
-              <button type="button" onClick={() => setShortcutsOpen(false)} className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Fechar">
-                <X className="w-4 h-4 mx-auto" />
-              </button>
-            </header>
-            <div className="p-4 space-y-2">
-              {SHORTCUTS[kind].map(([shortcut, action]) => (
-                <div key={shortcut} className="flex items-center gap-3">
-                  <kbd className="min-w-36 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[9px] font-black text-center">{shortcut}</kbd>
-                  <span className="text-xs text-slate-600 dark:text-slate-300">{action}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-      ) : null}
+      <OrbitShortcutsDialog kind={kind} open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 };

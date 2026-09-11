@@ -1,5 +1,7 @@
 # Dependências
 node_modules/
+# O lockfile canônico é o bun.lock (CI usa `bun install`).
+package-lock.json
 
 # Builds e Saídas
 dist/
