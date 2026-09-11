@@ -659,7 +659,7 @@ export default function AppV5() {
         </header>
 
         <main className={`flex-1 min-h-0 overflow-y-auto ${view === 'chat' || view === 'ai' || view === 'compare' ? 'p-2 sm:p-3' : 'p-3 sm:p-5 lg:p-6'} pb-24 lg:pb-6`}>
-          <div className={view === 'chat' || view === 'ai' || view === 'compare' ? '' : 'max-w-[1520px] mx-auto'}>{renderContent()}</div>
+          <div className={view === 'chat' || view === 'ai' || view === 'compare' ? '' : `max-w-[1520px] mx-auto${view === 'word' ? ' h-full min-h-0' : ''}`}>{renderContent()}</div>
         </main>
 
         <BottomNavBar
