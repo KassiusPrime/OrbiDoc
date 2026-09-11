@@ -26,6 +26,7 @@ import { mountPwaInstallStateAgent } from './lib/pwaInstall';
 import './index.css';
 import './orbit-system.css';
 import './orbidoc-ui.css';
+import './orbit-ui-consistency.css';
 import './orbidoc-motion.css';
 import './orbidoc-native-ui.css';
 import './platform.css';
