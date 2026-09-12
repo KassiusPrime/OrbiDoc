@@ -334,3 +334,33 @@ export async function downloadGitHubRepository(repository: GitHubRepository, ref
   const response = await githubFetch(`/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}/zipball/${encodeURIComponent(ref)}`);
   return response.blob();
 }
+
+export interface GitHubBranch {
+  name: string;
+  sha: string;
+  protected?: boolean;
+}
+
+/** Lista as branches do repositório para o seletor da surface Repo. */
+export async function listGitHubBranches(repository: GitHubRepository): Promise<GitHubBranch[]> {
+  const response = await githubFetch(`/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}/branches?per_page=100`);
+  const data = await response.json();
+  return (Array.isArray(data) ? data : [])
+    .map((item: any) => ({ name: String(item?.name || ''), sha: String(item?.commit?.sha || ''), protected: Boolean(item?.protected) }))
+    .filter((branch: GitHubBranch) => Boolean(branch.name));
+}
+
+/** Metadados leves do repositório (usados na context bar da surface Repo). */
+export async function readGitHubRepository(repository: GitHubRepository): Promise<GitHubRepository & { description?: string; stars?: number; language?: string }> {
+  const response = await githubFetch(`/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`);
+  const data = await response.json();
+  return {
+    ...repository,
+    defaultBranch: String(data.default_branch || repository.defaultBranch),
+    htmlUrl: String(data.html_url || repository.htmlUrl),
+    private: Boolean(data.private),
+    description: typeof data.description === 'string' ? data.description : undefined,
+    stars: Number(data.stargazers_count) || 0,
+    language: typeof data.language === 'string' ? data.language : undefined,
+  };
+}

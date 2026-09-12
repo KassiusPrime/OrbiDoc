@@ -27,8 +27,7 @@
 .orbidoc-files-studio > section { box-shadow: var(--orbi-shadow-sm); }
 .orbidoc-ai-studio button,
 .orbidoc-media-studio button,
-.orbidoc-files-studio button,
-.orbidoc-studio-powerbar button { touch-action: manipulation; }
+.orbidoc-files-studio button { touch-action: manipulation; }
 .orbidoc-ai-studio input,
 .orbidoc-ai-studio textarea,
 .orbidoc-ai-studio select,
@@ -36,7 +35,6 @@
 .orbidoc-media-studio select,
 .orbidoc-files-studio input,
 .orbidoc-files-studio select { accent-color: #3157F6; }
-.orbidoc-studio-powerbar { border: 1px solid var(--orbi-border); box-shadow: var(--orbi-shadow-sm); }
 
 html:not(.orbidoc-platform-mobile) .orbidoc-image-resize-trigger {
   right: calc(max(16px, var(--orbidoc-safe-right)) + var(--orbidoc-scrollbar-width) + 304px) !important;
@@ -66,11 +64,9 @@ html[data-orbidoc-keyboard='open'] .orbidoc-image-resize-trigger {
   .orbidoc-ai-studio .orbidoc-product-tabs > button,
   .orbidoc-media-shell .orbidoc-product-tabs > button,
   .orbidoc-files-shell .orbidoc-product-tabs > button { flex: 1 0 auto; }
-  .orbidoc-studio-powerbar { border-radius: 14px; }
 }
 @media (hover: hover) {
   .orbidoc-ai-studio button:hover,
   .orbidoc-media-studio button:hover,
-  .orbidoc-files-studio button:hover,
-  .orbidoc-studio-powerbar button:hover { transition-duration: 120ms; }
+  .orbidoc-files-studio button:hover { transition-duration: 120ms; }
 }

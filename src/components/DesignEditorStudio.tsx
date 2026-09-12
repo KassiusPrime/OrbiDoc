@@ -34,6 +34,7 @@ import {
   shapeClipPath,
   snapStudioElement,
 } from '../lib/officeStudio';
+import { OrbitResizablePane, useMediaQuery } from './orbit/OrbitResizable';
 
 interface DesignEditorStudioProps {
   project: SavedProject;
@@ -187,6 +188,7 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
     return migrateDesign(project);
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const compactViewport = useMediaQuery('(max-width: 1023px)');
   const [interaction, setInteraction] = useState<Interaction | null>(null);
   const [guides, setGuides] = useState<AlignmentGuides>({ vertical: [], horizontal: [] });
   const [zoom, setZoom] = useState(60);
@@ -504,7 +506,7 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
   const scale = zoom / 100;
 
   return (
-    <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden min-h-[calc(100dvh-8rem)] flex flex-col">
+    <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
       <div className="min-h-12 px-3 sm:px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 flex-wrap">
         <input value={design.title} onChange={(event) => setDesign((current) => ({ ...current, title: event.target.value }))} className="min-w-[180px] flex-1 bg-transparent text-sm font-black outline-none" aria-label="Nome do design" />
         <span className="hidden md:inline text-[10px] text-slate-400">{lastSaved ? `Salvo ${lastSaved}` : 'Salvando…'}</span>
@@ -514,16 +516,17 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
         <div className="relative group"><button disabled={exportBusy} className="h-8 px-2.5 rounded-lg bg-[#3157F6] hover:bg-[#2446D8] text-white text-[10px] font-black inline-flex items-center gap-1 disabled:opacity-50"><Download className="w-3.5 h-3.5" />{exportBusy ? 'Exportando…' : 'Exportar'}</button><div className="hidden group-hover:block absolute right-0 top-8 z-40 w-40 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1">{(['png','jpg','webp','avif','pdf'] as ExportFormat[]).map((format) => <button key={format} onClick={() => void exportDesign(format)} className="w-full px-3 py-2 text-left text-[10px] font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">{format.toUpperCase()}</button>)}</div></div>
       </div>
 
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[230px_minmax(0,1fr)_300px]">
-        <aside className="border-r border-slate-200 dark:border-slate-800 p-3 space-y-4 overflow-y-auto lg:max-h-[calc(100dvh-9rem)]">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+        <OrbitResizablePane storageKey="design-tools" handle="end" defaultSize={234} min={168} max={400} label="biblioteca do design" disabled={compactViewport} className="border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 shrink-0">
+          <aside className="flex-1 min-h-0 max-h-48 lg:max-h-none p-3 space-y-4 overflow-y-auto">
           <section><div className="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-2">Adicionar</div><div className="grid grid-cols-2 gap-2"><ToolButton icon={Type} label="Texto" onClick={addText} /><ToolButton icon={Photo} label="Imagens" onClick={() => imageInputRef.current?.click()} /></div><input ref={imageInputRef} type="file" multiple accept="image/*" className="hidden" onChange={(event) => { if (event.target.files) void addImages(event.target.files); event.target.value = ''; }} /></section>
           <section><div className="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-2">Formas</div><div className="grid grid-cols-2 gap-1.5">{SHAPE_LIBRARY.map((shape) => <button key={shape.type} onClick={() => addShape(shape.type)} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-[#7AA2FF] hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-[10px] font-bold">{shape.label}</button>)}</div></section>
           <section><div className="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-2">Templates</div><div className="space-y-1.5"><TemplateButton label="Relatório empresarial" onClick={() => applyTemplate('business')} /><TemplateButton label="Trabalho escolar" onClick={() => applyTemplate('school')} /><TemplateButton label="Pôster de impacto" onClick={() => applyTemplate('poster')} /><TemplateButton label="Minimalista" onClick={() => applyTemplate('minimal')} /></div></section>
           {imageAssets.length > 0 && <section><div className="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-2">Imagens do projeto</div><div className="grid grid-cols-3 gap-1.5">{imageAssets.map((src, index) => <button key={`${src.slice(0, 32)}-${index}`} onClick={() => void addImageData(src)} className="aspect-square rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100"><img src={src} alt={`Imagem ${index + 1}`} className="w-full h-full object-cover" /></button>)}</div></section>}
           <section><div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-wide mb-2"><Layers className="w-3.5 h-3.5" /> Camadas</div><div className="space-y-1">{[...design.elements].reverse().map((element) => <button key={element.id} onClick={() => setSelectedId(element.id)} className={`w-full h-9 px-2 rounded-lg text-left text-[10px] font-bold flex items-center gap-2 ${selectedId === element.id ? 'bg-blue-50 dark:bg-blue-950/40 text-[#3157F6] dark:text-[#7AA2FF]' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}><span className="truncate flex-1">{element.type === 'text' ? element.content.split('\n')[0] || 'Texto' : element.type === 'image' ? 'Imagem' : SHAPE_LIBRARY.find((shape) => shape.type === element.shape)?.label || 'Forma'}</span>{element.locked && <Lock className="w-3 h-3" />}</button>)}</div></section>
-        </aside>
+        </aside></OrbitResizablePane>
 
-        <main className="min-h-[620px] bg-slate-200/70 dark:bg-slate-950 p-4 sm:p-8 overflow-auto flex items-center justify-center">
+        <main className="flex-1 min-w-0 min-h-0 bg-slate-200/70 dark:bg-slate-950 p-4 sm:p-6 overflow-auto flex items-center justify-center">
           <div style={{ width: design.width * scale, height: design.height * scale }} className="relative shrink-0">
             <div ref={stageRef} onPointerMove={moveInteraction} onPointerUp={stopInteraction} onPointerCancel={stopInteraction} onPointerDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }} className="absolute left-0 top-0 shadow-2xl overflow-hidden touch-none" style={{ width: design.width, height: design.height, transform: `scale(${scale})`, transformOrigin: 'top left', backgroundColor: design.background, backgroundImage: showGrid ? 'linear-gradient(to right, rgba(49,87,246,.10) 1px, transparent 1px), linear-gradient(to bottom, rgba(49,87,246,.10) 1px, transparent 1px)' : undefined, backgroundSize: showGrid ? '20px 20px' : undefined }}>
               {design.elements.map((element) => <StudioElementView key={element.id} element={element} selected={selectedId === element.id} onPointerDown={(event) => startDrag(event, element)} onResizePointerDown={(event) => startResize(event, element)} />)}
@@ -533,7 +536,8 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
           </div>
         </main>
 
-        <aside className="border-l border-slate-200 dark:border-slate-800 p-3 overflow-y-auto lg:max-h-[calc(100dvh-9rem)] space-y-4">
+        <OrbitResizablePane storageKey="design-inspector" handle="start" defaultSize={306} min={240} max={520} label="inspetor do design" disabled={compactViewport} className="border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-slate-800 shrink-0">
+          <aside className="flex-1 min-h-0 overflow-y-auto p-3 space-y-4">
           <section><div className="text-[10px] font-black text-slate-400 uppercase tracking-wide">Canvas</div><div className="mt-2 grid grid-cols-2 gap-2"><label className="text-[10px]">Tamanho<select value={`${design.width}x${design.height}`} onChange={(event) => { const preset = PRESETS.find((item) => `${item.width}x${item.height}` === event.target.value); if (preset) { checkpoint(); setDesign((current) => ({ ...current, width: preset.width, height: preset.height })); } }} className="mt-1 w-full h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2">{PRESETS.map((preset) => <option key={preset.id} value={`${preset.width}x${preset.height}`}>{preset.label}</option>)}</select></label><label className="text-[10px]">Zoom<select value={zoom} onChange={(event) => setZoom(Number(event.target.value))} className="mt-1 w-full h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2"><option value="25">25%</option><option value="40">40%</option><option value="60">60%</option><option value="80">80%</option><option value="100">100%</option></select></label></div><div className="mt-2 grid grid-cols-2 gap-2"><label className="text-[10px]">Fundo<input type="color" value={design.background} onChange={(event) => setDesign((current) => ({ ...current, background: event.target.value }))} className="mt-1 w-full h-9" /></label><div className="space-y-1"><button onClick={() => setShowGrid((value) => !value)} className={`w-full h-8 rounded-lg border text-[10px] font-bold inline-flex items-center justify-center gap-1 ${showGrid ? 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-950/30' : 'border-slate-200 dark:border-slate-700'}`}><GridDots className="w-3.5 h-3.5" /> Grade</button><button onClick={() => setSnapEnabled((value) => !value)} className={`w-full h-8 rounded-lg border text-[10px] font-bold ${snapEnabled ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/30' : 'border-slate-200 dark:border-slate-700'}`}>Snap {snapEnabled ? 'ativo' : 'desligado'}</button></div></div></section>
 
           {selected ? <>
@@ -545,7 +549,7 @@ export const DesignEditorStudio: React.FC<DesignEditorStudioProps> = ({
             <section><div className="text-[10px] font-black text-slate-400 uppercase mb-2">Posição e tamanho</div><div className="grid grid-cols-2 gap-2"><NumberField label="X" value={selected.x} onChange={(value) => updateElement(selected.id, { x: value })} /><NumberField label="Y" value={selected.y} onChange={(value) => updateElement(selected.id, { y: value })} /><NumberField label="Largura" value={selected.width} min={20} onChange={(value) => updateElement(selected.id, { width: Math.max(20, value) })} /><NumberField label="Altura" value={selected.height} min={20} onChange={(value) => updateElement(selected.id, { height: Math.max(20, value) })} /><NumberField label="Rotação" value={selected.rotation} onChange={(value) => updateElement(selected.id, { rotation: value })} /><label className="text-[10px]">Opacidade<input type="range" min="0.05" max="1" step="0.05" value={selected.opacity} onChange={(event) => updateElement(selected.id, { opacity: Number(event.target.value) })} className="mt-2 w-full" /></label></div></section>
             <button onClick={removeSelected} className="w-full h-9 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 text-[10px] font-black inline-flex items-center justify-center gap-2"><Trash className="w-4 h-4" /> Excluir elemento</button>
           </> : <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-5 text-center text-[11px] text-slate-400"><Plus className="w-5 h-5 mx-auto mb-2" />Adicione ou selecione um elemento. As guias magenta aparecem durante o alinhamento.</div>}
-        </aside>
+        </aside></OrbitResizablePane>
       </div>
     </div>
   );

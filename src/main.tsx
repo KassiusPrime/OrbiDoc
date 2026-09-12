@@ -5,7 +5,6 @@ import App from './AppV5';
 import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AdvancedFreeToolsLauncher } from './components/AdvancedFreeToolsLauncher';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
-import { GitHubProjectsWorkspace } from './components/GitHubProjectsWorkspace';
 import { ImageResizeLauncher } from './components/ImageResizeLauncher';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
@@ -24,6 +23,7 @@ import { applyOrbiDocNativeRuntimeProfile } from './lib/nativeRuntime';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import { mountPwaInstallStateAgent } from './lib/pwaInstall';
 import './index.css';
+import './orbit-tokens.css';
 import './orbit-system.css';
 import './orbidoc-ui.css';
 import './orbidoc-motion.css';
@@ -33,6 +33,7 @@ import './platform-surfaces.css';
 import './orbidoc-overlay-safety.css';
 import './orbidoc-layout-safety-v2.css';
 import './orbidoc-product-polish.css';
+import './orbit-workspace.css';
 import './scan-reader.css';
 
 migrateLegacyBrandStorage();
@@ -67,7 +68,6 @@ ReactDOM.createRoot(root).render(
       <NativeViewportAgent />
       <AccountSyncAgent />
       <SystemFileOpenAgent />
-      <GitHubProjectsWorkspace />
       <MediaToolsLauncher />
       <VersionHistoryLauncher />
       <QuickScanReaderLauncher />

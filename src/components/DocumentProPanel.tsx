@@ -1,13 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { IconAccessible as Accessible, IconMessage as Message, IconNotes as Notes, IconSection as Section } from '@tabler/icons-react';
 
-type Props = { showNotification?: (message: string, type?: 'success' | 'error') => void };
+type Props = {
+  showNotification?: (message: string, type?: 'success' | 'error') => void;
+  /** Abre já expandido — usado quando o painel vive dentro do drawer "Avançado". */
+  defaultOpen?: boolean;
+};
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const editor = () => document.querySelector<HTMLElement>('.orbidoc-rich-editor');
 const sync = (root: HTMLElement) => root.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
 
-export const DocumentProPanel: React.FC<Props> = ({ showNotification = () => {} }) => {
-  const [open, setOpen] = useState(false);
+export const DocumentProPanel: React.FC<Props> = ({ showNotification = () => {}, defaultOpen = false }) => {
+  const [open, setOpen] = useState(defaultOpen);
   const [header, setHeader] = useState('');
   const [footer, setFooter] = useState('');
   const [auditNonce, setAuditNonce] = useState(0);

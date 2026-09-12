@@ -9,8 +9,11 @@ import {
   IconFileText as FileText,
   IconFolder as Folder,
   IconHeadphones as Headphones,
+  IconBrandGithub as GithubIcon,
   IconHistory as History,
   IconHome as Home,
+  IconLayoutSidebarLeftCollapse as SidebarCollapse,
+  IconLayoutSidebarLeftExpand as SidebarExpand,
   IconMenu2 as Menu,
   IconMoon as Moon,
   IconPhoto as Photo,
@@ -39,7 +42,9 @@ import { OfficeSuiteHub } from './components/OfficeSuiteHub';
 import { OrbiDocLogo } from './components/OrbiDocLogo';
 import { PdfOcrWorkspace } from './components/PdfOcrWorkspace';
 import { PresentationEditor } from './components/PresentationEditor';
+import { RepoSurface } from './components/RepoSurface';
 import { SpreadsheetEditor } from './components/SpreadsheetEditor';
+import { OrbitResizablePane, useMediaQuery } from './components/orbit/OrbitResizable';
 import { convertFile } from './lib/fileConversion';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
@@ -53,7 +58,7 @@ import type {
   TabType,
 } from './types';
 
-type AppView = TabType | 'cloud';
+type AppView = TabType | 'cloud' | 'repos';
 type Notice = { message: string; type: 'success' | 'error' } | null;
 type ThemeMode = 'light' | 'dark';
 type NavItem = { id: AppView; label: string; icon: React.ComponentType<{ className?: string }> };
@@ -70,7 +75,10 @@ type DeferredInstallPrompt = Event & {
 const PROJECTS_KEY = 'orbidoc_projects_v1';
 const HISTORY_KEY = 'orbidoc_history_v2';
 const THEME_KEY = 'orbit_theme_v1';
+const SIDEBAR_KEY = 'orbit_sidebar_collapsed_v1';
 const PROJECT_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'extract']);
+/** Superfícies que devem ocupar 100% da área útil, sem padding nem scroll externo. */
+const FULL_BLEED_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'chat', 'ai', 'compare', 'repos']);
 
 // Compatibility adapter for editor props. The frontend never chooses an internal
 // model: src/api/chat.ts ignores these values and Nexus AI routes server-side.
@@ -80,6 +88,7 @@ const WORKSPACE_NAV: NavItem[] = [
   { id: 'home', label: 'Orbispace', icon: Home },
   { id: 'projects', label: 'Meus arquivos', icon: Folder },
   { id: 'office', label: 'OrbiDoc', icon: Apps },
+  { id: 'repos', label: 'Repositórios', icon: GithubIcon },
   { id: 'cloud', label: 'Nuvem', icon: Cloud },
 ];
 
@@ -106,6 +115,7 @@ const VIEW_LABELS: Record<string, string> = {
   projects: 'Meus arquivos',
   office: 'OrbiDoc',
   cloud: 'Nuvem',
+  repos: 'Repositórios',
   chat: 'Nexus AI',
   ai: 'Nexus AI',
   compare: 'Nexus AI',
@@ -244,11 +254,14 @@ const SidebarSection: React.FC<{
   label: string;
   items: NavItem[];
   view: AppView;
+  rail?: boolean;
   onNavigate: (target: AppView) => void;
-}> = ({ label, items, view, onNavigate }) => (
+}> = ({ label, items, view, rail = false, onNavigate }) => (
   <div>
-    <div className="px-3 mb-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">{label}</div>
-    <nav className="space-y-1" aria-label={label}>
+    {rail ? null : (
+      <div className="px-3 mb-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">{label}</div>
+    )}
+    <nav className="space-y-0.5" aria-label={label}>
       {items.map((item) => {
         const Icon = item.icon;
         const active = view === item.id || (item.id === 'chat' && (view === 'ai' || view === 'compare'));
@@ -258,10 +271,12 @@ const SidebarSection: React.FC<{
             type="button"
             onClick={() => onNavigate(item.id)}
             aria-current={active ? 'page' : undefined}
-            className={`w-full h-10 px-3 rounded-xl flex items-center gap-3 text-xs font-bold ${active ? 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            title={rail ? item.label : undefined}
+            aria-label={rail ? item.label : undefined}
+            className={`w-full h-9 rounded-lg flex items-center gap-2.5 text-[11px] font-bold ${rail ? 'justify-center px-0' : 'px-3'} ${active ? 'bg-[#EFF4FF] dark:bg-[#111D4A] text-[#3157F6] dark:text-[#7AA2FF]' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
           >
             <Icon className="w-4 h-4 shrink-0" />
-            <span className="truncate">{item.label}</span>
+            {rail ? null : <span className="truncate">{item.label}</span>}
           </button>
         );
       })}
@@ -285,6 +300,14 @@ export default function AppV5() {
   const [online, setOnline] = useState(navigator.onLine);
   const [notice, setNotice] = useState<Notice>(null);
   const [search, setSearch] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem(SIDEBAR_KEY) === '1'; } catch { return false; }
+  });
+  const compactViewport = useMediaQuery('(max-width: 1023px)');
+
+  useEffect(() => {
+    try { localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? '1' : '0'); } catch { /* storage indisponível */ }
+  }, [sidebarCollapsed]);
 
   const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setNotice({ message, type });
@@ -472,16 +495,54 @@ export default function AppV5() {
     return [...creation, ...navigation].slice(0, 8);
   }, [search]);
 
+  /**
+   * Contrato (§2.4): o título do objeto aparece **uma** vez.
+   * Quando uma surface em tela cheia está aberta, quem mostra o título é a
+   * context bar da própria surface; o header do shell passa a mostrar apenas
+   * *onde* o usuário está (o módulo), nunca o nome do arquivo de novo.
+   */
+  /**
+   * GitHub é WorkObject, não overlay. O badge de conta e qualquer deep link
+   * levam para a surface Repo na área principal (Fase 5).
+   */
+  useEffect(() => {
+    const openRepos = () => setView('repos');
+    window.addEventListener('orbidoc:open-github', openRepos);
+    return () => window.removeEventListener('orbidoc:open-github', openRepos);
+  }, []);
+
+  /**
+   * Command palette abre WorkObjects por id (contrato Fase 6): a paleta vive
+   * fora do shell, então pede a abertura por evento em vez de manipular DOM.
+   */
+  useEffect(() => {
+    const openObject = (event: Event) => {
+      const projectId = (event as CustomEvent<{ projectId?: string }>).detail?.projectId;
+      const project = projectId
+        ? projects.find((item) => item.id === projectId)
+        : (event as CustomEvent<{ route?: string }>).detail?.route
+          ? projects.find((item) => item.type === (event as CustomEvent<{ route?: string }>).detail.route)
+          : undefined;
+      if (project) openProject(project);
+    };
+    window.addEventListener('orbit:open-object', openObject);
+    return () => window.removeEventListener('orbit:open-object', openObject);
+  }, [openProject, projects]);
+
   const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'Orbit';
+  const surfaceOwnsTitle = PROJECT_VIEWS.has(view) && Boolean(activeProject);
+  const shellTitle = surfaceOwnsTitle ? (VIEW_LABELS[view] || 'Orbit') : activeTitle;
   const editorView = PROJECT_VIEWS.has(view) || view === 'chat' || view === 'ai' || view === 'compare' || view === 'image';
+  /** Editores e assistente usam toda a área útil; páginas de catálogo mantêm respiro. */
+  const fullBleed = FULL_BLEED_VIEWS.has(view) && (!PROJECT_VIEWS.has(view) || Boolean(activeProject));
   const currentProject = (type: SavedProject['type']) => activeProject?.type === type ? activeProject : null;
 
   const renderProjectMissing = (type: SavedProject['type']) => (
-    <div className="max-w-xl mx-auto mt-14 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center shadow-sm">
+    <div className="orbit-empty-state mx-auto mt-14 max-w-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center">
       <Folder className="w-10 h-10 mx-auto text-slate-300" />
-      <h2 className="mt-3 text-lg font-black">Nenhum arquivo aberto</h2>
+      <h2 className="mt-3 text-base font-semibold">Nenhum arquivo aberto</h2>
       <p className="mt-1 text-sm text-slate-500">Crie um arquivo no OrbiDoc ou abra um existente em Meus arquivos.</p>
-      <button type="button" onClick={() => createProject(type)} className="mt-5 h-10 px-4 rounded-xl bg-violet-600 text-white text-xs font-black">Criar agora</button>
+      <button type="button" onClick={() => createProject(type)} className="mt-5 h-10 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">Criar agora</button>
     </div>
   );
 
@@ -489,6 +550,7 @@ export default function AppV5() {
     if (view === 'home') return <HomeDashboard onNavigate={launchTool} onNewChat={() => navigate('chat')} recentHistory={history.slice(0, 6)} recentProjects={recentProjects} recentChats={[] as ChatSession[]} googleUser={googleUser} microsoftUser={microsoftUser} activeEngineLabel="Nexus AI" />;
     if (view === 'projects') return <FilesWorkspace projects={projects} onOpenProject={openProject} onCreateProject={createProject} onUpdateProject={persistProject} onDeleteProject={deleteProject} showNotification={showNotification} />;
     if (view === 'office') return <OfficeSuiteHub onSelectTool={launchTool} onOpenTool={launchTool} msUser={microsoftUser} setMsUser={setMicrosoftUser} showNotification={showNotification} />;
+    if (view === 'repos') return <RepoSurface showNotification={showNotification} />;
     if (view === 'cloud') return <CloudWorkspace googleUser={googleUser} microsoftUser={microsoftUser} showNotification={showNotification} />;
     if (view === 'word') {
       const project = currentProject('word');
@@ -562,68 +624,92 @@ export default function AppV5() {
 
   return (
     <div className="h-dvh min-h-[560px] bg-slate-50 dark:bg-[#09090B] text-slate-900 dark:text-slate-100 overflow-hidden flex">
-      <aside className="hidden lg:flex w-[264px] shrink-0 border-r border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11] flex-col">
-        <div className="h-[68px] px-[18px] flex items-center border-b border-slate-100 dark:border-[#27272A]">
-          <button type="button" onClick={() => navigate('home')} aria-label="Ir para o Orbispace"><OrbiDocLogo size="md" /></button>
-        </div>
+      {compactViewport ? null : sidebarCollapsed ? (
+        <aside className="orbit-hide-on-focus hidden lg:flex w-[56px] shrink-0 border-r border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11] flex-col items-center py-2 gap-2">
+          <button type="button" onClick={() => navigate('home')} aria-label="Ir para o Orbispace" className="w-9 h-9 rounded-lg flex items-center justify-center"><OrbiDocLogo size="sm" /></button>
+          <div className="w-full px-1.5 space-y-2 overflow-y-auto">
+            <SidebarSection label="Orbispace" items={WORKSPACE_NAV} view={view} rail onNavigate={navigate} />
+            <div className="h-px mx-2 bg-slate-100 dark:bg-[#27272A]" />
+            <SidebarSection label="Ferramentas" items={TOOL_NAV} view={view} rail onNavigate={navigate} />
+          </div>
+          <button type="button" onClick={() => setSidebarCollapsed(false)} className="mt-auto w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Expandir menu lateral" title="Expandir menu lateral">
+            <SidebarExpand className="w-4 h-4" />
+          </button>
+        </aside>
+      ) : (
+        <OrbitResizablePane
+          storageKey="app-sidebar"
+          handle="end"
+          defaultSize={244}
+          min={190}
+          max={420}
+          label="menu lateral"
+          className="orbit-hide-on-focus border-r border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11]"
+        >
+          <div className="h-12 px-3 flex items-center gap-1 border-b border-slate-100 dark:border-[#27272A]">
+            <button type="button" onClick={() => navigate('home')} aria-label="Ir para o Orbispace" className="min-w-0"><OrbiDocLogo size="sm" /></button>
+            <button type="button" onClick={() => setSidebarCollapsed(true)} className="ml-auto w-8 h-8 shrink-0 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Recolher menu lateral" title="Recolher menu lateral">
+              <SidebarCollapse className="w-4 h-4" />
+            </button>
+          </div>
 
-        <div className="p-3 flex-1 overflow-y-auto space-y-5">
-          <SidebarSection label="Orbispace" items={WORKSPACE_NAV} view={view} onNavigate={navigate} />
-          <SidebarSection label="Ferramentas" items={TOOL_NAV} view={view} onNavigate={navigate} />
+          <div className="p-2 flex-1 overflow-y-auto space-y-3.5">
+            <SidebarSection label="Orbispace" items={WORKSPACE_NAV} view={view} onNavigate={navigate} />
+            <SidebarSection label="Ferramentas" items={TOOL_NAV} view={view} onNavigate={navigate} />
 
-          <div>
-            <div className="px-3 mb-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">OrbiDoc · Criar</div>
-            <div className="space-y-1">
-              {CREATE_ITEMS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button key={item.id} type="button" onClick={() => launchTool(item.id)} className="w-full h-9 px-3 rounded-xl flex items-center gap-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                    <Icon className={`w-4 h-4 ${item.iconClass}`} /> {item.label}
-                  </button>
-                );
-              })}
+            <div>
+              <div className="px-3 mb-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">OrbiDoc · Criar</div>
+              <div className="space-y-0.5">
+                {CREATE_ITEMS.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button key={item.id} type="button" onClick={() => launchTool(item.id)} className="w-full h-8 px-3 rounded-lg flex items-center gap-2.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                      <Icon className={`w-4 h-4 ${item.iconClass}`} /> <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="p-3 border-t border-slate-100 dark:border-[#27272A]">
-          <button type="button" onClick={() => setInstallGuideOpen(true)} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800">
-            <div className="text-xs font-black">Instalar Orbit</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">PWA · Android · Desktop</div>
-          </button>
-        </div>
-      </aside>
+          <div className="p-2 border-t border-slate-100 dark:border-[#27272A]">
+            <button type="button" onClick={() => setInstallGuideOpen(true)} className="w-full h-9 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800">
+              Instalar Orbit
+            </button>
+          </div>
+        </OrbitResizablePane>
+      )}
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-16 shrink-0 border-b border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11] px-3 sm:px-4 flex items-center gap-2 sm:gap-3 z-30">
-          <button type="button" onClick={() => setMenuOpen(true)} className="lg:hidden w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Abrir menu">
+        <header className="orbit-hide-on-focus h-12 shrink-0 border-b border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11] px-2 sm:px-3 flex items-center gap-1.5 z-30">
+          <button type="button" onClick={() => setMenuOpen(true)} className="lg:hidden w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Abrir menu">
             <Menu className="w-5 h-5" />
           </button>
 
           {editorView ? (
-            <button type="button" onClick={() => navigate('projects')} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Voltar aos arquivos">
-              <ChevronLeft className="w-5 h-5" />
+            <button type="button" onClick={() => navigate('projects')} className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label="Voltar aos arquivos">
+              <ChevronLeft className="w-4 h-4" />
             </button>
           ) : null}
 
-          <div className="min-w-0">
-            <div className="text-sm font-black truncate">{activeTitle}</div>
-            <div className="text-[10px] text-slate-400 hidden sm:block">
-              {PROJECT_VIEWS.has(view) && activeProject ? 'Salvo localmente neste dispositivo' : online ? 'Online' : 'Modo offline'}
-            </div>
+          <div className="min-w-0 flex items-baseline gap-2">
+            <span className="text-[13px] font-semibold truncate">{shellTitle}</span>
+            <span className="hidden md:inline text-[10px] text-slate-400 truncate">
+              {surfaceOwnsTitle ? 'Salvo neste dispositivo' : online ? 'Online' : 'Modo offline'}
+            </span>
           </div>
 
-          <div className="relative ml-auto hidden md:block w-[260px] xl:w-[380px]">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+          <div className="relative ml-auto hidden md:block w-[220px] xl:w-[320px]">
+            <Search className="w-4 h-4 absolute left-2.5 top-2 text-slate-400" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar no Orbispace…"
               aria-label="Buscar ferramenta ou criar"
-              className="w-full h-9 pl-9 pr-3 rounded-xl bg-slate-100 dark:bg-[#18181B] border border-transparent text-xs outline-none"
+              className="w-full h-8 pl-8 pr-3 rounded-lg bg-slate-100 dark:bg-[#18181B] border border-transparent text-xs outline-none"
             />
             {search.trim() ? (
-              <div className="absolute top-11 inset-x-0 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F0F11] shadow-xl p-1.5 z-50">
+              <div className="absolute top-10 inset-x-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F0F11] shadow-xl p-1.5 z-50">
                 {searchResults.length ? searchResults.map((result) => {
                   const Icon = result.icon;
                   const create = result.kind === 'create';
@@ -636,7 +722,7 @@ export default function AppV5() {
                         else navigate(result.id as AppView);
                         setSearch('');
                       }}
-                      className="w-full px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-left text-xs font-bold flex items-center gap-2"
+                      className="w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-left text-xs font-bold flex items-center gap-2"
                     >
                       <Icon className={`w-4 h-4 ${create ? (result as Extract<SearchResult, { kind: 'create' }>).iconClass : 'text-slate-500'}`} />
                       <span className="min-w-0 flex-1 truncate">{create ? `Criar ${(result.label).toLowerCase()}` : result.label}</span>
@@ -648,25 +734,30 @@ export default function AppV5() {
             ) : null}
           </div>
 
-          <span className={`hidden xl:inline-flex items-center px-2.5 py-1.5 rounded-full text-[10px] font-black ${online ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}`}>
-            {online ? 'Online' : 'Offline'}
-          </span>
+          {online ? null : (
+            <span className="ml-auto md:ml-0 inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">Offline</span>
+          )}
 
-          <button type="button" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}>
+          <button type="button" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}>
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
           <GoogleProfileBadge user={googleUser} onUserChange={setGoogleUser} msUser={microsoftUser} setMsUser={setMicrosoftUser} onNotification={showNotification} />
         </header>
 
-        <main className={`flex-1 min-h-0 overflow-y-auto ${view === 'chat' || view === 'ai' || view === 'compare' ? 'p-2 sm:p-3' : 'p-3 sm:p-5 lg:p-6'} pb-24 lg:pb-6`}>
-          <div className={view === 'chat' || view === 'ai' || view === 'compare' ? '' : 'max-w-[1520px] mx-auto'}>{renderContent()}</div>
+        <main
+          className={`orbit-workspace-main ${fullBleed ? '' : 'overflow-y-auto p-3 sm:p-4 lg:p-5 pb-24 lg:pb-6'}`}
+          data-orbit-surface={fullBleed ? 'editor' : 'page'}
+        >
+          <div className={`orbit-workspace-canvas ${fullBleed ? '' : 'max-w-[1520px] w-full mx-auto'}`}>{renderContent()}</div>
         </main>
 
-        <BottomNavBar
-          activeTab={view === 'ai' || view === 'compare' ? 'chat' : view === 'cloud' ? 'office' : view as TabType}
-          onNavigate={(target) => navigate(target)}
-          onOpenFab={() => setFabOpen(true)}
-        />
+        <div className="orbit-hide-on-focus">
+          <BottomNavBar
+            activeTab={view === 'ai' || view === 'compare' ? 'chat' : view === 'cloud' || view === 'repos' ? 'office' : view as TabType}
+            onNavigate={(target) => navigate(target)}
+            onOpenFab={() => setFabOpen(true)}
+          />
+        </div>
       </div>
 
       {menuOpen ? (

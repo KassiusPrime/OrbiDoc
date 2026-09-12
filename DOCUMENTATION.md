@@ -357,6 +357,98 @@ Para instalar, acesse a aplicação no navegador e clique em "Instalar" ou "Adic
 
 ---
 
+## 🧩 Sistema de layout do workspace (Orbit Workspace UI)
+
+Camada compartilhada que padroniza densidade, aproveitamento de espaço e
+redimensionamento em todos os apps do workspace.
+
+### Primitivos
+
+| Arquivo | Papel |
+| --- | --- |
+| `src/components/orbit/OrbitResizable.tsx` | `OrbitResizablePane` (painel redimensionável e persistente), `OrbitResizeGrip` (alça isolada para colunas/linhas) e `useMediaQuery`. Sem dependências externas. |
+| `src/components/orbit/OrbitEditorFrame.tsx` | Moldura única dos editores: barra densa de 40px, doca lateral de ferramentas e modo foco. |
+| `src/orbit-workspace.css` | Tokens visuais das alças, grades de planilha, doca, régua e modo foco. |
+
+### Comportamento das alças
+
+- Arraste por ponteiro/toque (`setPointerCapture`, `touch-action: none`).
+- Teclado: `←/→` ou `↑/↓` movem 16px, com `Shift` 64px; `Home`/`End` vão aos
+  limites; `Enter`/`Espaço` restauram o padrão.
+- Duplo clique restaura o tamanho padrão (nas colunas de planilha, ajusta ao
+  conteúdo).
+- Cada painel persiste seu tamanho em `localStorage` (`orbit_pane_<chave>`).
+- Semântica ARIA de `separator` com `aria-valuemin/max/now`.
+
+### Aproveitamento de espaço
+
+- Editores e o Nexus AI são renderizados em modo *full bleed*: sem padding,
+  sem `max-width` e sem scroll externo (`data-orbit-surface="editor"`).
+- Modo foco (`Alt + Z`) esconde sidebar, header e bottom navigation.
+- A sidebar é redimensionável (190–420px) e colapsa para um rail de ícones.
+
+
+### Editor de documentos — hierarquia Google Docs (v2)
+
+Estrutura de cima para baixo, sem barras empilhadas:
+
+1. **Context bar** — ícone, título editável, "Salvo …", Modelos, Importar, **Avançado**, Imprimir e Exportar.
+2. **Toolbar** — bloco, fonte, tamanho, undo/redo, negrito/itálico/sublinhado/tachado, cores,
+   alinhamento, listas, recuo, link/tabela/imagem/linha, limpar formatação e o grupo violeta de IA
+   (Melhorar · Resumir · Expandir). Rola na horizontal em telas estreitas.
+3. **Página** — folha branca central com sombra suave em fundo neutro, A4/Carta, margens e zoom.
+4. **Status bar** — palavras · páginas · caracteres, busca e configuração de página.
+
+Ferramentas avançadas ficam em um **drawer lateral** (redimensionável e persistente no desktop,
+tela cheia até `max-w-md` no mobile) com quatro abas:
+
+| Aba | Conteúdo |
+| --- | --- |
+| Estrutura | `DocumentOutlinePane` — títulos navegáveis com filtro |
+| Localizar | `DocumentFindReplaceBar` completo (Ctrl+H / Ctrl+F, Enter na busca da status bar) |
+| Documento Pro | `DocumentProPanel` — cabeçalho/rodapé, comentários, notas, sumário e auditoria |
+| Projeto | Versão restaurável, backup portátil, atalhos e modo foco (`Alt + Z`) |
+
+Nada disso é montado acima da página: `DocumentEditor.tsx` é um shell mínimo que renderiza o
+`DocumentEditorStudio` e o drawer. As ações de projeto (versão, backup, atalhos, foco) saíram para
+`src/components/orbit/OrbitProjectTools.tsx`, compartilhado com os demais editores.
+
+### Painéis por app
+
+| App | Painéis redimensionáveis |
+| --- | --- |
+| Documentos | Drawer avançado (estrutura, busca, pro, projeto) |
+| Planilhas | Colunas, linhas e painel de resumo do intervalo |
+| Apresentações | Lista de slides + inspetor |
+| Design | Biblioteca + inspetor |
+
+### WorkObjects, surfaces e tokens (Comando Mestre)
+
+O produto segue o contrato **Shell → WorkObject → Surface**:
+
+- **Shell** (`AppV5`) — nav, header, toasts, command palette. Não repete o título do objeto
+  quando uma surface em tela cheia está aberta (o header mostra o módulo; a context bar da
+  surface mostra o arquivo).
+- **WorkObject** (`src/lib/workObjects.ts`) — identidade listável de tudo que o usuário abre:
+  `doc`, `sheet`, `deck`, `repo`, `chat`, `file`. É um **adaptador** sobre `SavedProject`; a
+  persistência em `localStorage.orbidoc_projects_v1` não mudou.
+- **Surface** — editor/viewer do kind. Toda surface: preenche só a área central
+  (`h-full min-h-0`), tem **uma** context bar, no máximo **uma** toolbar, e manda o avançado
+  para um drawer.
+
+| Surface | Context bar | Toolbar | Protagonista | Status bar | Drawer |
+| --- | --- | --- | --- | --- | --- |
+| Documento | título · salvo · modelos · import · export | formatação + IA violeta | página + régua em cm | palavras · páginas · busca · zoom | Estrutura · Localizar · Pro · Projeto |
+| Planilha | título · salvo · modelos · import · export | fórmula + formatação | grade | abas + métricas do intervalo | Resumo · Planilha Pro · Projeto |
+| Repositório | `owner/repo @ branch` · caminho · GitHub | seletor de branch | tree + arquivo | — | — |
+
+Tokens: `src/orbit-tokens.css`, documentados em `docs/ORBIT-TOKENS.md`.
+Azul é ação de arquivo, violeta é **somente** IA.
+
+Auditoria e relatório: `AUDIT-FASE-0.md` · `ORBIT-ENTREGA.md`.
+
+---
+
 ## 📝 Licença
 
 Projeto privado. Todos os direitos reservados.

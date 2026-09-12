@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DesignEditorStudio } from './DesignEditorStudio';
 import { createStudioElement } from '../lib/officeStudio';
-import { StudioPowerBar } from './StudioPowerBar';
-import { DesignProPanel } from './DesignProPanel';
 import { DesignAdvancedPanel } from './DesignAdvancedPanel';
+import { DesignProPanel } from './DesignProPanel';
+import { OrbitEditorFrame } from './orbit/OrbitEditorFrame';
 
 export const DesignEditor: React.FC<React.ComponentProps<typeof DesignEditorStudio>> = (props) => {
   const importedImageRef = useRef<string | null | undefined>(undefined);
@@ -44,10 +44,20 @@ export const DesignEditor: React.FC<React.ComponentProps<typeof DesignEditorStud
   }, [hydratedProject, props.project, props.onProjectChange]);
 
   const refresh = () => setRevision((value) => value + 1);
-  return <div>
-    <StudioPowerBar project={hydratedProject} kind="canva" showNotification={props.showNotification} />
-    <DesignProPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={refresh} showNotification={props.showNotification} />
-    <DesignAdvancedPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={refresh} showNotification={props.showNotification} />
-    <DesignEditorStudio key={`${hydratedProject.id}:${revision}`} {...props} project={hydratedProject} />
-  </div>;
+
+  return (
+    <OrbitEditorFrame
+      kind="canva"
+      project={hydratedProject}
+      showNotification={props.showNotification}
+      tools={(
+        <>
+          <DesignProPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={refresh} showNotification={props.showNotification} />
+          <DesignAdvancedPanel project={hydratedProject} onProjectChange={props.onProjectChange} onApplied={refresh} showNotification={props.showNotification} />
+        </>
+      )}
+    >
+      <DesignEditorStudio key={`${hydratedProject.id}:${revision}`} {...props} project={hydratedProject} />
+    </OrbitEditorFrame>
+  );
 };
