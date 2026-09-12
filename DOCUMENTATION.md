@@ -422,6 +422,31 @@ Nada disso é montado acima da página: `DocumentEditor.tsx` é um shell mínimo
 | Apresentações | Lista de slides + inspetor |
 | Design | Biblioteca + inspetor |
 
+### WorkObjects, surfaces e tokens (Comando Mestre)
+
+O produto segue o contrato **Shell → WorkObject → Surface**:
+
+- **Shell** (`AppV5`) — nav, header, toasts, command palette. Não repete o título do objeto
+  quando uma surface em tela cheia está aberta (o header mostra o módulo; a context bar da
+  surface mostra o arquivo).
+- **WorkObject** (`src/lib/workObjects.ts`) — identidade listável de tudo que o usuário abre:
+  `doc`, `sheet`, `deck`, `repo`, `chat`, `file`. É um **adaptador** sobre `SavedProject`; a
+  persistência em `localStorage.orbidoc_projects_v1` não mudou.
+- **Surface** — editor/viewer do kind. Toda surface: preenche só a área central
+  (`h-full min-h-0`), tem **uma** context bar, no máximo **uma** toolbar, e manda o avançado
+  para um drawer.
+
+| Surface | Context bar | Toolbar | Protagonista | Status bar | Drawer |
+| --- | --- | --- | --- | --- | --- |
+| Documento | título · salvo · modelos · import · export | formatação + IA violeta | página + régua em cm | palavras · páginas · busca · zoom | Estrutura · Localizar · Pro · Projeto |
+| Planilha | título · salvo · modelos · import · export | fórmula + formatação | grade | abas + métricas do intervalo | Resumo · Planilha Pro · Projeto |
+| Repositório | `owner/repo @ branch` · caminho · GitHub | seletor de branch | tree + arquivo | — | — |
+
+Tokens: `src/orbit-tokens.css`, documentados em `docs/ORBIT-TOKENS.md`.
+Azul é ação de arquivo, violeta é **somente** IA.
+
+Auditoria e relatório: `AUDIT-FASE-0.md` · `ORBIT-ENTREGA.md`.
+
 ---
 
 ## 📝 Licença

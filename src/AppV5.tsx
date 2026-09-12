@@ -753,7 +753,7 @@ export default function AppV5() {
 
         <div className="orbit-hide-on-focus">
           <BottomNavBar
-            activeTab={view === 'ai' || view === 'compare' ? 'chat' : view === 'cloud' ? 'office' : view as TabType}
+            activeTab={view === 'ai' || view === 'compare' ? 'chat' : view === 'cloud' || view === 'repos' ? 'office' : view as TabType}
             onNavigate={(target) => navigate(target)}
             onOpenFab={() => setFabOpen(true)}
           />

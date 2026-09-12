@@ -156,13 +156,16 @@ serviço existente no contrato.
 
 ## 7. Ordem de execução desta rodada
 
-| Fase | Status de partida | Ação |
-|---|---|---|
-| 0 | — | este documento |
-| 1 | 80% pronto | tipo `WorkObject` + remover título duplicado + estado vazio sem card |
-| 2 | parcial | `docs/ORBIT-TOKENS.md` + tokens semânticos faltantes |
-| 3 | 95% pronto | régua em cm + revisão do contrato |
-| 4 | violado (V1) | planilha no mesmo contrato |
-| 5 | violado (V3) | `RepoSurface` + `kind: 'repo'` na nav |
-| 6 | parcial (V5) | palette indexando WorkObjects |
-| 7 | não iniciado | fora desta rodada |
+| Fase | Status de partida | Ação | Resultado |
+|---|---|---|---|
+| 0 | — | este documento | ✅ |
+| 1 | 80% pronto | tipo `WorkObject` + remover título duplicado + estado vazio sem card | ✅ V2 sanada |
+| 2 | parcial | `docs/ORBIT-TOKENS.md` + tokens semânticos faltantes | ✅ |
+| 3 | 95% pronto | régua em cm + revisão do contrato | ✅ |
+| 4 | violado (V1) | planilha no mesmo contrato | ✅ V1 sanada |
+| 5 | violado (V3) | `RepoSurface` + `kind: 'repo'` na nav | ✅ V3 sanada |
+| 6 | parcial (V5) | palette indexando WorkObjects | ✅ V5 sanada |
+| 7 | não iniciado | fora desta rodada | ⏳ próximo |
+
+Relatório de entrega com checklist por fase, teste anti-Frankenstein e riscos:
+`ORBIT-ENTREGA.md`.
