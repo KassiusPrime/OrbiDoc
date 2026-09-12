@@ -571,3 +571,10 @@ html.orbidoc-platform-mobile .orbit-workspace-main[data-orbit-surface='editor'] 
   .orbit-doc-sheet { transform: none !important; }
   .orbit-drawer { display: none !important; }
 }
+
+/* Régua em centímetros: sticky sob a toolbar, acompanha o zoom da folha. */
+.orbit-doc-ruler {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+}

@@ -7,9 +7,13 @@ const read = (path: string) => readFileSync(path, 'utf8');
 test('document editor follows the Google Docs hierarchy: context bar, toolbar, page and status bar', () => {
   const studio = read('src/components/DocumentEditorStudio.tsx');
 
-  for (const region of ['1 · Context bar', '2 · Toolbar', '3 · Página', '4 · Status bar']) {
+  for (const region of ['1 · Context bar', '2 · Toolbar', '3 · Régua', '4 · Página', '5 · Status bar']) {
     assert.ok(studio.includes(region), `região ausente: ${region}`);
   }
+
+  // Régua em centímetros alinhada à folha, com toggle na barra de status.
+  assert.match(studio, /DocumentRuler/);
+  assert.match(studio, /pageWidth=\{PAGE_WIDTH/);
 
   // A folha é a protagonista: fundo neutro, sombra suave e impressão funcional.
   assert.match(studio, /orbit-doc-canvas/);
@@ -73,4 +77,40 @@ test('shared project tools keep snapshot and portable backup available to every 
   assert.match(tools, /ORBIT_SHORTCUTS/);
   assert.match(frame, /useProjectTools/);
   assert.match(frame, /OrbitShortcutsDialog/);
+});
+
+test('spreadsheet surface follows the same contract as the document surface', () => {
+  const sheetStudio = read('src/components/SpreadsheetEditorStudio.tsx');
+  const sheetWrapper = read('src/components/SpreadsheetEditor.tsx');
+
+  // Mesma hierarquia: context bar → toolbar → grade → status bar.
+  for (const region of ['1 · Context bar', '2 · Toolbar', '3 · Grade', '4 · Status bar']) {
+    assert.ok(sheetStudio.includes(region), `região ausente na planilha: ${region}`);
+  }
+
+  // Grade protagonista preservada com recursos da Fase 4 anterior.
+  assert.match(sheetStudio, /orbit-sheet-scroll/);
+  assert.match(sheetStudio, /orbit-sheet /);
+  assert.match(sheetStudio, /OrbitResizeGrip/);
+
+  // Uma única toolbar de superfície; sem moldura de terceira faixa.
+  assert.doesNotMatch(sheetWrapper, /from '.\/orbit\/OrbitEditorFrame'/);
+  assert.match(sheetStudio, /orbit-surface-toolbar/);
+
+  // O painel Pro vai para o drawer, não para uma faixa permanente.
+  assert.match(sheetStudio, /OrbitDrawer/);
+  assert.match(sheetWrapper, /advancedTools=/);
+
+  // Recursos de negócio preservados.
+  for (const contract of ['recalculateWorkbookFormulas', 'orbidoc_spreadsheet_v4_', 'SpreadsheetProPanel']) {
+    assert.ok(sheetWrapper.includes(contract), `contrato perdido na planilha: ${contract}`);
+  }
+});
+
+test('shell shows the object title only once, never duplicated by the surface', () => {
+  const shell = read('src/AppV5.tsx');
+  assert.match(shell, /surfaceOwnsTitle/);
+  assert.match(shell, /shellTitle/);
+  assert.doesNotMatch(shell, /rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8/);
+  assert.match(shell, /orbit-empty-state/);
 });

@@ -20,6 +20,7 @@ import {
   IconMinus as Minus,
   IconPhoto as Photo,
   IconPrinter as Printer,
+  IconRuler as Ruler,
   IconSearch as Search,
   IconSparkles as Sparkles,
   IconStrikethrough as Strikethrough,
@@ -33,6 +34,7 @@ import { richHtmlToDocxBlob, richHtmlToText, sanitizeRichHtml } from '../lib/ric
 import { sendToVercel } from '../api/chat';
 import { HistoryItem, SavedProject } from '../types';
 import { OFFICE_FONTS } from '../lib/officeStudio';
+import { DocumentRuler } from './orbit/DocumentRuler';
 
 interface DocumentEditorStudioProps {
   project: SavedProject;
@@ -123,6 +125,7 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
   const [aiBusy, setAiBusy] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [rulerOpen, setRulerOpen] = useState(true);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== html) editorRef.current.innerHTML = html;
@@ -399,7 +402,14 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
         </span>
       </div>
 
-      {/* 3 · Página — protagonista, sobre fundo neutro */}
+      {/* 3 · Régua em cm — alinhada à folha, acompanha o zoom */}
+      {rulerOpen ? (
+        <div className="hidden lg:block">
+          <DocumentRuler pageWidth={PAGE_WIDTH[pageSetup.size]} marginPx={MARGINS[pageSetup.margins]} zoom={zoom} />
+        </div>
+      ) : null}
+
+      {/* 4 · Página — protagonista, sobre fundo neutro */}
       <div className="orbit-doc-canvas flex-1 min-h-0 overflow-auto bg-slate-100 dark:bg-slate-950 p-3 sm:p-6">
         <div
           className="orbit-doc-sheet orbidoc-page mx-auto bg-white text-slate-900"
@@ -426,13 +436,23 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
         </div>
       </div>
 
-      {/* 4 · Status bar — métricas, busca e configuração de página */}
+      {/* 5 · Status bar — métricas, busca e configuração de página */}
       <footer className="shrink-0 h-9 px-2 sm:px-3 flex items-center gap-2 sm:gap-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 overflow-x-auto">
         <span className="shrink-0 whitespace-nowrap">{stats.words} palavras</span>
         <span className="shrink-0 whitespace-nowrap">{stats.pages} pág.</span>
         <span className="hidden md:inline shrink-0 whitespace-nowrap">{stats.chars} caracteres</span>
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setRulerOpen((value) => !value)}
+            data-active={rulerOpen}
+            aria-pressed={rulerOpen}
+            title="Mostrar régua em centímetros"
+            className={`hidden lg:inline-flex h-7 px-1.5 rounded-md items-center gap-1 ${rulerOpen ? 'text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <Ruler className="w-3 h-3" /> Régua
+          </button>
           <label className="hidden sm:flex items-center gap-1.5 h-7 px-2 rounded-lg bg-slate-100 dark:bg-slate-950" title="Pressione Enter para abrir localizar e substituir (Ctrl+H)">
             <Search className="w-3 h-3 shrink-0 text-slate-400" />
             <input
