@@ -47,6 +47,30 @@ const extensionOf = (path: string) => {
 
 const isTextEntry = (entry: GitHubTreeEntry) => entry.type === 'blob' && TEXT_EXTENSIONS.has(extensionOf(entry.path));
 
+const RECENT_KEY = 'orbit_recent_repos_v1';
+
+/** Repositórios recentes: alimentam a lista do workspace e a command palette. */
+const rememberRepository = (repository: GitHubRepository) => {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const previous = Array.isArray(parsed) ? parsed : [];
+    const entry = {
+      id: repository.id,
+      owner: repository.owner,
+      name: repository.name,
+      fullName: repository.fullName,
+      defaultBranch: repository.defaultBranch,
+      private: repository.private,
+      htmlUrl: repository.htmlUrl,
+    };
+    const next = [entry, ...previous.filter((item: { fullName?: string }) => item?.fullName !== repository.fullName)].slice(0, 12);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    // Sem persistência o workspace continua funcional na sessão atual.
+  }
+};
+
 type Props = {
   showNotification?: (message: string, type?: 'success' | 'error') => void;
 };
@@ -113,6 +137,7 @@ export const RepoSurface: React.FC<Props> = ({ showNotification = () => {} }) =>
     setRepository(target);
     setBranch(target.defaultBranch);
     setBranches([]);
+    rememberRepository(target);
     void loadTree(target, target.defaultBranch);
     try {
       setBranches(await listGitHubBranches(target));
@@ -120,6 +145,27 @@ export const RepoSurface: React.FC<Props> = ({ showNotification = () => {} }) =>
       // O seletor continua funcional com a branch padrão mesmo sem a lista.
     }
   }, [loadTree]);
+
+  /** A command palette abre um repositório recente por evento. */
+  useEffect(() => {
+    const openRecent = (event: Event) => {
+      const detail = (event as CustomEvent<Partial<GitHubRepository>>).detail;
+      if (!detail?.owner || !detail?.name) return;
+      void openRepository({
+        id: Number(detail.id) || 0,
+        name: detail.name,
+        fullName: detail.fullName || `${detail.owner}/${detail.name}`,
+        private: Boolean(detail.private),
+        defaultBranch: detail.defaultBranch || 'main',
+        htmlUrl: detail.htmlUrl || `https://github.com/${detail.owner}/${detail.name}`,
+        owner: detail.owner,
+        permissions: {},
+        installationId: Number(detail.installationId) || 0,
+      });
+    };
+    window.addEventListener('orbit:open-repo', openRecent);
+    return () => window.removeEventListener('orbit:open-repo', openRecent);
+  }, [openRepository]);
 
   const switchBranch = useCallback(async (next: string) => {
     if (!repository || !next || next === branch) return;

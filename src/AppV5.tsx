@@ -511,6 +511,24 @@ export default function AppV5() {
     return () => window.removeEventListener('orbidoc:open-github', openRepos);
   }, []);
 
+  /**
+   * Command palette abre WorkObjects por id (contrato Fase 6): a paleta vive
+   * fora do shell, então pede a abertura por evento em vez de manipular DOM.
+   */
+  useEffect(() => {
+    const openObject = (event: Event) => {
+      const projectId = (event as CustomEvent<{ projectId?: string }>).detail?.projectId;
+      const project = projectId
+        ? projects.find((item) => item.id === projectId)
+        : (event as CustomEvent<{ route?: string }>).detail?.route
+          ? projects.find((item) => item.type === (event as CustomEvent<{ route?: string }>).detail.route)
+          : undefined;
+      if (project) openProject(project);
+    };
+    window.addEventListener('orbit:open-object', openObject);
+    return () => window.removeEventListener('orbit:open-object', openObject);
+  }, [openProject, projects]);
+
   const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'Orbit';
   const surfaceOwnsTitle = PROJECT_VIEWS.has(view) && Boolean(activeProject);
   const shellTitle = surfaceOwnsTitle ? (VIEW_LABELS[view] || 'Orbit') : activeTitle;

@@ -10,16 +10,20 @@ import {
   IconPresentation as Presentation,
   IconRobot as Robot,
   IconSearch as Search,
+  IconBrandGithub as GitHub,
   IconSettings as Settings,
+  IconSpeakerphone as DeckIcon,
   IconX as X,
 } from '@tabler/icons-react';
+import { KIND_LABEL, workObjectFromProject, type WorkObject } from '../../lib/workObjects';
+import type { SavedProject } from '../../types';
 
 type PaletteMode = 'commands' | 'files';
 type Command = {
   id: string;
   title: string;
   keywords: string;
-  section: 'Navegar' | 'Criar' | 'Conta';
+  section: 'Objetos' | 'Navegar' | 'Criar' | 'Conta';
   icon: React.ComponentType<{ className?: string }>;
   run: () => void;
 };
@@ -45,6 +49,43 @@ function createInOrbiDoc(moduleName: string) {
   window.setTimeout(() => clickButton(moduleName), 80);
 }
 
+/** Projetos locais → WorkObjects listáveis (mesma fonte do shell). */
+function readLocalObjects(): WorkObject[] {
+  try {
+    const raw = localStorage.getItem('orbidoc_projects_v1');
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as SavedProject[])
+      .filter((project) => project && typeof project.id === 'string')
+      .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+      .slice(0, 40)
+      .map(workObjectFromProject);
+  } catch {
+    return [];
+  }
+}
+
+type RecentRepo = { id: number | string; owner: string; name: string; fullName: string; defaultBranch: string; private?: boolean; htmlUrl?: string };
+
+function readRecentRepos(): RecentRepo[] {
+  try {
+    const raw = localStorage.getItem('orbit_recent_repos_v1');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as RecentRepo[]).slice(0, 12) : [];
+  } catch {
+    return [];
+  }
+}
+
+const KIND_ICON: Record<WorkObject['kind'], React.ComponentType<{ className?: string }>> = {
+  doc: FileText,
+  sheet: FileSpreadsheet,
+  deck: DeckIcon,
+  repo: GitHub,
+  chat: Robot,
+  file: Folder,
+};
+
 export const OrbitCommandPalette: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<PaletteMode>('commands');
@@ -65,12 +106,39 @@ export const OrbitCommandPalette: React.FC = () => {
     { id: 'account', title: 'Conta Orbit e conexões', keywords: 'conta google microsoft github seguranca conexoes', section: 'Conta', icon: Settings, run: () => clickAria('Conta Orbit e conexões externas') },
   ], []);
 
+  /** WorkObjects + repositórios recentes: a paleta busca objetos, não só ações. */
+  const objectCommands = useMemo<Command[]>(() => {
+    if (!open) return [];
+    const works = readLocalObjects().map((object) => ({
+      id: `object:${object.id}`,
+      title: object.title,
+      keywords: `${object.title} ${KIND_LABEL[object.kind]} ${object.previewSnippet || ''} documento planilha arquivo`,
+      section: 'Objetos' as const,
+      icon: KIND_ICON[object.kind],
+      run: () => window.dispatchEvent(new CustomEvent('orbit:open-object', { detail: { projectId: String(object.meta?.projectId || ''), route: object.route } })),
+    }));
+    const repos = readRecentRepos().map((repo) => ({
+      id: `repo:${repo.fullName}`,
+      title: repo.fullName,
+      keywords: `${repo.fullName} ${repo.owner} ${repo.name} repositorio github codigo`,
+      section: 'Objetos' as const,
+      icon: GitHub,
+      run: () => {
+        window.dispatchEvent(new CustomEvent('orbit:open-repo', { detail: repo }));
+        window.dispatchEvent(new Event('orbidoc:open-github'));
+      },
+    }));
+    return [...works, ...repos];
+  }, [open]);
+
+  const allCommands = useMemo(() => [...objectCommands, ...commands], [commands, objectCommands]);
+
   const results = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('pt-BR');
-    const base = mode === 'files' ? commands.filter((command) => command.id === 'files' || command.id === 'nova' || command.id === 'gravity' || command.id === 'aurora' || command.id === 'comet' || command.id === 'nebula') : commands;
-    if (!needle) return base;
-    return base.filter((command) => `${command.title} ${command.keywords}`.toLocaleLowerCase('pt-BR').includes(needle));
-  }, [commands, mode, query]);
+    const base = mode === 'files' ? allCommands.filter((command) => command.section === 'Objetos' || command.id === 'files' || command.id === 'nova' || command.id === 'gravity' || command.id === 'aurora' || command.id === 'comet' || command.id === 'nebula') : allCommands;
+    if (!needle) return base.slice(0, 12);
+    return base.filter((command) => `${command.title} ${command.keywords}`.toLocaleLowerCase('pt-BR').includes(needle)).slice(0, 24);
+  }, [allCommands, mode, query]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -117,7 +185,7 @@ export const OrbitCommandPalette: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center p-[max(12px,env(safe-area-inset-top))_12px_12px] sm:pt-[12vh]" role="presentation">
       <button type="button" aria-label="Fechar paleta de comandos" onClick={() => setOpen(false)} className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]" />
-      <section role="dialog" aria-modal="true" aria-label={mode === 'files' ? 'Busca rápida de arquivos' : 'Paleta de comandos do Orbit'} className="relative w-full max-w-2xl overflow-hidden rounded-[16px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111318] shadow-2xl">
+      <section role="dialog" aria-modal="true" aria-label={mode === 'files' ? 'Busca de objetos do workspace' : 'Paleta de comandos do Orbit'} className="relative w-full max-w-2xl overflow-hidden rounded-[16px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111318] shadow-2xl">
         <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 px-3">
           <Search className="h-4 w-4 shrink-0 text-slate-400" />
           <input
@@ -129,7 +197,7 @@ export const OrbitCommandPalette: React.FC = () => {
               if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex((index) => Math.max(0, index - 1)); }
               if (event.key === 'Enter' && results[activeIndex]) { event.preventDefault(); execute(results[activeIndex]); }
             }}
-            placeholder={mode === 'files' ? 'Buscar arquivo ou tipo para criar…' : 'Digite um comando, módulo ou destino…'}
+            placeholder={mode === 'files' ? 'Buscar documento, planilha, repositório…' : 'Buscar objeto, comando ou destino…'}
             className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
           />
           <span className="hidden sm:inline-flex rounded-[8px] border border-slate-200 dark:border-slate-700 px-1.5 py-1 text-[9px] font-bold text-slate-400">ESC</span>
@@ -158,7 +226,7 @@ export const OrbitCommandPalette: React.FC = () => {
         </div>
 
         <footer className="border-t border-slate-100 dark:border-slate-800 px-3 py-2 flex flex-wrap gap-x-4 gap-y-1 text-[9px] text-slate-400">
-          <span>↑↓ navegar</span><span>Enter abrir</span><span>Ctrl/Cmd+K comandos</span><span>Ctrl/Cmd+P arquivos</span>
+          <span>↑↓ navegar</span><span>Enter abrir</span><span>Ctrl/Cmd+K comandos</span><span>Ctrl/Cmd+P objetos</span>
         </footer>
       </section>
     </div>

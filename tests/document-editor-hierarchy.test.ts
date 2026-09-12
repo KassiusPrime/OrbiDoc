@@ -143,3 +143,27 @@ test('GitHub is a first-class repo surface, not an integration overlay', () => {
   assert.match(surface, /listGitHubBranches/);
   assert.match(surface, /switchBranch/);
 });
+
+test('command palette searches WorkObjects by title, not only fixed commands', () => {
+  const palette = read('src/components/orbit/OrbitCommandPalette.tsx');
+  const shell = read('src/AppV5.tsx');
+  const surface = read('src/components/RepoSurface.tsx');
+
+  // Índice de objetos: projetos locais + repositórios recentes.
+  assert.match(palette, /readLocalObjects/);
+  assert.match(palette, /workObjectFromProject/);
+  assert.match(palette, /orbidoc_projects_v1/);
+  assert.match(palette, /orbit_recent_repos_v1/);
+  assert.match(palette, /section: 'Objetos'/);
+
+  // Abre por evento em vez de clicar em botões pelo texto.
+  assert.match(palette, /orbit:open-object/);
+  assert.match(palette, /orbit:open-repo/);
+  assert.match(shell, /orbit:open-object/);
+  assert.match(surface, /orbit:open-repo/);
+  assert.match(surface, /orbit_recent_repos_v1/);
+
+  // Atalhos do contrato: Ctrl/Cmd+K comandos, Ctrl/Cmd+P objetos.
+  assert.match(palette, /'k'/);
+  assert.match(palette, /'p'/);
+});
