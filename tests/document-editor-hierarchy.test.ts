@@ -114,3 +114,32 @@ test('shell shows the object title only once, never duplicated by the surface', 
   assert.doesNotMatch(shell, /rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8/);
   assert.match(shell, /orbit-empty-state/);
 });
+
+test('GitHub is a first-class repo surface, not an integration overlay', () => {
+  const shell = read('src/AppV5.tsx');
+  const main = read('src/main.tsx');
+  const surface = read('src/components/RepoSurface.tsx');
+
+  // Nav e rota de primeira classe.
+  assert.match(shell, /id: 'repos'/);
+  assert.match(shell, /RepoSurface/);
+  assert.ok(!shell.includes('GitHubProjectsWorkspace'), 'shell ainda monta o overlay GitHub');
+
+  // O overlay antigo deixou de existir em main.tsx.
+  assert.doesNotMatch(main, /GitHubProjectsWorkspace/);
+
+  // Contrato da surface: uma context bar, tree + arquivo, sem iframe.
+  assert.match(surface, /orbit-contextbar/);
+  assert.match(surface, /RepoTree/);
+  assert.match(surface, /RepoFileViewer/);
+  assert.match(surface, /Abrir no GitHub/);
+  assert.doesNotMatch(surface, /<iframe/);
+  assert.doesNotMatch(surface, /rounded-3xl/);
+
+  // Conector existente reaproveitado; nenhuma dependência nova de git.
+  assert.match(surface, /listGitHubRepositories/);
+  assert.match(surface, /loadGitHubRepositoryTree/);
+  assert.match(surface, /readGitHubTextFile/);
+  assert.match(surface, /listGitHubBranches/);
+  assert.match(surface, /switchBranch/);
+});

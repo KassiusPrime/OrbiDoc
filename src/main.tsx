@@ -5,7 +5,6 @@ import App from './AppV5';
 import { AccountSyncAgent } from './components/AccountSyncAgent';
 import { AdvancedFreeToolsLauncher } from './components/AdvancedFreeToolsLauncher';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
-import { GitHubProjectsWorkspace } from './components/GitHubProjectsWorkspace';
 import { ImageResizeLauncher } from './components/ImageResizeLauncher';
 import { LocalUtilitiesLauncher } from './components/LocalUtilitiesLauncher';
 import { MediaToolsLauncher } from './components/MediaToolsLauncher';
@@ -69,7 +68,6 @@ ReactDOM.createRoot(root).render(
       <NativeViewportAgent />
       <AccountSyncAgent />
       <SystemFileOpenAgent />
-      <GitHubProjectsWorkspace />
       <MediaToolsLauncher />
       <VersionHistoryLauncher />
       <QuickScanReaderLauncher />

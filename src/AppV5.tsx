@@ -9,6 +9,7 @@ import {
   IconFileText as FileText,
   IconFolder as Folder,
   IconHeadphones as Headphones,
+  IconBrandGithub as GithubIcon,
   IconHistory as History,
   IconHome as Home,
   IconLayoutSidebarLeftCollapse as SidebarCollapse,
@@ -41,6 +42,7 @@ import { OfficeSuiteHub } from './components/OfficeSuiteHub';
 import { OrbiDocLogo } from './components/OrbiDocLogo';
 import { PdfOcrWorkspace } from './components/PdfOcrWorkspace';
 import { PresentationEditor } from './components/PresentationEditor';
+import { RepoSurface } from './components/RepoSurface';
 import { SpreadsheetEditor } from './components/SpreadsheetEditor';
 import { OrbitResizablePane, useMediaQuery } from './components/orbit/OrbitResizable';
 import { convertFile } from './lib/fileConversion';
@@ -56,7 +58,7 @@ import type {
   TabType,
 } from './types';
 
-type AppView = TabType | 'cloud';
+type AppView = TabType | 'cloud' | 'repos';
 type Notice = { message: string; type: 'success' | 'error' } | null;
 type ThemeMode = 'light' | 'dark';
 type NavItem = { id: AppView; label: string; icon: React.ComponentType<{ className?: string }> };
@@ -76,7 +78,7 @@ const THEME_KEY = 'orbit_theme_v1';
 const SIDEBAR_KEY = 'orbit_sidebar_collapsed_v1';
 const PROJECT_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'extract']);
 /** Superfícies que devem ocupar 100% da área útil, sem padding nem scroll externo. */
-const FULL_BLEED_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'chat', 'ai', 'compare']);
+const FULL_BLEED_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'chat', 'ai', 'compare', 'repos']);
 
 // Compatibility adapter for editor props. The frontend never chooses an internal
 // model: src/api/chat.ts ignores these values and Nexus AI routes server-side.
@@ -86,6 +88,7 @@ const WORKSPACE_NAV: NavItem[] = [
   { id: 'home', label: 'Orbispace', icon: Home },
   { id: 'projects', label: 'Meus arquivos', icon: Folder },
   { id: 'office', label: 'OrbiDoc', icon: Apps },
+  { id: 'repos', label: 'Repositórios', icon: GithubIcon },
   { id: 'cloud', label: 'Nuvem', icon: Cloud },
 ];
 
@@ -112,6 +115,7 @@ const VIEW_LABELS: Record<string, string> = {
   projects: 'Meus arquivos',
   office: 'OrbiDoc',
   cloud: 'Nuvem',
+  repos: 'Repositórios',
   chat: 'Nexus AI',
   ai: 'Nexus AI',
   compare: 'Nexus AI',
@@ -497,6 +501,16 @@ export default function AppV5() {
    * context bar da própria surface; o header do shell passa a mostrar apenas
    * *onde* o usuário está (o módulo), nunca o nome do arquivo de novo.
    */
+  /**
+   * GitHub é WorkObject, não overlay. O badge de conta e qualquer deep link
+   * levam para a surface Repo na área principal (Fase 5).
+   */
+  useEffect(() => {
+    const openRepos = () => setView('repos');
+    window.addEventListener('orbidoc:open-github', openRepos);
+    return () => window.removeEventListener('orbidoc:open-github', openRepos);
+  }, []);
+
   const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'Orbit';
   const surfaceOwnsTitle = PROJECT_VIEWS.has(view) && Boolean(activeProject);
   const shellTitle = surfaceOwnsTitle ? (VIEW_LABELS[view] || 'Orbit') : activeTitle;
@@ -518,6 +532,7 @@ export default function AppV5() {
     if (view === 'home') return <HomeDashboard onNavigate={launchTool} onNewChat={() => navigate('chat')} recentHistory={history.slice(0, 6)} recentProjects={recentProjects} recentChats={[] as ChatSession[]} googleUser={googleUser} microsoftUser={microsoftUser} activeEngineLabel="Nexus AI" />;
     if (view === 'projects') return <FilesWorkspace projects={projects} onOpenProject={openProject} onCreateProject={createProject} onUpdateProject={persistProject} onDeleteProject={deleteProject} showNotification={showNotification} />;
     if (view === 'office') return <OfficeSuiteHub onSelectTool={launchTool} onOpenTool={launchTool} msUser={microsoftUser} setMsUser={setMicrosoftUser} showNotification={showNotification} />;
+    if (view === 'repos') return <RepoSurface showNotification={showNotification} />;
     if (view === 'cloud') return <CloudWorkspace googleUser={googleUser} microsoftUser={microsoftUser} showNotification={showNotification} />;
     if (view === 'word') {
       const project = currentProject('word');
