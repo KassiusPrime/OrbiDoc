@@ -24,6 +24,7 @@ import { applyOrbiDocNativeRuntimeProfile } from './lib/nativeRuntime';
 import { applyOrbiDocPlatformProfile } from './lib/platformProfile';
 import { mountPwaInstallStateAgent } from './lib/pwaInstall';
 import './index.css';
+import './orbit-tokens.css';
 import './orbit-system.css';
 import './orbidoc-ui.css';
 import './orbidoc-motion.css';

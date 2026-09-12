@@ -491,18 +491,26 @@ export default function AppV5() {
     return [...creation, ...navigation].slice(0, 8);
   }, [search]);
 
+  /**
+   * Contrato (§2.4): o título do objeto aparece **uma** vez.
+   * Quando uma surface em tela cheia está aberta, quem mostra o título é a
+   * context bar da própria surface; o header do shell passa a mostrar apenas
+   * *onde* o usuário está (o módulo), nunca o nome do arquivo de novo.
+   */
   const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'Orbit';
+  const surfaceOwnsTitle = PROJECT_VIEWS.has(view) && Boolean(activeProject);
+  const shellTitle = surfaceOwnsTitle ? (VIEW_LABELS[view] || 'Orbit') : activeTitle;
   const editorView = PROJECT_VIEWS.has(view) || view === 'chat' || view === 'ai' || view === 'compare' || view === 'image';
   /** Editores e assistente usam toda a área útil; páginas de catálogo mantêm respiro. */
   const fullBleed = FULL_BLEED_VIEWS.has(view) && (!PROJECT_VIEWS.has(view) || Boolean(activeProject));
   const currentProject = (type: SavedProject['type']) => activeProject?.type === type ? activeProject : null;
 
   const renderProjectMissing = (type: SavedProject['type']) => (
-    <div className="max-w-xl mx-auto mt-14 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center shadow-sm">
+    <div className="orbit-empty-state mx-auto mt-14 max-w-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center">
       <Folder className="w-10 h-10 mx-auto text-slate-300" />
-      <h2 className="mt-3 text-lg font-black">Nenhum arquivo aberto</h2>
+      <h2 className="mt-3 text-base font-semibold">Nenhum arquivo aberto</h2>
       <p className="mt-1 text-sm text-slate-500">Crie um arquivo no OrbiDoc ou abra um existente em Meus arquivos.</p>
-      <button type="button" onClick={() => createProject(type)} className="mt-5 h-10 px-4 rounded-xl bg-violet-600 text-white text-xs font-black">Criar agora</button>
+      <button type="button" onClick={() => createProject(type)} className="mt-5 h-10 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">Criar agora</button>
     </div>
   );
 
@@ -652,9 +660,9 @@ export default function AppV5() {
           ) : null}
 
           <div className="min-w-0 flex items-baseline gap-2">
-            <span className="text-[13px] font-black truncate">{activeTitle}</span>
+            <span className="text-[13px] font-semibold truncate">{shellTitle}</span>
             <span className="hidden md:inline text-[10px] text-slate-400 truncate">
-              {PROJECT_VIEWS.has(view) && activeProject ? 'Salvo neste dispositivo' : online ? 'Online' : 'Modo offline'}
+              {surfaceOwnsTitle ? 'Salvo neste dispositivo' : online ? 'Online' : 'Modo offline'}
             </span>
           </div>
 

@@ -1,0 +1,156 @@
+/* ==========================================================================
+   Orbit Design Tokens — camada semântica (FASE 2)
+   --------------------------------------------------------------------------
+   Complementa as variáveis de marca já existentes em src/index.css
+   (--brand-*, --workspace-*). Aqui ficam os tokens *semânticos*: intenção,
+   espaço, radius, elevação e camadas. Nenhum componente novo deve usar hex
+   solto nem `rounded-3xl`/`font-black` em chrome de produto.
+   Referência escrita: docs/ORBIT-TOKENS.md
+   ========================================================================== */
+
+:root {
+  /* Intenção -------------------------------------------------------------- */
+  --orbit-action: #2563eb;          /* arquivo / ação primária */
+  --orbit-action-hover: #1d4ed8;
+  --orbit-action-muted: #eff6ff;
+  --orbit-ai: #7c3aed;              /* SOMENTE IA */
+  --orbit-ai-hover: #6d28d9;
+  --orbit-ai-muted: #ede9fe;
+  --orbit-success: #059669;
+  --orbit-success-muted: #d1fae5;
+  --orbit-danger: #dc2626;
+  --orbit-danger-muted: #fee2e2;
+  --orbit-warning: #d97706;
+  --orbit-warning-muted: #fef3c7;
+
+  /* Superfícies ----------------------------------------------------------- */
+  --orbit-canvas: #e2e8f0;          /* fundo atrás do protagonista */
+  --orbit-page: #ffffff;            /* folha do documento */
+  --orbit-chrome: #f8fafc;          /* faixas de ferramenta */
+  --orbit-border: #e2e8f0;          /* divisórias */
+  --orbit-border-strong: #cbd5e1;   /* inputs / foco suave */
+
+  /* Espaço (escala 4) ----------------------------------------------------- */
+  --orbit-space-1: 4px;
+  --orbit-space-2: 8px;
+  --orbit-space-3: 12px;
+  --orbit-space-4: 16px;
+  --orbit-space-6: 24px;
+  --orbit-space-8: 32px;
+  --orbit-space-12: 48px;
+
+  /* Radius ---------------------------------------------------------------- */
+  --orbit-radius-control: 8px;      /* botões, inputs, chips */
+  --orbit-radius-panel: 12px;       /* painéis, drawers */
+  --orbit-radius-pill: 999px;       /* badges */
+
+  /* Elevação -------------------------------------------------------------- */
+  --orbit-shadow-page: 0 1px 3px rgba(15, 23, 42, .08), 0 8px 24px rgba(15, 23, 42, .06);
+  --orbit-shadow-dropdown: 0 4px 6px -1px rgba(15, 23, 42, .1), 0 2px 4px -2px rgba(15, 23, 42, .1);
+
+  /* Camadas --------------------------------------------------------------- */
+  --orbit-z-toolbar: 20;
+  --orbit-z-drawer: 40;
+  --orbit-z-modal: 50;
+  --orbit-z-toast: 60;
+
+  /* Dimensões de chrome --------------------------------------------------- */
+  --orbit-h-contextbar: 44px;
+  --orbit-h-toolbar: 40px;
+  --orbit-h-statusbar: 30px;
+  --orbit-w-sidebar: 240px;
+  --orbit-w-sidebar-collapsed: 56px;
+}
+
+.dark {
+  --orbit-action: #60a5fa;
+  --orbit-action-hover: #93c5fd;
+  --orbit-action-muted: #172554;
+  --orbit-ai: #a78bfa;
+  --orbit-ai-hover: #c4b5fd;
+  --orbit-ai-muted: #2e1065;
+  --orbit-success: #34d399;
+  --orbit-success-muted: #064e3b;
+  --orbit-danger: #f87171;
+  --orbit-danger-muted: #450a0a;
+  --orbit-warning: #fbbf24;
+  --orbit-warning-muted: #451a03;
+
+  --orbit-canvas: #0b1220;
+  --orbit-page: #0f172a;
+  --orbit-chrome: #101827;
+  --orbit-border: #1e293b;
+  --orbit-border-strong: #334155;
+
+  --orbit-shadow-page: 0 1px 3px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .4);
+  --orbit-shadow-dropdown: 0 4px 6px -1px rgba(0, 0, 0, .5), 0 2px 4px -2px rgba(0, 0, 0, .4);
+}
+
+/* --------------------------------------------------------------------------
+   Classes canônicas de produto
+   -------------------------------------------------------------------------- */
+
+/* Estado vazio / mensagem central: painel calmo, nunca card de marketing. */
+.orbit-empty-state {
+  border-radius: var(--orbit-radius-panel);
+  box-shadow: none;
+}
+
+/* Ações de arquivo (azul) e de IA (violeta) — não misturar. */
+.orbit-action {
+  background: var(--orbit-action);
+  color: #fff;
+  border-radius: var(--orbit-radius-control);
+  font-weight: 600;
+}
+
+.orbit-action:hover { background: var(--orbit-action-hover); }
+
+.orbit-ai-action {
+  background: var(--orbit-ai);
+  color: #fff;
+  border-radius: var(--orbit-radius-control);
+  font-weight: 600;
+}
+
+.orbit-ai-action:hover { background: var(--orbit-ai-hover); }
+
+/* Faixas de chrome padronizadas. */
+.orbit-contextbar {
+  display: flex;
+  align-items: center;
+  gap: var(--orbit-space-2);
+  flex: 0 0 auto;
+  min-height: var(--orbit-h-contextbar);
+  padding: 0 var(--orbit-space-3);
+  border-bottom: 1px solid var(--orbit-border);
+  background: var(--orbit-chrome);
+}
+
+.orbit-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--orbit-space-3);
+  flex: 0 0 auto;
+  min-height: var(--orbit-h-statusbar);
+  padding: 0 var(--orbit-space-3);
+  border-top: 1px solid var(--orbit-border);
+  background: var(--orbit-chrome);
+  font-size: 11px;
+  color: var(--workspace-muted, #64748b);
+}
+
+/* Barra de ferramentas da surface: uma só, sticky, scroll horizontal. */
+.orbit-surface-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  min-height: var(--orbit-h-toolbar);
+  padding: 0 var(--orbit-space-2);
+  border-bottom: 1px solid var(--orbit-border);
+  background: var(--orbit-chrome);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
