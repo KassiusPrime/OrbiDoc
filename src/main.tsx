@@ -34,6 +34,7 @@ import './orbidoc-overlay-safety.css';
 import './orbidoc-layout-safety-v2.css';
 import './orbidoc-product-polish.css';
 import './scan-reader.css';
+import './orbit-canonical.css';
 
 migrateLegacyBrandStorage();
 const nativeRuntime = applyOrbiDocNativeRuntimeProfile();
