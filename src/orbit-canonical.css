@@ -1,0 +1,159 @@
+/* Orbit canonical visual layer — last stylesheet by design. */
+:root {
+  --orbit-canvas: #f6f8fb;
+  --orbit-surface: #ffffff;
+  --orbit-line: #e2e8f0;
+  --orbit-text: #111827;
+  --orbit-muted: #64748b;
+  --orbit-blue: #3157f6;
+  --orbit-violet: #6750d8;
+  --orbit-radius: 8px;
+  --orbit-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+html.dark {
+  --orbit-canvas: #0b0d11;
+  --orbit-surface: #111318;
+  --orbit-line: #252a35;
+  --orbit-text: #f8fafc;
+  --orbit-muted: #a4afbf;
+  --orbit-shadow: 0 1px 2px rgb(0 0 0 / 0.24);
+}
+
+.orbit-app-shell,
+.orbidoc-app-root {
+  background: var(--orbit-canvas) !important;
+  color: var(--orbit-text);
+}
+
+/* Shell: one persistent navigation rail, one workspace, no second product shell. */
+.orbidoc-app-root > div.h-dvh {
+  background: var(--orbit-canvas) !important;
+}
+
+.orbidoc-app-root > div.h-dvh > aside.w-\[264px\] {
+  width: 240px !important;
+  background: var(--orbit-surface) !important;
+  border-right: 1px solid var(--orbit-line) !important;
+}
+
+.orbidoc-app-root > div.h-dvh > aside.w-\[264px\] .rounded-xl {
+  border-radius: var(--orbit-radius) !important;
+}
+
+.orbidoc-app-root > div.h-dvh > aside.w-\[264px\] button[aria-current="page"] {
+  background: color-mix(in srgb, var(--orbit-violet) 9%, transparent) !important;
+  color: var(--orbit-violet) !important;
+}
+
+.orbidoc-app-root main {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  background: var(--orbit-canvas) !important;
+}
+
+/* Surfaces are workspace regions, not floating app cards. */
+.orbit-app-shell .rounded-3xl,
+.orbidoc-app-root .rounded-3xl,
+.orbidoc-app-root [class*="rounded-[28px]"],
+.orbidoc-app-root [class*="rounded-[30px]"],
+.orbidoc-app-root [class*="rounded-[32px]"] {
+  border-radius: var(--orbit-radius) !important;
+}
+
+.orbit-app-shell .shadow-xl,
+.orbit-app-shell .shadow-2xl,
+.orbidoc-app-root .shadow-xl,
+.orbidoc-app-root .shadow-2xl {
+  box-shadow: var(--orbit-shadow) !important;
+}
+
+/* Replace decorative card stacks with quiet dividers. */
+.orbidoc-app-root section.rounded-3xl,
+.orbidoc-app-root article.rounded-3xl,
+.orbidoc-app-root div.rounded-3xl.border {
+  border-color: var(--orbit-line) !important;
+  box-shadow: none !important;
+}
+
+/* Keep the central surface readable on dense workspaces. */
+.orbidoc-app-root main > div {
+  min-height: 0;
+}
+
+.orbidoc-app-root main > div > * {
+  min-width: 0;
+}
+
+/* Toolbar controls follow the 8px control radius and 44px touch target. */
+.orbidoc-app-root button,
+.orbidoc-app-root input,
+.orbidoc-app-root textarea,
+.orbidoc-app-root select {
+  border-radius: var(--orbit-radius);
+}
+
+.orbidoc-app-root button {
+  min-height: 36px;
+}
+
+.orbidoc-app-root input,
+.orbidoc-app-root textarea,
+.orbidoc-app-root select {
+  border-color: var(--orbit-line);
+}
+
+/* IA is violet; file operations remain blue. */
+.orbidoc-app-root [aria-label*="IA" i],
+.orbidoc-app-root [title*="IA" i] {
+  --tw-ring-color: var(--orbit-violet);
+}
+
+/* Prevent old full-height feature wrappers from creating a second viewport. */
+.orbidoc-app-root [class*="min-h-[calc(100dvh"] {
+  min-height: 0 !important;
+}
+
+/* Documents: the page itself is the protagonist. */
+.orbidoc-rich-editor {
+  border-radius: 0 !important;
+}
+
+/* Mobile: remove decorative chrome before reducing usable canvas. */
+@media (max-width: 1023px) {
+  .orbidoc-app-root > div.h-dvh > aside.w-\[264px\] {
+    width: 0 !important;
+  }
+
+  .orbidoc-app-root main {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 599px) {
+  .orbidoc-app-root main > div {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .orbidoc-app-root .max-w-7xl,
+  .orbidoc-app-root .max-w-6xl,
+  .orbidoc-app-root .max-w-\[1500px\] {
+    max-width: none !important;
+  }
+
+  .orbidoc-app-root section.rounded-3xl,
+  .orbidoc-app-root article.rounded-3xl {
+    border-left: 0 !important;
+    border-right: 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbidoc-app-root *,
+  .orbidoc-app-root *::before,
+  .orbidoc-app-root *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
