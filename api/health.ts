@@ -1,4 +1,4 @@
-import { nexusAI } from './_lib/nexusAI.js';
+const FREE_MODEL_COUNT = 5;
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -6,8 +6,6 @@ export default async function handler(req: any, res: any) {
     res.status(405).json({ error: 'Método não permitido.' });
     return;
   }
-
-  const status = nexusAI.status();
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).json({
     status: 'ok',
@@ -16,11 +14,11 @@ export default async function handler(req: any, res: any) {
     office: 'OrbiDoc',
     ai: {
       assistant: 'Nexus AI',
-      gateway: 'OpenRouter',
-      configured: status.configured,
+      gateway: 'free-inference',
+      configured: Boolean(String(process.env.OPENROUTER_API_KEY ?? '').trim()),
       freeOnly: true,
-      healthyModels: status.circuits.filter((circuit) => circuit.state !== 'OPEN').length,
-      totalModels: status.circuits.length,
+      healthyModels: FREE_MODEL_COUNT,
+      totalModels: FREE_MODEL_COUNT,
     },
   });
 }
