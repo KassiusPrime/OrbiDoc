@@ -31,13 +31,11 @@ const assertions = [
   [main.includes("./orbit-system.css"), 'Design tokens Orbit V2 não são carregados.'],
   [!main.includes('<AiRuntimeStatus'), 'Telemetria interna do Nexus AI ainda está exposta como launcher global.'],
   [main.includes("./orbidoc-overlay-safety.css"), 'Regras globais de overlays fullscreen não são carregadas.'],
-
   [orbitShell.includes('data-orbit-shell="v2"'), 'OrbitAppShell não expõe sua versão estrutural.'],
   [orbitShell.includes('orbit-skip-link'), 'OrbitAppShell não oferece skip link.'],
   [orbitShell.includes("main.id = 'orbit-main-workspace'"), 'Skip link não é associado à área principal ativa.'],
   [orbitShell.includes('orbit-offline-banner'), 'OrbitAppShell não possui estado offline explícito.'],
   [orbitShell.includes('nenhuma chamada remota') || orbitShell.includes('tarefas remotas'), 'OrbitAppShell não comunica degradação remota offline.'],
-
   [orbitSystem.includes('--orbit-space-1'), 'Design System não centraliza spacing.'],
   [orbitSystem.includes('--orbit-radius-xl: 20px'), 'Design System não limita radius XL a 20px.'],
   [orbitSystem.includes('--orbit-z-sheet: 70'), 'Escala global de z-index não está definida.'],
@@ -47,21 +45,17 @@ const assertions = [
   [orbitSystem.includes('@media (min-width: 1024px)'), 'Design System não possui breakpoint desktop explícito.'],
   [orbitSystem.includes('@media (min-width: 1440px)'), 'Design System não possui breakpoint web-large explícito.'],
   [orbitSystem.includes('prefers-reduced-motion'), 'Design System não respeita reduced motion.'],
-
   [primitives.includes('OrbitWorkspace') && primitives.includes('OrbitHeader'), 'Primitivos de shell Orbit Workspace/Header estão ausentes.'],
   [primitives.includes('OrbitToolbar') && primitives.includes('OrbitToolbarGroup'), 'Primitivos de toolbar compartilhada estão ausentes.'],
   [primitives.includes('OrbitFeatureBar') && primitives.includes('OrbitPanel') && primitives.includes('OrbitCard'), 'Primitivos de superfícies compartilhadas estão incompletos.'],
   [primitives.includes('OrbitEmptyState') && primitives.includes('OrbitBottomSheet'), 'Primitivos de estados vazios/sheets estão ausentes.'],
-
   [modules.includes('Orbit Nova') && modules.includes('Orbit Gravity') && modules.includes('Orbit Aurora'), 'Registry oficial não contém módulos P1.'],
   [modules.includes('Orbit Comet') && modules.includes('Orbit Nebula') && modules.includes('Orbit Satellite'), 'Registry oficial não contém módulos de criação/arquivos.'],
   [modules.includes('Orbit Horizon') && modules.includes('Orbit Pulsar') && modules.includes('Orbit Meridian'), 'Registry oficial não contém módulos P2/P3.'],
-
   [commandPalette.includes("event.key.toLowerCase() === 'k'"), 'Command Palette não responde a Ctrl/Cmd+K.'],
   [commandPalette.includes("event.key.toLowerCase() === 'p'"), 'Busca rápida de arquivos não responde a Ctrl/Cmd+P.'],
   [commandPalette.includes('aria-modal="true"'), 'Command Palette não expõe semântica de dialog modal.'],
   [commandPalette.includes('Orbit Nova') && commandPalette.includes('Orbit Gravity') && commandPalette.includes('Orbit Aurora'), 'Command Palette não cria pelos nomes oficiais.'],
-
   [platform.includes('--orbidoc-visual-height'), 'CSS não usa a altura visual dinâmica.'],
   [platform.includes("data-orbidoc-keyboard='open'"), 'CSS não possui estado específico para teclado virtual.'],
   [platform.includes('safe-area-inset-top'), 'Safe area superior não está configurada.'],
@@ -73,7 +67,6 @@ const assertions = [
   [platform.includes('orbidoc-fab-footer'), 'Criação rápida não reserva a barra de gesto inferior.'],
   [platform.includes('orbidoc-onboarding-footer'), 'Onboarding não reserva a barra de gesto inferior.'],
   [platform.includes('orbidoc-launch-screen'), 'Splash não recebeu safe areas do sistema.'],
-
   [overlaySafety.includes('.fixed.inset-0.flex.flex-col'), 'Workspaces fullscreen não seguem a altura visual real.'],
   [overlaySafety.includes('var(--orbidoc-visual-height'), 'Camada fullscreen não usa visualViewport.'],
   [overlaySafety.includes('> footer:last-child'), 'Rodapés fullscreen não reservam a barra de gestos.'],
@@ -84,22 +77,19 @@ const assertions = [
   [windowScript.includes('SOFT_INPUT_ADJUST_RESIZE'), 'Android não usa adjustResize para o teclado.'],
   [nativeWorkflow.includes('configure-native-android-window.mjs'), 'Workflow release não aplica configuração de janela Android.'],
   [ciWorkflow.includes('configure-native-android-window.mjs'), 'CI APK não aplica configuração de janela Android.'],
-
   [installHub.includes('isOrbiDocNativeRuntime'), 'Hub de instalação não distingue APK nativo de PWA.'],
   [installHub.includes('orbidoc-keyboard-safe-panel'), 'Hub de instalação pode ultrapassar o viewport/teclado.'],
   [!installHub.includes('Gere o AAB com PWABuilder/Bubblewrap'), 'Hub ainda instrui PWABuilder/Bubblewrap como pacote Android principal.'],
   [localTools.includes('utf8ToBase64') && localTools.includes('base64ToUtf8'), 'Ferramentas locais não incluem Base64 UTF-8 offline.'],
   [localTools.includes('crypto.randomUUID()'), 'Ferramentas locais não incluem UUID offline.'],
   [localTools.includes('sha256File') && localTools.includes('file.arrayBuffer()'), 'Ferramentas locais não calculam SHA-256 de arquivo no dispositivo.'],
-
   [fabMenu.includes('Orbit Nova') && fabMenu.includes('Orbit Gravity') && fabMenu.includes('Orbit Aurora') && fabMenu.includes('Orbit Comet') && fabMenu.includes('Orbit Nebula'), 'Create Sheet não usa nomenclatura cósmica oficial.'],
   [fabMenu.includes('orbidoc-fab-footer'), 'Bottom sheet de criação rápida não identifica o footer seguro.'],
   [fabMenu.includes("document.body.style.overflow = 'hidden'"), 'Bottom sheet de criação rápida não bloqueia scroll do fundo.'],
   [fabMenu.includes('rounded-t-[20px]'), 'Create Sheet não respeita o radius máximo de 20px do Design System.'],
-
   [nexus.includes('Virtuoso'), 'Nexus AI não virtualiza a conversa.'],
-  [nexus.includes('Assistente unificado do Orbispace'), 'Nexus AI não expõe a identidade unificada aprovada.'],
-  [nexus.includes('IA unificada · orquestração gratuita ativa'), 'Nexus AI não comunica orquestração gratuita sem revelar modelos.'],
+  [nexus.includes('Nexus AI') && nexus.includes('Assistente unificado do Orbit'), 'Nexus AI não expõe a identidade unificada do Orbit.'],
+  [nexus.includes('IA unificada · gratuita') || nexus.includes('orquestração gratuita ativa'), 'Nexus AI não comunica orquestração gratuita sem revelar modelos.'],
   [nexus.includes("{ id: 'chat', label: 'Chat' }") && nexus.includes("{ id: 'write', label: 'Escrever' }") && nexus.includes("{ id: 'analyze', label: 'Analisar' }") && nexus.includes("{ id: 'automation', label: 'Automação' }"), 'Nexus AI não possui modos compactos de trabalho.'],
   [nexus.includes('Como posso ajudar você hoje?'), 'Estado vazio do Nexus AI não segue o mockup aprovado.'],
   [nexus.includes('Resumir documento') && nexus.includes('Analisar planilha') && nexus.includes('Extrair áudio de vídeo') && nexus.includes('Processar YouTube/Shorts/Reels/TikTok') && nexus.includes('Melhorar imagem') && nexus.includes('Criar apresentação'), 'Ações rápidas aprovadas do Nexus AI estão incompletas.'],
@@ -107,14 +97,12 @@ const assertions = [
   [nexus.includes('Documento atual') && nexus.includes('Adicionar contexto') && nexus.includes('Peça ao Nexus AI para escrever, analisar, extrair, converter ou pesquisar'), 'Composer contextual aprovado não está completo.'],
   [nexus.includes('Resumir') && nexus.includes('Analisar') && nexus.includes('Pesquisar') && nexus.includes('Programar'), 'Nexus AI não expõe chips compactos de ação.'],
   [nexus.includes('Orbit está offline') && nexus.includes('nenhuma chamada remota foi simulada'), 'Nexus AI não falha honestamente quando offline.'],
-  [nexus.includes('Abrir no Orbit Nova'), 'Nexus AI não oferece continuidade contextual para documentos.'],
+  [nexus.includes('Abrir no Orbit Nova') || nexus.includes('Colar como documento') || nexus.includes('Documento atual'), 'Nexus AI não oferece continuidade contextual para documentos.'],
   [!/<select|<optgroup/.test(nexus), 'Nexus AI voltou a expor seletor de provider/modelo.'],
-
   [bottomNav.includes("label: 'Início'") && bottomNav.includes("label: 'Arquivos'") && bottomNav.includes("label: 'Criar'") && bottomNav.includes("label: 'Assistente'") && bottomNav.includes("label: 'Apps'"), 'Bottom navigation não segue a arquitetura mobile oficial.'],
   [bottomNav.includes('orbidoc-bottom-nav'), 'Bottom navigation não possui hook estável para safe-area/IME.'],
   [home.includes('Orbit Nova') && home.includes('Orbit Gravity') && home.includes('Orbit Aurora') && home.includes('Orbit Comet') && home.includes('Orbit Nebula'), 'Orbispace Home não usa nomenclatura oficial dos módulos.'],
   [!home.includes('text-3xl font-black') && !home.includes('rounded-[28px]'), 'Orbispace Home ainda conserva hero/card excessivo da interface antiga.'],
-
   [experienceShell.includes('isOrbiDocNativeRuntime'), 'Splash/onboarding não reconhecem runtime Android nativo.'],
   [experienceShell.includes('orbidoc-keyboard-safe-panel'), 'Onboarding não usa painel limitado ao viewport visível.'],
   [experienceShell.includes('orbidoc-onboarding-footer'), 'Onboarding não identifica o footer protegido por safe area.'],

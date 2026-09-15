@@ -1,42 +1,25 @@
-import { nexusAI, type NexusBody } from '../_lib/nexusAI.js';
+import { stream as streamNexus, type NexusBody } from '../_lib/nexusFreeAI.js';
 import { applyNativeCors } from '../_lib/nativeCors.js';
 
 function parseBody(body: unknown): NexusBody {
   if (typeof body !== 'string') return (body ?? {}) as NexusBody;
-  try {
-    return JSON.parse(body) as NexusBody;
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(body) as NexusBody; } catch { return {}; }
 }
 
 function compactError(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error ?? 'Falha desconhecida'))
-    .replace(/\s+/g, ' ')
-    .slice(0, 420);
+  return (error instanceof Error ? error.message : String(error ?? 'Falha desconhecida')).replace(/\s+/g, ' ').slice(0, 420);
 }
 
 export default async function handler(req: any, res: any) {
   if (applyNativeCors(req, res)) return;
-
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST, OPTIONS');
-    res.status(405).json({ error: 'Método não permitido.' });
-    return;
-  }
-
+  if (req.method !== 'POST') { res.setHeader('Allow', 'POST, OPTIONS'); res.status(405).json({ error: 'Método não permitido.' }); return; }
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
-
   const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
   try {
-    await nexusAI.stream(
-      parseBody(req.body),
-      (chunk) => write({ chunk }),
-      (meta) => write({ meta }),
-    );
+    await streamNexus(parseBody(req.body), (chunk) => write({ chunk }), (meta) => write({ meta }));
   } catch (error) {
     write({ error: compactError(error) });
   } finally {

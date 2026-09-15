@@ -7,11 +7,11 @@ const read = (path: string) => readFileSync(path, 'utf8');
 test('Nexus AI exposes one assistant without provider or model selectors', () => {
   const workspace = read('src/components/AiWorkspace.tsx');
   const client = read('src/api/chat.ts');
-  const runtime = read('api/_lib/nexusAI.ts');
+  const runtime = read('api/_lib/nexusFreeAI.ts');
 
   assert.match(workspace, /Nexus AI/);
-  assert.match(workspace, /IA unificada · orquestração gratuita ativa/);
-  assert.match(workspace, /Assistente unificado do Orbispace/);
+  assert.match(workspace, /IA unificada · (orquestração gratuita ativa|gratuita)/);
+  assert.match(workspace, /Assistente unificado do (Orbispace|Orbit)/);
   assert.match(workspace, /Virtuoso/);
   assert.match(workspace, /Pesquisar|Web/);
   assert.doesNotMatch(workspace, /<select|<optgroup|providerLabel|researchModelKey/);

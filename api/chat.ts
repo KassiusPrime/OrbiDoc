@@ -1,4 +1,4 @@
-import { nexusAI, type NexusBody } from './_lib/nexusAI.js';
+import { complete, type NexusBody } from './_lib/nexusFreeAI.js';
 import { applyNativeCors } from './_lib/nativeCors.js';
 
 function parseBody(body: unknown): NexusBody {
@@ -18,19 +18,17 @@ function compactError(error: unknown): string {
 
 export default async function handler(req: any, res: any) {
   if (applyNativeCors(req, res)) return;
-
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST, OPTIONS');
     res.status(405).json({ error: 'Método não permitido.' });
     return;
   }
-
   try {
-    const result = await nexusAI.complete(parseBody(req.body));
+    const result = await complete(parseBody(req.body));
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Orbit-Request-Id', result.requestId);
     res.status(200).json(result);
   } catch (error) {
-    res.status(502).json({ error: compactError(error) });
+    res.status(502).json({ error: compactError(error), freeOnly: true, assistant: 'Nexus AI' });
   }
 }

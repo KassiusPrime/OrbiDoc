@@ -172,8 +172,8 @@ async function startServer(): Promise<void> {
       gateway: status.gateway,
       configured: status.configured,
       freeOnly: status.freeOnly,
-      healthyModels: status.circuits.filter((circuit) => circuit.state !== 'OPEN').length,
-      unavailableModels: status.circuits.filter((circuit) => circuit.state === 'OPEN').length,
+      healthyModels: status.circuits.filter((circuit) => circuit.failures < 3).length,
+      unavailableModels: status.circuits.filter((circuit) => circuit.failures >= 3).length,
       totalModels: status.circuits.length,
     });
   });

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import {
   browserLocalPersistence,
+  browserSessionPersistence,
   createUserWithEmailAndPassword,
   deleteUser,
   EmailAuthProvider,
@@ -47,9 +48,35 @@ const app = !getApps().length ? initializeApp(clientConfig) : getApp();
 export const auth = getAuth(app);
 auth.languageCode = 'pt-BR';
 
+const REMEMBER_ME_KEY = 'orbit_auth_remember_me_v1';
 let persistencePromise: Promise<void> | null = null;
+
+function readRememberMePreference(): boolean {
+  try {
+    return localStorage.getItem(REMEMBER_ME_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+export function getOrbiDocRememberMe(): boolean {
+  return readRememberMePreference();
+}
+
+export async function setOrbiDocRememberMe(remember: boolean): Promise<void> {
+  try {
+    localStorage.setItem(REMEMBER_ME_KEY, remember ? '1' : '0');
+  } catch {
+    // Best effort: Firebase persistence below remains authoritative for this session.
+  }
+  persistencePromise = setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+  await persistencePromise;
+}
+
 const ensurePersistence = () => {
-  if (!persistencePromise) persistencePromise = setPersistence(auth, browserLocalPersistence).catch(() => undefined);
+  if (!persistencePromise) {
+    persistencePromise = setPersistence(auth, readRememberMePreference() ? browserLocalPersistence : browserSessionPersistence).catch(() => undefined);
+  }
   return persistencePromise;
 };
 
@@ -99,7 +126,6 @@ const mapAuthUser = (user: User | null): OrbiDocAuthUser | null => user ? {
 } : null;
 
 export const isOrbiDocAuthConfigured = () => Boolean(clientConfig.apiKey && clientConfig.authDomain && clientConfig.projectId && clientConfig.appId);
-
 export const getCurrentOrbiDocUser = () => mapAuthUser(auth.currentUser);
 
 export const subscribeToOrbiDocAuth = (callback: (user: OrbiDocAuthUser | null) => void) => {
@@ -139,11 +165,9 @@ export function getFriendlyAuthError(error: unknown): string {
 async function enforceCloudPasswordPolicy(password: string) {
   if (password.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.');
   if (!isOrbiDocAuthConfigured()) return;
-
   try {
     const status = await validatePassword(auth, password);
     if (status.isValid) return;
-
     const missing: string[] = [];
     if (status.meetsMinPasswordLength === false) missing.push('comprimento mínimo');
     if (status.meetsMaxPasswordLength === false) missing.push('comprimento máximo');
@@ -151,12 +175,9 @@ async function enforceCloudPasswordPolicy(password: string) {
     if (status.containsUppercaseLetter === false) missing.push('letra maiúscula');
     if (status.containsNumericCharacter === false) missing.push('número');
     if (status.containsNonAlphanumericCharacter === false) missing.push('caractere especial');
-
     throw new Error(`A senha não atende à política do Firebase${missing.length ? `: falta ${missing.join(', ')}` : ''}.`);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('A senha não atende à política do Firebase')) throw error;
-    // Se a consulta da política falhar por rede/configuração, a criação de conta ainda será
-    // submetida ao backend Firebase, que aplica a política de forma autoritativa.
   }
 }
 
@@ -167,7 +188,6 @@ export async function createOrbiDocAccount(name: string, email: string, password
   if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) throw new Error('Digite um endereço de e-mail válido.');
   await enforceCloudPasswordPolicy(password);
   await ensurePersistence();
-
   let credential;
   try {
     credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
@@ -175,14 +195,12 @@ export async function createOrbiDocAccount(name: string, email: string, password
   } catch (error) {
     throw new Error(getFriendlyAuthError(error));
   }
-
   try {
     await sendEmailVerification(credential.user);
   } catch (error) {
     const reason = getFriendlyAuthError(error);
     throw new Error(`Conta em nuvem criada, mas o Firebase não conseguiu enviar o e-mail de verificação: ${reason} Use “Reenviar” na conta para tentar novamente.`);
   }
-
   return mapAuthUser(auth.currentUser)!;
 }
 
@@ -206,28 +224,18 @@ export async function signInOrbiDocGuest(): Promise<OrbiDocAuthUser> {
   }
 }
 
-export async function signOutOrbiDocAccount() {
-  await signOut(auth);
-}
+export async function signOutOrbiDocAccount() { await signOut(auth); }
 
 export async function resetOrbiDocPassword(email: string) {
   const cleanEmail = email.trim().toLowerCase();
   if (!cleanEmail) throw new Error('Digite seu e-mail para receber a recuperação de senha.');
-  try {
-    await sendPasswordResetEmail(auth, cleanEmail);
-  } catch (error) {
-    throw new Error(getFriendlyAuthError(error));
-  }
+  try { await sendPasswordResetEmail(auth, cleanEmail); } catch (error) { throw new Error(getFriendlyAuthError(error)); }
 }
 
 export async function resendOrbiDocVerification() {
   if (!auth.currentUser || auth.currentUser.isAnonymous || !auth.currentUser.email) throw new Error('Entre em uma conta com e-mail para verificar o endereço.');
   if (auth.currentUser.emailVerified) return;
-  try {
-    await sendEmailVerification(auth.currentUser);
-  } catch (error) {
-    throw new Error(`Não foi possível reenviar o e-mail de verificação: ${getFriendlyAuthError(error)}`);
-  }
+  try { await sendEmailVerification(auth.currentUser); } catch (error) { throw new Error(`Não foi possível reenviar o e-mail de verificação: ${getFriendlyAuthError(error)}`); }
 }
 
 function currentIdentity() {
@@ -240,7 +248,6 @@ async function ownedReferences(collectionName: string, uid: string, email: strin
   const references = new Map<string, DocumentReference>();
   const current = await getDocs(query(collection(db, collectionName), where('userId', '==', uid)));
   current.docs.forEach((snapshot) => references.set(snapshot.ref.path, snapshot.ref));
-
   const legacy = await getDocs(query(collection(db, collectionName), where('userEmail', '==', email)));
   legacy.docs.forEach((snapshot) => references.set(snapshot.ref.path, snapshot.ref));
   return [...references.values()];
@@ -254,163 +261,88 @@ async function deleteReferences(references: DocumentReference[]) {
   }
 }
 
-/**
- * Permanently removes the signed-in account and the cloud records currently created by OrbiDoc.
- * Local workspace files are intentionally left on the device so deleting an account never destroys
- * an unsynced document without an explicit local-data action from the user.
- */
 export async function deleteOrbiDocAccountAndCloudData(password: string) {
   const user = auth.currentUser;
   if (!user || user.isAnonymous || !user.email) throw new Error('Entre em uma conta OrbiDoc com e-mail para solicitar a exclusão.');
   if (!password) throw new Error('Digite sua senha para confirmar a exclusão permanente.');
-
   try {
     await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
-
-    const [documents, chatSessions] = await Promise.all([
-      ownedReferences('documents', user.uid, user.email),
-      ownedReferences('chat_sessions', user.uid, user.email),
-    ]);
+    const [documents, chatSessions] = await Promise.all([ownedReferences('documents', user.uid, user.email), ownedReferences('chat_sessions', user.uid, user.email)]);
     await deleteReferences([...documents, ...chatSessions]);
-
     const profileRef = doc(db, 'users', user.uid);
     const settingsRef = doc(db, 'user_settings', user.uid);
     const legacySettingsRef = doc(db, 'user_settings', user.email.replace(/[^a-zA-Z0-9]/g, '_'));
-    const [profile, settings, legacySettings] = await Promise.all([
-      getDoc(profileRef),
-      getDoc(settingsRef),
-      getDoc(legacySettingsRef),
-    ]);
-
+    const [profile, settings, legacySettings] = await Promise.all([getDoc(profileRef), getDoc(settingsRef), getDoc(legacySettingsRef)]);
     const directDeletes: Promise<void>[] = [];
     if (profile.exists()) directDeletes.push(deleteDoc(profileRef));
     if (settings.exists()) directDeletes.push(deleteDoc(settingsRef));
     if (legacySettings.exists() && legacySettings.data().userEmail === user.email) directDeletes.push(deleteDoc(legacySettingsRef));
     await Promise.all(directDeletes);
-
     await deleteUser(user);
     return { deletedDocuments: documents.length, deletedChatSessions: chatSessions.length };
-  } catch (error) {
-    throw new Error(getFriendlyAuthError(error));
-  }
+  } catch (error) { throw new Error(getFriendlyAuthError(error)); }
 }
 
-/** Save to cloud only for a real authenticated Firebase user. Local-first callers can treat false as "not synced". */
 export async function saveDocumentToFirestore(documentData: FirestoreDocument): Promise<boolean> {
   const identity = currentIdentity();
   if (!identity) return false;
-
   try {
-    const docRef = doc(db, 'documents', documentData.id);
-    await setDoc(docRef, {
-      ...documentData,
-      userId: identity.uid,
-      userEmail: identity.email,
-      updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    await setDoc(doc(db, 'documents', documentData.id), { ...documentData, userId: identity.uid, userEmail: identity.email, updatedAt: new Date().toISOString() }, { merge: true });
     return true;
-  } catch (err) {
-    console.warn('Firestore saveDocument error:', err);
-    return false;
-  }
+  } catch (err) { console.warn('Firestore saveDocument error:', err); return false; }
 }
 
-/** Load only the authenticated user's documents. The email argument is retained for API compatibility but ignored. */
 export async function loadDocumentsFromFirestore(_userEmail?: string): Promise<FirestoreDocument[]> {
   const identity = currentIdentity();
   if (!identity) return [];
-
   try {
-    const docsRef = collection(db, 'documents');
-    const q = query(docsRef, where('userId', '==', identity.uid));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    } as FirestoreDocument));
-  } catch (err) {
-    console.warn('Firestore loadDocuments error:', err);
-    return [];
-  }
+    const querySnapshot = await getDocs(query(collection(db, 'documents'), where('userId', '==', identity.uid)));
+    return querySnapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() } as FirestoreDocument));
+  } catch (err) { console.warn('Firestore loadDocuments error:', err); return []; }
 }
 
 export async function deleteDocumentFromFirestore(docId: string): Promise<boolean> {
   const identity = currentIdentity();
   if (!identity) return false;
-
   try {
     const docRef = doc(db, 'documents', docId);
     const snapshot = await getDoc(docRef);
     if (!snapshot.exists()) return true;
-
     const data = snapshot.data();
     const ownsDocument = data.userId === identity.uid || (!data.userId && data.userEmail === identity.email);
     if (!ownsDocument) return false;
-
     await deleteDoc(docRef);
     return true;
-  } catch (err) {
-    console.warn('Firestore deleteDocument error:', err);
-    return false;
-  }
+  } catch (err) { console.warn('Firestore deleteDocument error:', err); return false; }
 }
 
 export async function saveUserSettingsToFirestore(settings: FirestoreUserSettings): Promise<boolean> {
   const identity = currentIdentity();
   if (!identity) return false;
-
   try {
-    const docRef = doc(db, 'user_settings', identity.uid);
-    await setDoc(docRef, {
-      ...settings,
-      userEmail: identity.email,
-      updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    await setDoc(doc(db, 'user_settings', identity.uid), { ...settings, userEmail: identity.email, updatedAt: new Date().toISOString() }, { merge: true });
     return true;
-  } catch (err) {
-    console.warn('Firestore saveUserSettings error:', err);
-    return false;
-  }
+  } catch (err) { console.warn('Firestore saveUserSettings error:', err); return false; }
 }
 
 export async function loadUserSettingsFromFirestore(_userEmail?: string): Promise<FirestoreUserSettings | null> {
   const identity = currentIdentity();
   if (!identity) return null;
-
   try {
     const currentRef = doc(db, 'user_settings', identity.uid);
     const currentSnap = await getDoc(currentRef);
     if (currentSnap.exists()) return currentSnap.data() as FirestoreUserSettings;
-
     const legacyKey = identity.email.replace(/[^a-zA-Z0-9]/g, '_');
     const legacySnap = await getDoc(doc(db, 'user_settings', legacyKey));
     return legacySnap.exists() ? legacySnap.data() as FirestoreUserSettings : null;
-  } catch (err) {
-    console.warn('Firestore loadUserSettings error:', err);
-    return null;
-  }
+  } catch (err) { console.warn('Firestore loadUserSettings error:', err); return null; }
 }
 
-export function subscribeToDocuments(
-  _userEmail: string | undefined,
-  callback: (docs: FirestoreDocument[]) => void,
-) {
+export function subscribeToDocuments(_userEmail: string | undefined, callback: (docs: FirestoreDocument[]) => void) {
   const identity = currentIdentity();
-  if (!identity) {
-    callback([]);
-    return () => {};
-  }
-
+  if (!identity) { callback([]); return () => {}; }
   try {
-    const docsRef = collection(db, 'documents');
-    const q = query(docsRef, where('userId', '==', identity.uid));
-    return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreDocument)));
-    }, (error) => {
-      console.warn('Firestore documents subscription error:', error);
-    });
-  } catch (e) {
-    console.warn('Firestore subscription failed:', e);
-    return () => {};
-  }
+    const q = query(collection(db, 'documents'), where('userId', '==', identity.uid));
+    return onSnapshot(q, (snapshot) => callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreDocument))), (error) => console.warn('Firestore documents subscription error:', error));
+  } catch (e) { console.warn('Firestore subscription failed:', e); return () => {}; }
 }
