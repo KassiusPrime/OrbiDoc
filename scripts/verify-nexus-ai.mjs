@@ -17,7 +17,7 @@ const imageRuntime = read('api/_lib/imageRuntime.ts');
 const manifest = read('vite.config.ts');
 const packageJson = read('package.json');
 
-for (const token of ['openrouter/free','nvidia/nemotron-3.5-lightning:free','cohere/north-mini-code:free','CircuitBreaker','freeOnly: true','max_price','allow_fallbacks: false','ZERO_COST_INVARIANT_VIOLATED','OPENROUTER_API_KEY','Nexus AI']) {
+for (const token of ['openrouter/free','nvidia/nemotron-3.5-lightning:free','cohere/north-mini-code:free','recordFailure','circuits','freeOnly: true','max_price','allow_fallbacks: false','ZERO_COST_INVARIANT_VIOLATED','OPENROUTER_API_KEY','Nexus AI']) {
   if (!runtime.includes(token)) failures.push(`nexusFreeAI.ts não contém ${token}.`);
 }
 if (!compatibility.includes("from './nexusFreeAI.js'")) failures.push('Compatibilidade nexusAI.ts não delega ao runtime canônico gratuito.');
