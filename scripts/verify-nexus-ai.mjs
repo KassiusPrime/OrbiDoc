@@ -17,42 +17,20 @@ const imageRuntime = read('api/_lib/imageRuntime.ts');
 const manifest = read('vite.config.ts');
 const packageJson = read('package.json');
 
-for (const token of [
-  'openrouter/free',
-  'nvidia/nemotron-3.5-lightning:free',
-  'cohere/north-mini-code:free',
-  'CircuitBreaker',
-  'freeOnly: true',
-  'max_price',
-  'allow_fallbacks: false',
-  'ZERO_COST_INVARIANT_VIOLATED',
-  'OPENROUTER_API_KEY',
-  'Nexus AI',
-]) {
+for (const token of ['openrouter/free','nvidia/nemotron-3.5-lightning:free','cohere/north-mini-code:free','CircuitBreaker','freeOnly: true','max_price','allow_fallbacks: false','ZERO_COST_INVARIANT_VIOLATED','OPENROUTER_API_KEY','Nexus AI']) {
   if (!runtime.includes(token)) failures.push(`nexusFreeAI.ts não contém ${token}.`);
 }
-
 if (!compatibility.includes("from './nexusFreeAI.js'")) failures.push('Compatibilidade nexusAI.ts não delega ao runtime canônico gratuito.');
-if (/createOpenRouter|generateText|streamText|@openrouter\/ai-sdk-provider|from 'ai'/.test(runtime)) failures.push('Runtime canônico ainda depende do SDK/provider legado; use fetch direto com a política zero-cost.');
+if (/createOpenRouter|generateText|streamText|@openrouter\/ai-sdk-provider|from 'ai'/.test(runtime)) failures.push('Runtime canônico ainda depende do SDK/provider legado.');
 if (/GEMINI_API_KEY|GROQ_API_KEY|OPENAI_API_KEY|ai-gateway\.vercel\.sh/.test(runtime)) failures.push('Runtime canônico contém credencial/provedor proibido.');
-
 const modelMatches = [...runtime.matchAll(/['"]([a-z0-9_.-]+\/[a-z0-9_.:-]+)['"]/gi)].map((match) => match[1]);
 const internalModels = [...new Set(modelMatches.filter((model) => model === 'openrouter/free' || model.endsWith(':free')))].sort();
 if (internalModels.length < 2) failures.push('Pool interno do Nexus AI parece pequeno ou ausente.');
-for (const model of internalModels) {
-  if (model !== 'openrouter/free' && !model.endsWith(':free')) failures.push(`Modelo não gratuito no pool: ${model}.`);
-}
-
-for (const forbidden of ['GEMINI_API_KEY', 'GROQ_API_KEY', 'OPENAI_API_KEY', 'ai-gateway.vercel.sh', 'openrouter:web_search', 'openrouter:web_fetch']) {
-  if (runtime.includes(forbidden) || compatibility.includes(forbidden)) failures.push(`Runtime Nexus AI contém integração proibida: ${forbidden}.`);
-}
-
+for (const model of internalModels) if (model !== 'openrouter/free' && !model.endsWith(':free')) failures.push(`Modelo não gratuito no pool: ${model}.`);
+for (const forbidden of ['GEMINI_API_KEY','GROQ_API_KEY','OPENAI_API_KEY','ai-gateway.vercel.sh','openrouter:web_search','openrouter:web_fetch']) if (runtime.includes(forbidden) || compatibility.includes(forbidden)) failures.push(`Runtime Nexus AI contém integração proibida: ${forbidden}.`);
 if (!web.includes('tavily-free')) failures.push('Pesquisa zero-cost não identifica o motor gratuito.');
 if (!web.includes('não fará fallback para uma busca paga')) failures.push('Pesquisa zero-cost não documenta fail-closed.');
-for (const paidWebToken of ['openrouter:web_search', 'openrouter:web_fetch', "id: 'web'"]) {
-  if (web.includes(paidWebToken)) failures.push(`Pesquisa zero-cost contém ferramenta paga: ${paidWebToken}.`);
-}
-
+for (const paidWebToken of ['openrouter:web_search','openrouter:web_fetch',"id: 'web'"]) if (web.includes(paidWebToken)) failures.push(`Pesquisa zero-cost contém ferramenta paga: ${paidWebToken}.`);
 if (!client.includes('provider/model are deliberately ignored')) failures.push('Cliente ainda pode aparentar controlar o modelo interno.');
 if (!workspace.includes('Nexus AI')) failures.push('UI não apresenta Nexus AI.');
 if (/<select|<optgroup/.test(workspace)) failures.push('UI Nexus AI ainda contém seletor de modelo/provedor.');
@@ -60,26 +38,14 @@ if (!workspace.includes('Virtuoso')) failures.push('Lista de mensagens não est�
 if (!server.includes('nexusAI.complete') || !server.includes('nexusAI.stream')) failures.push('Servidor local não usa Nexus AI unificado.');
 if (/runChatV2|streamChatV2|hydrateGatewayRuntimeAuth/.test(server)) failures.push('Servidor ainda referencia runtime multi-provider antigo.');
 if (!nativeBridge.includes('installNativeAiApiBridge(): false')) failures.push('Android ainda pode interceptar a IA e divergir do backend Nexus.');
-
 if (!imageRuntime.includes('PAID_IMAGE_MODEL_FORBIDDEN')) failures.push('Runtime de imagem não bloqueia explicitamente modelos pagos.');
 if (!imageRuntime.includes("endsWith(':free')")) failures.push('Runtime de imagem não exige variante :free.');
 if (/ai-gateway\.vercel|GEMINI_API_KEY|GROQ_API_KEY/.test(imageRuntime)) failures.push('Runtime de imagem ainda referencia provedor de IA proibido.');
 if (!manifest.includes('name: "Orbit"') || !manifest.includes('short_name: "Orbit"')) failures.push('Manifest PWA não está nomeado Orbit.');
 if (/pollinations/i.test(manifest)) failures.push('Manifest/cache ainda referencia geração de imagem fora da política OpenRouter.');
-
-for (const obsolete of ['api/_lib/ai.ts','api/_lib/aiRuntimeV2.ts','api/_lib/aiSafeStream.ts','api/_lib/gatewayAuth.ts','api/_lib/webGrounding.ts','src/components/AiWorkspaceLegacy.tsx','src/components/AiDiagnosticsPanel.tsx','src/components/NativeAiSettingsLauncher.tsx','src/App.tsx','src/AppV2.tsx','src/AppV3.tsx','src/AppV4.tsx']) {
-  if (exists(obsolete)) failures.push(`Artefato legado ainda existe: ${obsolete}.`);
-}
-for (const obsoleteDependency of ['@google/genai', '@vercel/oidc']) {
-  if (packageJson.includes(`\"${obsoleteDependency}\"`)) failures.push(`Dependência antiga ainda instalada: ${obsoleteDependency}.`);
-}
-
-if (failures.length) {
-  console.error('\nFalhas da política Nexus AI:');
-  failures.forEach((failure) => console.error(`- ${failure}`));
-  process.exit(1);
-}
-
+for (const obsolete of ['api/_lib/ai.ts','api/_lib/aiRuntimeV2.ts','api/_lib/aiSafeStream.ts','api/_lib/gatewayAuth.ts','api/_lib/webGrounding.ts','src/components/AiWorkspaceLegacy.tsx','src/components/AiDiagnosticsPanel.tsx','src/components/NativeAiSettingsLauncher.tsx','src/App.tsx','src/AppV2.tsx','src/AppV3.tsx','src/AppV4.tsx']) if (exists(obsolete)) failures.push(`Artefato legado ainda existe: ${obsolete}.`);
+for (const obsoleteDependency of ['@google/genai','@vercel/oidc']) if (packageJson.includes(`\"${obsoleteDependency}\"`)) failures.push(`Dependência antiga ainda instalada: ${obsoleteDependency}.`);
+if (failures.length) { console.error('\nFalhas da política Nexus AI:'); failures.forEach((failure) => console.error(`- ${failure}`)); process.exit(1); }
 console.log(`Nexus AI: ${internalModels.length} rotas gratuitas detectadas; nenhuma rota paga permitida.`);
 console.log('Nexus AI: request routing exige max_price=0, allow_fallbacks=false e valida custo reportado.');
 console.log('Nexus AI: a superfície canônica usa fetch direto para OpenRouter; SDKs de providers pagos não participam do runtime.');
