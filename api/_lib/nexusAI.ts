@@ -1,7 +1,7 @@
 // Canonical Nexus AI compatibility surface.
 // The implementation lives in nexusFreeAI.ts. This file intentionally contains
 // no provider SDKs, paid model integrations, or model selector.
-import { complete, stream, MODELS, type NexusBody, type NexusMeta, type NexusResult } from './nexusFreeAI.js';
+import { complete, stream, MODELS, status as freeRuntimeStatus, type NexusBody, type NexusMeta, type NexusResult } from './nexusFreeAI.js';
 
 export const NEXUS_FREE_MODELS = MODELS;
 
@@ -33,13 +33,13 @@ export class NexusAIClient {
   async complete(body: NexusBody, _signal?: AbortSignal): Promise<NexusResult> { return complete(body); }
   async stream(body: NexusBody, onChunk: (chunk: string) => void, onMeta: (meta: NexusMeta) => void, _signal?: AbortSignal): Promise<void> { return stream(body, onChunk, onMeta); }
   status() {
-    const configured = Boolean(String(process.env.OPENROUTER_API_KEY ?? '').trim());
+    const status = freeRuntimeStatus();
     return {
-      assistant: 'Nexus AI' as const,
-      gateway: 'OpenRouter · free-only' as const,
-      configured,
-      freeOnly: true as const,
-      circuits: NEXUS_FREE_MODELS.map((model) => ({ model, state: 'CLOSED' as const })),
+      assistant: status.assistant,
+      gateway: status.gateway,
+      configured: status.configured,
+      freeOnly: status.freeOnly,
+      circuits: status.circuits,
     };
   }
 }
