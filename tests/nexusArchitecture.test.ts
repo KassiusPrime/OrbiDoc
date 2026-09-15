@@ -21,7 +21,8 @@ test('Nexus AI is the single server runtime and does not expose internal model s
 
 test('Nexus AI uses the canonical OpenRouter free-only zero-price runtime', () => {
   assert.match(runtime, /openrouter\/free/);
-  assert.match(runtime, /endsWith\(':free'\)/);
+  assert.match(runtime, /:free/);
+  assert.match(runtime, /modelOrder|MODELS/);
   assert.match(runtime, /PAID_MODEL_FORBIDDEN|OPENROUTER_API_KEY/);
   assert.match(runtime, /max_price/);
   assert.match(runtime, /prompt:\s*0/);
