@@ -32,8 +32,8 @@ export type NexusMeta = {
 };
 
 export type NexusResult = NexusMeta & { answer: string };
-
 type Message = { role: 'system' | 'user' | 'assistant'; content: string };
+type Circuit = { model: string; state: 'CLOSED' | 'OPEN'; failures: number };
 
 const SYSTEM = [
   'Você é Nexus AI, a inteligência unificada do Orbit.',
@@ -45,6 +45,7 @@ const SYSTEM = [
 const REQUEST_TIMEOUT_MS = 45_000;
 const MAX_MESSAGES = 60;
 const MAX_INPUT_CHARS = 160_000;
+const circuits = new Map<string, Circuit>(MODELS.map((model) => [model, { model, state: 'CLOSED', failures: 0 }]));
 
 function messages(value: unknown): Message[] {
   if (!Array.isArray(value) || !value.length || value.length > MAX_MESSAGES) throw new Error('Conversa inválida.');
@@ -141,6 +142,8 @@ function costOf(payload: any): number {
 }
 
 async function completeWithModel(body: NexusBody, items: Message[], model: string, web?: WebSearchResult): Promise<string> {
+  const circuit = circuits.get(model);
+  if (circuit?.state === 'OPEN') throw new Error(`Circuito aberto para modelo gratuito ${model}.`);
   const response = await withTimeout((signal) => fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -149,7 +152,7 @@ async function completeWithModel(body: NexusBody, items: Message[], model: strin
       'HTTP-Referer': String(process.env.ORBIT_PUBLIC_URL ?? 'https://orbidoc.app'),
       'X-Title': 'Orbit · Nexus AI',
     },
-    body: requestBody({ ...body, systemPrompt: systemPrompt(body) }, [{ role: 'system', content: systemPrompt(body) }, ...items], model, web),
+    body: requestBody(body, [{ role: 'system', content: systemPrompt(body) }, ...items], model, web),
     signal,
   }));
   const text = await response.text();
@@ -159,7 +162,25 @@ async function completeWithModel(body: NexusBody, items: Message[], model: strin
   if (costOf(payload) > 0) throw new Error('ZERO_COST_INVARIANT_VIOLATED: a rota selecionada reportou custo maior que zero.');
   const answer = extractAnswer(payload);
   if (!answer) throw new Error('O modelo gratuito retornou uma resposta vazia.');
+  if (circuit) { circuit.failures = 0; circuit.state = 'CLOSED'; }
   return answer;
+}
+
+function recordFailure(model: string): void {
+  const circuit = circuits.get(model);
+  if (!circuit) return;
+  circuit.failures += 1;
+  if (circuit.failures >= 3) circuit.state = 'OPEN';
+}
+
+export function status() {
+  return {
+    assistant: 'Nexus AI' as const,
+    gateway: 'OpenRouter · free-only' as const,
+    configured: Boolean(String(process.env.OPENROUTER_API_KEY ?? '').trim()),
+    freeOnly: true as const,
+    circuits: Array.from(circuits.values()).map((circuit) => ({ ...circuit })),
+  };
 }
 
 export async function complete(body: NexusBody): Promise<NexusResult> {
@@ -170,11 +191,13 @@ export async function complete(body: NexusBody): Promise<NexusResult> {
   const candidates = modelOrder(kind);
   let lastError: unknown = null;
   for (let index = 0; index < candidates.length; index += 1) {
+    const model = candidates[index]!;
     try {
-      const answer = await completeWithModel(body, items, candidates[index]!, web.context);
+      const answer = await completeWithModel(body, items, model, web.context);
       return { requestId, assistant: 'Nexus AI', strategy: kind, freeOnly: true, fallbackUsed: index > 0, webSearch: web.used, webEngine: web.used ? 'tavily-free' : undefined, answer };
     } catch (error) {
       lastError = error;
+      recordFailure(model);
       if (/OPENROUTER_API_KEY|ZERO_COST_INVARIANT/i.test(String(error))) throw error;
     }
   }
