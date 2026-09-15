@@ -29,7 +29,17 @@ test('video clip editor remains local and feature-detects browser recording supp
   const editor = read('src/components/VideoClipEditor.tsx');
   const shell = read('src/components/AudioWorkspace.tsx');
   assert.match(editor, /MediaRecorder/);
-  assert.match(editor, /isTypeSupported/);
-  assert.doesNotMatch(editor, /fetch\(['"]https?:\/\//);
-  assert.match(shell, /VideoClipEditor/);
+  assert.match(editor, /captureStream/);
+  assert.match(editor, /Nenhum vídeo é enviado ao servidor/);
+  assert.match(editor, /Exportar trecho/);
+  assert.match(shell, /Cortar vídeo/);
+});
+
+test('document studio exposes find and replace with an input event back into autosave', () => {
+  const tool = read('src/components/DocumentFindReplaceBar.tsx');
+  const wrapper = read('src/components/DocumentEditor.tsx');
+  assert.match(tool, /Ctrl\+H/);
+  assert.match(tool, /Substituir tudo/);
+  assert.match(tool, /InputEvent\('input'/);
+  assert.match(wrapper, /DocumentFindReplaceBar/);
 });
