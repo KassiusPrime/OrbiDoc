@@ -69,10 +69,13 @@ for (const token of ['installNativeAiApiBridge(): false', 'saveNativeBlob', 'dow
 }
 if (/gemini|groq|setAiKey|listAiModels/i.test(androidBridge)) failures.push('nativeAndroidBridge.ts ainda contém roteamento/provedores de IA próprios do Android.');
 
-const nexus = read('api/_lib/nexusAI.ts');
-for (const token of ['createOpenRouter', 'openrouter/free', 'PAID_MODEL_FORBIDDEN', 'CircuitBreaker']) {
-  if (!nexus.includes(token)) failures.push(`nexusAI.ts não contém ${token}.`);
+const nexus = read('api/_lib/nexusFreeAI.ts');
+for (const token of ['createFreeChatCompletion', 'openrouter/free', 'PAID_MODEL_FORBIDDEN', 'recordFailure']) {
+  if (!nexus.includes(token)) failures.push(`nexusFreeAI.ts não contém ${token}.`);
 }
+
+const compatibility = read('api/_lib/nexusAI.ts');
+if (!compatibility.includes("from './nexusFreeAI.js'")) failures.push('nexusAI.ts não delega ao runtime Nexus free-only.');
 
 const nativeNetwork = read('src/lib/nativeNetwork.ts');
 if (!nativeNetwork.includes('fetchNativeUrlPayload')) failures.push('nativeNetwork.ts não expõe o transporte nativo de URLs.');
