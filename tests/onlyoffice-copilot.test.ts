@@ -27,6 +27,6 @@ test('Nexus exposes Copilot-inspired navigation and contextual rail', () => {
   const ai = read('src/components/AiWorkspace.tsx');
   assert.match(shell, /Novo chat/);
   assert.match(shell, /Contexto/);
-  assert.match(shell, /Recolher navegação/);
+  assert.doesNotMatch(shell, /hidden md:flex shrink-0 flex-col border-r/);
   assert.match(ai, /orbidoc:nexus-new-chat/);
 });
