@@ -52,8 +52,8 @@ const APPS = [
   {
     id: 'word' as TabType,
     title: 'Documentos',
-    subtitle: 'Editor profissional de texto',
-    description: 'Relatórios, trabalhos, atas e propostas com estilos, fontes, tabelas, imagens, margens, revisão por IA e exportação.',
+    subtitle: 'ONLYOFFICE · documentos profissionais',
+    description: 'Edição completa de documentos Office com formatação, tabelas, imagens, revisão, colaboração e exportação.',
     icon: FileText,
     accent: 'bg-blue-600',
     iconClass: 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
@@ -62,8 +62,8 @@ const APPS = [
   {
     id: 'excel' as TabType,
     title: 'Planilhas',
-    subtitle: 'Dados, fórmulas e análise',
-    description: 'Intervalos, fórmulas, formatação em lote, múltiplas abas, ordenação, gráficos rápidos e importação do Excel/Sheets.',
+    subtitle: 'ONLYOFFICE · planilhas e análise',
+    description: 'Fórmulas, múltiplas abas, formatação, gráficos, colaboração e compatibilidade com XLSX/ODS/CSV.',
     icon: FileSpreadsheet,
     accent: 'bg-emerald-600',
     iconClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
@@ -72,8 +72,8 @@ const APPS = [
   {
     id: 'powerpoint' as TabType,
     title: 'Apresentações',
-    subtitle: 'Slides e objetos livres',
-    description: 'Slides 16:9 com temas, caixas de texto, imagens, formas, camadas, guias inteligentes, notas e exportação PPTX/PDF.',
+    subtitle: 'ONLYOFFICE · apresentações',
+    description: 'Slides, objetos, notas, temas, colaboração e compatibilidade com PPTX/ODP/PDF.',
     icon: Presentation,
     accent: 'bg-orange-600',
     iconClass: 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
