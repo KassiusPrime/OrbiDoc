@@ -527,7 +527,7 @@ export default function AppV5() {
         />
       );
     }
-    if (view === 'chat' || view === 'ai' || view === 'compare') return <CopilotShell title="Nexus AI" onNewChat={() => window.dispatchEvent(new Event('orbidoc:nexus-new-chat'))} contextTitle="Contexto do trabalho" contextItems={activeProject ? [{ id: activeProject.id, label: activeProject.title, detail: `Arquivo ${activeProject.type} · atualizado ${new Date(activeProject.updatedAt).toLocaleString('pt-BR')}` }] : []} onContextSelect={() => {}}><AiWorkspace onSendToWord={sendToDocument} showNotification={showNotification} /></CopilotShell>;
+    if (view === 'chat' || view === 'ai' || view === 'compare') return <CopilotShell title="Nexus AI" contextTitle="Contexto do trabalho" contextItems={activeProject ? [{ id: activeProject.id, label: activeProject.title, detail: `Arquivo ${activeProject.type} · atualizado ${new Date(activeProject.updatedAt).toLocaleString('pt-BR')}` }] : []} onContextSelect={() => {}}><AiWorkspace onSendToWord={sendToDocument} showNotification={showNotification} /></CopilotShell>;
     if (view === 'image') return <ImageWorkspace onSaveToHistory={saveHistory} showNotification={showNotification} onSendToCanva={() => createProject('canva')} />;
     if (view === 'audio') return <AudioWorkspace showNotification={showNotification} onSaveToHistory={saveHistory} onSendToWord={sendToDocument} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} />;
     if (view === 'analytics') return <AnalyticsWorkspace projects={projects} history={history} />;
