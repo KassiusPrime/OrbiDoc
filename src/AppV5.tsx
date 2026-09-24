@@ -27,8 +27,8 @@ import { AudioWorkspace } from './components/AudioWorkspace';
 import { BottomNavBar } from './components/BottomNavBar';
 import { BrowserGuideModal } from './components/BrowserGuideModal';
 import { CloudWorkspace } from './components/CloudWorkspace';
+import { CopilotShell } from './components/CopilotShell';
 import { DesignEditor } from './components/DesignEditor';
-import { DocumentEditor } from './components/DocumentEditor';
 import { FabMenuSheet } from './components/FabMenuSheet';
 import { FilesWorkspace } from './components/FilesWorkspace';
 import { GoogleProfileBadge } from './components/GoogleProfileBadge';
@@ -36,10 +36,9 @@ import { HistoryVault } from './components/HistoryVault';
 import { HomeDashboard } from './components/HomeDashboard';
 import { ImageWorkspace } from './components/ImageWorkspace';
 import { OfficeSuiteHub } from './components/OfficeSuiteHub';
+import { OnlyOfficeEditor } from './components/OnlyOfficeEditor';
 import { OrbiDocLogo } from './components/OrbiDocLogo';
 import { PdfOcrWorkspace } from './components/PdfOcrWorkspace';
-import { PresentationEditor } from './components/PresentationEditor';
-import { SpreadsheetEditor } from './components/SpreadsheetEditor';
 import { convertFile } from './lib/fileConversion';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
@@ -492,15 +491,15 @@ export default function AppV5() {
     if (view === 'cloud') return <CloudWorkspace googleUser={googleUser} microsoftUser={microsoftUser} showNotification={showNotification} />;
     if (view === 'word') {
       const project = currentProject('word');
-      return project ? <DocumentEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('word');
+      return project ? <OnlyOfficeEditor key={project.id} project={project} kind="word" onProjectChange={persistProject} showNotification={showNotification} /> : renderProjectMissing('word');
     }
     if (view === 'excel') {
       const project = currentProject('excel');
-      return project ? <SpreadsheetEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('excel');
+      return project ? <OnlyOfficeEditor key={project.id} project={project} kind="excel" onProjectChange={persistProject} showNotification={showNotification} /> : renderProjectMissing('excel');
     }
     if (view === 'powerpoint') {
       const project = currentProject('powerpoint');
-      return project ? <PresentationEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('powerpoint');
+      return project ? <OnlyOfficeEditor key={project.id} project={project} kind="powerpoint" onProjectChange={persistProject} showNotification={showNotification} /> : renderProjectMissing('powerpoint');
     }
     if (view === 'canva') {
       const project = currentProject('canva');
@@ -528,7 +527,7 @@ export default function AppV5() {
         />
       );
     }
-    if (view === 'chat' || view === 'ai' || view === 'compare') return <AiWorkspace onSendToWord={sendToDocument} showNotification={showNotification} />;
+    if (view === 'chat' || view === 'ai' || view === 'compare') return <CopilotShell title="Nexus AI" onNewChat={() => window.dispatchEvent(new Event('orbidoc:nexus-new-chat'))} contextTitle="Contexto do trabalho" contextItems={activeProject ? [{ id: activeProject.id, label: activeProject.title, detail: `Arquivo ${activeProject.type} · atualizado ${new Date(activeProject.updatedAt).toLocaleString('pt-BR')}` }] : []} onContextSelect={() => {}}><AiWorkspace onSendToWord={sendToDocument} showNotification={showNotification} /></CopilotShell>;
     if (view === 'image') return <ImageWorkspace onSaveToHistory={saveHistory} showNotification={showNotification} onSendToCanva={() => createProject('canva')} />;
     if (view === 'audio') return <AudioWorkspace showNotification={showNotification} onSaveToHistory={saveHistory} onSendToWord={sendToDocument} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} />;
     if (view === 'analytics') return <AnalyticsWorkspace projects={projects} history={history} />;
@@ -562,7 +561,7 @@ export default function AppV5() {
 
   return (
     <div className="h-dvh min-h-[560px] bg-slate-50 dark:bg-[#09090B] text-slate-900 dark:text-slate-100 overflow-hidden flex">
-      <aside className="hidden lg:flex w-[264px] shrink-0 border-r border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11] flex-col">
+      <aside className="hidden lg:flex w-[232px] shrink-0 border-r border-slate-200 dark:border-[#27272A] bg-white dark:bg-[#0F0F11] flex-col">
         <div className="h-[68px] px-[18px] flex items-center border-b border-slate-100 dark:border-[#27272A]">
           <button type="button" onClick={() => navigate('home')} aria-label="Ir para o Orbispace"><OrbiDocLogo size="md" /></button>
         </div>
