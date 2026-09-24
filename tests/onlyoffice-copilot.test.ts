@@ -22,10 +22,12 @@ test('ONLYOFFICE config endpoint fails closed without server bridge settings', (
   assert.match(route, /ONLYOFFICE_CALLBACK_URL_BASE/);
 });
 
-test('Nexus exposes Copilot-inspired navigation and contextual rail', () => {
+test('Nexus exposes a Copilot-inspired contextual rail without nested navigation', () => {
   const shell = read('src/components/CopilotShell.tsx');
   const ai = read('src/components/AiWorkspace.tsx');
-  assert.match(shell, /Contexto/);\n  assert.match(shell, /IA gratuita/);
+  assert.match(shell, /Contexto/);
+  assert.match(shell, /IA gratuita/);
+  assert.match(shell, /Novo chat/);
   assert.doesNotMatch(shell, /hidden md:flex shrink-0 flex-col border-r/);
   assert.match(ai, /orbidoc:nexus-new-chat/);
 });
