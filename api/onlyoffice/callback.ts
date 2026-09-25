@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { decryptBridgeToken, getProject, jsonResponse, uploadOfficeFile, patchProject } from '../_lib/onlyofficeStorage';
+import { decryptBridgeToken, getProject, jsonResponse, uploadOfficeFile, patchProject } from '../_lib/onlyofficeStorage.ts';
 export default async function handler(req:IncomingMessage,res:ServerResponse){
   if(req.method!=='POST') return jsonResponse(res,405,{error:'METHOD_NOT_ALLOWED'});
   const url=new URL(req.url||'/','http://localhost'); const bridge=decryptBridgeToken(String(url.searchParams.get('token')||''),String(process.env.ONLYOFFICE_JWT_SECRET||''));
