@@ -32,7 +32,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
     const callbackUrl=`${origin}/api/onlyoffice/callback?token=${encodeURIComponent(bridge)}`;
     const key=createHash('sha256').update(`${projectId}:${kind}:${project.onlyOfficeStorageUrl||documentUrl}`).digest('hex').slice(0,40);
-    const payload:any={document:{fileType:kind==='word'?'docx':kind==='excel'?'xlsx':'pptx',key,title:`${project.title||'Orbit'}`,url:documentUrl,permissions:{edit:true,download:true,print:true,review:true,comment:true,fillForms:true,copy:true}},documentType:kind==='word'?'word':kind==='excel'?'cell':'slide',editorConfig:{mode:'edit',callbackUrl,customization:{autosave:true,forcesave:true,compactHeader:true,compactToolbar:false},user:{id:projectId.slice(0,64),name:'Orbit user'}},height:'100%',width:'100%'};
+    const payload:any={documentServerUrl:server,document:{fileType:kind==='word'?'docx':kind==='excel'?'xlsx':'pptx',key,title:`${project.title||'Orbit'}`,url:documentUrl,permissions:{edit:true,download:true,print:true,review:true,comment:true,fillForms:true,copy:true}},documentType:kind==='word'?'word':kind==='excel'?'cell':'slide',editorConfig:{mode:'edit',callbackUrl,customization:{autosave:true,forcesave:true,compactHeader:true,compactToolbar:false},user:{id:projectId.slice(0,64),name:'Orbit user'}},height:'100%',width:'100%'};
     payload.token=signJwt(payload,secret);
     return jsonResponse(res,200,payload);
   } catch(error) { return jsonResponse(res,502,{error:'ONLYOFFICE_BRIDGE_ERROR',message:error instanceof Error?error.message:'Bridge error'}); }
