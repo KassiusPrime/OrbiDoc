@@ -11,7 +11,7 @@ test('office workspaces route through ONLYOFFICE', () => {
   assert.match(app, /kind="excel"/);
   assert.match(app, /kind="powerpoint"/);
   assert.match(app, /view === 'canva'/);
-  assert.match(app, /currentProject\('canva'\).*OnlyOfficeEditor/);
+  assert.match(app, /currentProject\('canva'\)[\s\S]*OnlyOfficeEditor/);
   assert.doesNotMatch(app, /<DocumentEditor /);
   assert.doesNotMatch(app, /<SpreadsheetEditor /);
   assert.doesNotMatch(app, /<PresentationEditor /);
