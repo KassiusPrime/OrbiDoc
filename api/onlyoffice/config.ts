@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHmac, createHash } from 'node:crypto';
-import { decryptBridgeToken, encryptBridgeToken, getProject, jsonResponse, buildOfficeFile, uploadOfficeFile } from '../_lib/onlyofficeStorage';
+import { decryptBridgeToken, encryptBridgeToken, getProject, jsonResponse, buildOfficeFile, uploadOfficeFile } from '../_lib/onlyofficeStorage.ts';
 
 const clean = (value: unknown) => String(value ?? '').trim().replace(/\/$/, '');
 const signJwt = (payload: Record<string, unknown>, secret: string) => {
