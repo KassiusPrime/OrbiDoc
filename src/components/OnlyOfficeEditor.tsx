@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconExternalLink, IconLoader2, IconRefresh, IconSettings } from '@tabler/icons-react';
 import type { SavedProject } from '../types';
 import { auth } from '../services/firebase';
+import { saveUserDocumentToFirestore } from '../lib/firebase';
 
 type OnlyOfficeKind = 'word' | 'excel' | 'powerpoint';
 interface Props { project: SavedProject; kind: OnlyOfficeKind; onProjectChange: (project: SavedProject) => void; showNotification?: (message: string, type?: 'success' | 'error') => void; }
@@ -27,6 +28,7 @@ export const OnlyOfficeEditor: React.FC<Props> = ({ project, kind, showNotificat
         const idToken = await auth.currentUser?.getIdToken();
         if (!idToken) throw new Error('Entre na sua conta para abrir este documento no ONLYOFFICE.');
 
+        if (auth.currentUser.email) await saveUserDocumentToFirestore(auth.currentUser.uid, auth.currentUser.email, project);
         const response = await fetch(`${CONFIG_URL}?projectId=${encodeURIComponent(project.id)}&kind=${kind}`, {
           credentials: 'include',
           headers: { Accept: 'application/json', Authorization: `Bearer ${idToken}` },
