@@ -22,6 +22,12 @@ export const QuickScanReaderLauncher: React.FC = () => {
   const [items, setItems] = useState<OcrItem[]>(() => readStored<OcrItem>(OCR_KEY));
   const [notice, setNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  useEffect(() => {
+    const openFromDial = () => setOpen(true);
+    window.addEventListener('orbidoc:open-scan', openFromDial);
+    return () => window.removeEventListener('orbidoc:open-scan', openFromDial);
+  }, []);
+
   useEffect(() => { localStorage.setItem(OCR_KEY, JSON.stringify(items.slice(0, 100))); }, [items]);
 
   useEffect(() => {
@@ -68,18 +74,7 @@ export const QuickScanReaderLauncher: React.FC = () => {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed z-[72] right-4 bottom-[84px] lg:bottom-5 h-12 lg:h-11 px-3 lg:px-4 rounded-2xl bg-[#3157F6] hover:bg-[#2446D8] text-white shadow-xl shadow-[#3157F6]/25 inline-flex items-center gap-2 text-[10px] font-black active:scale-95 transition-transform"
-        aria-label="Abrir Scan e Reader"
-        title="Scan & Reader · Ctrl+Shift+O"
-      >
-        <Scan className="w-5 h-5" />
-        <span className="hidden lg:inline">Scan & Reader</span>
-      </button>
 
-      {open && (
         <div className="fixed inset-0 z-[100] bg-[#F7F9FC] dark:bg-[#080D18] flex flex-col">
           <header className="h-14 shrink-0 px-3 sm:px-5 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#101827]/95 backdrop-blur flex items-center gap-3">
             <OrbiDocLogo size="sm" />
