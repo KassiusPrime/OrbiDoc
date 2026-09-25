@@ -42,6 +42,7 @@ import { PdfOcrWorkspace } from './components/PdfOcrWorkspace';
 import { convertFile } from './lib/fileConversion';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
+import { auth, saveUserDocumentToFirestore } from './lib/firebase';
 import type {
   ChatSession,
   GoogleUserProfile,
@@ -292,6 +293,11 @@ export default function AppV5() {
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
     window.dispatchEvent(new Event('orbidoc:projects-updated'));
   }, [projects]);
+
+  useEffect(() => {
+    if (!activeProject || !['word', 'excel', 'powerpoint', 'canva'].includes(view) || !auth.currentUser?.email) return;
+    void saveUserDocumentToFirestore(auth.currentUser.uid, auth.currentUser.email, activeProject);
+  }, [activeProject, view]);
 
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 250)));
