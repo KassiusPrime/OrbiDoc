@@ -28,7 +28,6 @@ import { BottomNavBar } from './components/BottomNavBar';
 import { BrowserGuideModal } from './components/BrowserGuideModal';
 import { CloudWorkspace } from './components/CloudWorkspace';
 import { CopilotShell } from './components/CopilotShell';
-import { DesignEditor } from './components/DesignEditor';
 import { FabMenuSheet } from './components/FabMenuSheet';
 import { FilesWorkspace } from './components/FilesWorkspace';
 import { GoogleProfileBadge } from './components/GoogleProfileBadge';
@@ -70,10 +69,6 @@ const PROJECTS_KEY = 'orbidoc_projects_v1';
 const HISTORY_KEY = 'orbidoc_history_v2';
 const THEME_KEY = 'orbit_theme_v1';
 const PROJECT_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'extract']);
-
-// Compatibility adapter for editor props. The frontend never chooses an internal
-// model: src/api/chat.ts ignores these values and Nexus AI routes server-side.
-const NEXUS_ENGINE = Object.freeze({ provider: 'openrouter', model: 'openrouter/free', label: 'Nexus AI' });
 
 const WORKSPACE_NAV: NavItem[] = [
   { id: 'home', label: 'Orbispace', icon: Home },
