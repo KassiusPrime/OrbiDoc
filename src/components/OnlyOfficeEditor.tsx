@@ -25,10 +25,11 @@ export const OnlyOfficeEditor: React.FC<Props> = ({ project, kind, showNotificat
 
     const load = async () => {
       try {
-        const idToken = await auth.currentUser?.getIdToken();
-        if (!idToken) throw new Error('Entre na sua conta para abrir este documento no ONLYOFFICE.');
+        const user = auth.currentUser;
+        if (!user) throw new Error('Entre na sua conta para abrir este documento no ONLYOFFICE.');
+        const idToken = await user.getIdToken();
 
-        if (auth.currentUser.email) await saveUserDocumentToFirestore(auth.currentUser.uid, auth.currentUser.email, project);
+        if (user.email) await saveUserDocumentToFirestore(user.uid, user.email, project);
         const response = await fetch(`${CONFIG_URL}?projectId=${encodeURIComponent(project.id)}&kind=${kind}`, {
           credentials: 'include',
           headers: { Accept: 'application/json', Authorization: `Bearer ${idToken}` },
