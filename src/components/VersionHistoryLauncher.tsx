@@ -97,7 +97,7 @@ export const VersionHistoryLauncher: React.FC = () => {
 
   return (
     <>
-
+      {open && (
         <div className="fixed inset-0 z-[110] bg-black/30 backdrop-blur-[2px] flex justify-end" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <aside className="w-full sm:w-[460px] h-full bg-[#F7F9FC] dark:bg-[#080D18] border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col">
             <header className="h-16 px-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] flex items-center gap-3">
@@ -132,7 +132,7 @@ export const VersionHistoryLauncher: React.FC = () => {
             {notice && <div className="m-3 mt-0 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] px-3 py-2 text-[9px] font-bold">{notice}</div>}
           </aside>
         </div>
-      )}
+        )}
     </>
   );
 };
