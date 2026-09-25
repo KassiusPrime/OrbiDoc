@@ -28,7 +28,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if(!documentUrl) {
       const office=await buildOfficeFile(project,kind as any);
       documentUrl=await uploadOfficeFile(`onlyoffice/${projectId}/${kind}.${office.ext}`,office.buffer,office.mime,idToken);
-      await import('../_lib/onlyofficeStorage').then(m=>m.patchProject(projectId,idToken,{onlyOfficeStorageUrl:documentUrl,onlyOfficeFileType:office.ext}));
+      await import('../_lib/onlyofficeStorage.ts').then(m=>m.patchProject(projectId,idToken,{onlyOfficeStorageUrl:documentUrl,onlyOfficeFileType:office.ext}));
     }
     const callbackUrl=`${origin}/api/onlyoffice/callback?token=${encodeURIComponent(bridge)}`;
     const key=createHash('sha256').update(`${projectId}:${kind}:${project.onlyOfficeStorageUrl||documentUrl}`).digest('hex').slice(0,40);
