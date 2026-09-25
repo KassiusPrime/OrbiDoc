@@ -38,10 +38,10 @@ test('Nexus exposes Copilot-inspired navigation and contextual rail', () => {
 test('Orbit workspace speed dial keeps one blue action FAB and hides it from Nexus AI', () => {
     const source = read('src/AppV5.tsx');
     const dial = read('src/components/orbit/OrbitSpeedDial.tsx');
-    expect(source).toContain('OrbitSpeedDial');
-    expect(source).toContain("hidden={view === 'chat' || view === 'ai' || view === 'compare'}");
-    expect(dial).toContain('aria-haspopup="menu"');
-    expect(dial).toContain('aria-expanded={open}');
-    expect(dial).toContain('prefers-reduced-motion');
-    expect(dial).toContain('active:scale-95');
+    assert.match(source, /OrbitSpeedDial/);
+    assert.match(source, /hidden=\{view === 'chat' \|\| view === 'ai' \|\| view === 'compare'\}/);
+    assert.match(dial, /aria-haspopup="menu"/);
+    assert.match(dial, /aria-expanded=\{open\}/);
+    assert.match(dial, /prefers-reduced-motion/);
+    assert.match(dial, /active:scale-95/);
 });
