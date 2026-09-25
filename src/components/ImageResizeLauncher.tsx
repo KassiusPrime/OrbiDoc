@@ -37,6 +37,12 @@ export const ImageResizeLauncher: React.FC = () => {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
+    const openFromDial = () => setOpen(true);
+    window.addEventListener('orbidoc:open-resize', openFromDial);
+    return () => window.removeEventListener('orbidoc:open-resize', openFromDial);
+  }, []);
+
+  useEffect(() => {
     const show = () => setOpen(true);
     const keyboard = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'r') { event.preventDefault(); setOpen(true); } if (event.key === 'Escape') setOpen(false); };
     window.addEventListener('orbidoc:open-image-resizer', show); window.addEventListener('keydown', keyboard);
@@ -88,7 +94,6 @@ export const ImageResizeLauncher: React.FC = () => {
   const previewTarget = useMemo(() => items[0] ? computeResizeTarget(items[0].width, items[0].height, { mode, width, height, percent, lockAspect }) : null, [items, mode, width, height, percent, lockAspect]);
 
   return <>
-    <button onClick={() => setOpen(true)} className="fixed z-[70] right-5 bottom-[140px] lg:bottom-5 h-11 px-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] shadow-xl text-[10px] font-black inline-flex items-center gap-2 orbidoc-image-resize-trigger" aria-label="Abrir redimensionador de imagens" title="Redimensionar imagens · Ctrl+Shift+R"><Resize className="w-4 h-4 text-[#3157F6] dark:text-[#7AA2FF]" /><span className="hidden xl:inline">Redimensionar</span></button>
     {open && <div className="fixed inset-0 z-[130] bg-slate-950/45 backdrop-blur-sm p-2 sm:p-4 flex items-center justify-center" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label="Redimensionador de imagens" className="w-full max-w-6xl max-h-[calc(100dvh-1rem)] sm:max-h-[92dvh] rounded-3xl border border-slate-200 dark:border-slate-800 bg-[#F7F9FC] dark:bg-[#080D18] shadow-2xl overflow-hidden flex flex-col">
       <header className="h-16 px-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-[#EFF4FF] dark:bg-[#0D1E5B]/50 text-[#3157F6] dark:text-[#7AA2FF] flex items-center justify-center"><Resize className="w-5 h-5" /></div><div className="min-w-0 flex-1"><div className="text-sm font-black">Redimensionador profissional</div><div className="text-[9px] text-slate-400">Lote · pixels ou percentual · proporção · crop/contain · PNG/JPG/WebP · local</div></div><button onClick={() => setOpen(false)} className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-4 h-4 mx-auto" /></button></header>
       <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4"><aside className="lg:col-span-4 space-y-4"><section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] p-4"><input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={(event) => { if (event.target.files) void addFiles(event.target.files); event.target.value = ''; }} /><button onClick={() => inputRef.current?.click()} className="w-full h-11 rounded-xl bg-[#3157F6] text-white text-xs font-black inline-flex items-center justify-center gap-2"><Upload className="w-4 h-4" /> Adicionar imagens</button><div className="mt-3 text-[10px] text-slate-500">{items.length} arquivo(s) na fila</div></section>

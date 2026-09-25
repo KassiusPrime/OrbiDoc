@@ -28,7 +28,6 @@ import { BottomNavBar } from './components/BottomNavBar';
 import { BrowserGuideModal } from './components/BrowserGuideModal';
 import { CloudWorkspace } from './components/CloudWorkspace';
 import { CopilotShell } from './components/CopilotShell';
-import { DesignEditor } from './components/DesignEditor';
 import { FabMenuSheet } from './components/FabMenuSheet';
 import { FilesWorkspace } from './components/FilesWorkspace';
 import { GoogleProfileBadge } from './components/GoogleProfileBadge';
@@ -36,12 +35,14 @@ import { HistoryVault } from './components/HistoryVault';
 import { HomeDashboard } from './components/HomeDashboard';
 import { ImageWorkspace } from './components/ImageWorkspace';
 import { OfficeSuiteHub } from './components/OfficeSuiteHub';
+import { OrbitSpeedDial, useOrbitWorkspaceDialActions } from './components/orbit/OrbitSpeedDial';
 import { OnlyOfficeEditor } from './components/OnlyOfficeEditor';
 import { OrbiDocLogo } from './components/OrbiDocLogo';
 import { PdfOcrWorkspace } from './components/PdfOcrWorkspace';
 import { convertFile } from './lib/fileConversion';
 import { getStoredGoogleUser } from './services/googleAuthDrive';
 import { getStoredMicrosoftUser } from './services/microsoftAuthOffice';
+import { auth, saveUserDocumentToFirestore } from './lib/firebase';
 import type {
   ChatSession,
   GoogleUserProfile,
@@ -71,8 +72,6 @@ const HISTORY_KEY = 'orbidoc_history_v2';
 const THEME_KEY = 'orbit_theme_v1';
 const PROJECT_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'extract']);
 
-// Compatibility adapter for editor props. The frontend never chooses an internal
-// model: src/api/chat.ts ignores these values and Nexus AI routes server-side.
 const NEXUS_ENGINE = Object.freeze({ provider: 'openrouter', model: 'openrouter/free', label: 'Nexus AI' });
 
 const WORKSPACE_NAV: NavItem[] = [
@@ -296,6 +295,11 @@ export default function AppV5() {
   }, [projects]);
 
   useEffect(() => {
+    if (!activeProject || !['word', 'excel', 'powerpoint', 'canva'].includes(view) || !auth.currentUser?.email) return;
+    void saveUserDocumentToFirestore(auth.currentUser.uid, auth.currentUser.email, activeProject);
+  }, [activeProject, view]);
+
+  useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 250)));
   }, [history]);
 
@@ -377,6 +381,16 @@ export default function AppV5() {
     setMenuOpen(false);
     setFabOpen(false);
   }, []);
+
+  const openWorkspaceUtility = useCallback((eventName: 'orbidoc:open-scan' | 'orbidoc:open-versions' | 'orbidoc:open-resize') => {
+    window.dispatchEvent(new Event(eventName));
+  }, []);
+
+  const dialActions = useOrbitWorkspaceDialActions({
+    onScan: () => openWorkspaceUtility('orbidoc:open-scan'),
+    onVersions: () => openWorkspaceUtility('orbidoc:open-versions'),
+    onResize: () => openWorkspaceUtility('orbidoc:open-resize'),
+  });
 
   const launchTool = useCallback((target: TabType) => {
     const type = projectTypeForTab(target);
@@ -503,7 +517,7 @@ export default function AppV5() {
     }
     if (view === 'canva') {
       const project = currentProject('canva');
-      return project ? <DesignEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('canva');
+      return project ? <OnlyOfficeEditor key={project.id} project={project} kind="powerpoint" onProjectChange={persistProject} showNotification={showNotification} /> : renderProjectMissing('canva');
     }
     if (view === 'extract') {
       const project = currentProject('extract');
@@ -690,6 +704,11 @@ export default function AppV5() {
       ) : null}
 
       <FabMenuSheet isOpen={fabOpen} onClose={() => setFabOpen(false)} onSelectAction={launchTool} />
+      <OrbitSpeedDial
+        actions={dialActions}
+        hidden={view === 'chat' || view === 'ai' || view === 'compare'}
+        ariaLabel="Ações rápidas do Orbispace"
+      />
       <BrowserGuideModal isOpen={installGuideOpen} onClose={() => setInstallGuideOpen(false)} deferredPrompt={deferredPrompt} onTriggerInstall={triggerInstall} />
 
       {notice ? (

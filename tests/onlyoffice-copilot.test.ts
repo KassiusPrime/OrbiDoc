@@ -10,6 +10,8 @@ test('office workspaces route through ONLYOFFICE', () => {
   assert.match(app, /kind="word"/);
   assert.match(app, /kind="excel"/);
   assert.match(app, /kind="powerpoint"/);
+  assert.match(app, /view === 'canva'/);
+  assert.match(app, /currentProject\('canva'\)[\s\S]*OnlyOfficeEditor/);
   assert.doesNotMatch(app, /<DocumentEditor /);
   assert.doesNotMatch(app, /<SpreadsheetEditor /);
   assert.doesNotMatch(app, /<PresentationEditor /);
@@ -19,7 +21,8 @@ test('ONLYOFFICE config endpoint fails closed without server bridge settings', (
   const route = read('api/onlyoffice/config.ts');
   assert.match(route, /ONLYOFFICE_NOT_CONFIGURED/);
   assert.match(route, /ONLYOFFICE_JWT_SECRET/);
-  assert.match(route, /ONLYOFFICE_CALLBACK_URL_BASE/);
+  assert.match(route, /FIREBASE_AUTH_REQUIRED/);
+  assert.match(route, /encryptBridgeToken/);
 });
 
 test('Nexus exposes Copilot-inspired navigation and contextual rail', () => {
@@ -29,4 +32,16 @@ test('Nexus exposes Copilot-inspired navigation and contextual rail', () => {
   assert.match(shell, /Contexto/);
   assert.doesNotMatch(shell, /hidden md:flex shrink-0 flex-col border-r/);
   assert.match(ai, /orbidoc:nexus-new-chat/);
+});
+
+
+test('Orbit workspace speed dial keeps one blue action FAB and hides it from Nexus AI', () => {
+    const source = read('src/AppV5.tsx');
+    const dial = read('src/components/orbit/OrbitSpeedDial.tsx');
+    assert.match(source, /OrbitSpeedDial/);
+    assert.match(source, /hidden=\{view === 'chat' \|\| view === 'ai' \|\| view === 'compare'\}/);
+    assert.match(dial, /aria-haspopup="menu"/);
+    assert.match(dial, /aria-expanded=\{open\}/);
+    assert.match(dial, /prefers-reduced-motion/);
+    assert.match(dial, /active:scale-95/);
 });
