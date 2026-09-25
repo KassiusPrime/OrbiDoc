@@ -503,7 +503,7 @@ export default function AppV5() {
     }
     if (view === 'canva') {
       const project = currentProject('canva');
-      return project ? <DesignEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('canva');
+      return project ? <OnlyOfficeEditor key={project.id} project={project} kind="powerpoint" onProjectChange={persistProject} showNotification={showNotification} /> : renderProjectMissing('canva');
     }
     if (view === 'extract') {
       const project = currentProject('extract');
