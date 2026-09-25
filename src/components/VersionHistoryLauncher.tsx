@@ -24,6 +24,12 @@ export const VersionHistoryLauncher: React.FC = () => {
   const refresh = () => setVersions(loadProjectVersions());
 
   useEffect(() => {
+    const openFromDial = () => setOpen(true);
+    window.addEventListener('orbidoc:open-versions', openFromDial);
+    return () => window.removeEventListener('orbidoc:open-versions', openFromDial);
+  }, []);
+
+  useEffect(() => {
     let timer = 0;
     const onProjectsUpdated = () => {
       window.clearTimeout(timer);
@@ -91,18 +97,7 @@ export const VersionHistoryLauncher: React.FC = () => {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed z-[71] right-[72px] lg:right-[168px] bottom-[84px] lg:bottom-5 h-12 lg:h-11 w-12 lg:w-auto lg:px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101827] text-slate-700 dark:text-slate-100 shadow-xl inline-flex items-center justify-center gap-2 text-[10px] font-black hover:border-[#3157F6]/40"
-        aria-label="Abrir histórico de versões"
-        title="Versões · Ctrl+Shift+H"
-      >
-        <History className="w-5 h-5 text-[#3157F6] dark:text-[#7AA2FF]" />
-        <span className="hidden lg:inline">Versões</span>
-      </button>
 
-      {open && (
         <div className="fixed inset-0 z-[110] bg-black/30 backdrop-blur-[2px] flex justify-end" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <aside className="w-full sm:w-[460px] h-full bg-[#F7F9FC] dark:bg-[#080D18] border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col">
             <header className="h-16 px-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] flex items-center gap-3">
