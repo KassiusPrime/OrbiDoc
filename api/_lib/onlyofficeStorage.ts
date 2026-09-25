@@ -76,7 +76,7 @@ async function findProjectDocument(projectId: string, token: string) {
   return row?.document || null;
 }
 
-export async function getProject(projectId: string, token: string) {
+export async function getProject(projectId: string, token: string): Promise<any> {
   const doc = await findProjectDocument(projectId, token);
   if (!doc) return null;
   return { ...Object.fromEntries(Object.entries(doc.fields || {}).map(([k,v]) => [k, fromFirestoreValue(v)])), _firestoreName: doc.name };
