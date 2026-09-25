@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { IconAlertTriangle, IconExternalLink, IconLoader2, IconRefresh, IconSettings } from '@tabler/icons-react';
+import React, { useEffect, useState } from 'react';
+import { IconAlertTriangle, IconLoader2, IconRefresh } from '@tabler/icons-react';
 import type { SavedProject } from '../types';
 import { auth } from '../services/firebase';
 
@@ -46,7 +46,6 @@ export const OnlyOfficeEditor: React.FC<Props> = ({ project, kind, showNotificat
             onRequestClose: () => showNotification?.('Editor encerrado.', 'success'),
           },
         });
-        setConfigured(true);
       } catch (cause) {
         if (cancelled) return;
         setError(cause instanceof Error ? cause.message : 'Falha ao iniciar o ONLYOFFICE.'); setLoading(false);
