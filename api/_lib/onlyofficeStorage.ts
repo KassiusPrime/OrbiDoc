@@ -85,7 +85,7 @@ export async function buildOfficeFile(project: any, kind: 'word'|'excel'|'powerp
 export async function uploadOfficeFile(path: string, buffer: Buffer, mime: string, token: string) {
   const bucket = storageBucket(); if (!bucket) throw new Error('FIREBASE_STORAGE_BUCKET_NOT_CONFIGURED');
   const upload = await fetch(`https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(bucket)}/o?uploadType=media&name=${encodeURIComponent(path)}`, {
-    method:'POST', headers:{Authorization:`Bearer ${token}`,'Content-Type':mime,'Content-Length':String(buffer.length)}, body:buffer
+    method:'POST', headers:{Authorization:`Bearer ${token}`,'Content-Type':mime,'Content-Length':String(buffer.length)}, body:new Blob([new Uint8Array(buffer)],{type:mime})
   });
   if(!upload.ok) throw new Error(`STORAGE_UPLOAD_${upload.status}: ${await upload.text()}`);
   const downloadToken=randomBytes(24).toString('hex'); const objectPath=encodeURIComponent(path);
