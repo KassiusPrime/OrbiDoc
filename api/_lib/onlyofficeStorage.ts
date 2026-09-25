@@ -50,19 +50,49 @@ const toFirestoreValue = (v: any): any => {
   if (typeof v === 'object') return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k,x]) => [k, toFirestoreValue(x)])) } };
   return { stringValue: String(v) };
 };
-export async function getProject(projectId: string, token: string) {
-  const doc = await firestore(`documents/documents/${encodeURIComponent(projectId)}`, token);
-  return Object.fromEntries(Object.entries(doc.fields || {}).map(([k,v]) => [k, fromFirestoreValue(v)]));
+async function findProjectDocument(projectId: string, token: string) {
+  const pid = firebaseProjectId();
+  const apiKey = clean(process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY);
+  if (!pid || !apiKey) throw new Error('FIREBASE_CONFIG_NOT_CONFIGURED');
+
+  const identity = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: token }),
+  });
+  const identityBody = await identity.json().catch(() => null);
+  if (!identity.ok) throw new Error(`FIREBASE_TOKEN_${identity.status}: ${identityBody?.error?.message || identity.statusText}`);
+  const uid = String(identityBody?.users?.[0]?.localId || '');
+  if (!uid) throw new Error('FIREBASE_USER_NOT_FOUND');
+
+  const response = await fetch(`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(pid)}/databases/${encodeURIComponent(firestoreDatabaseId())}/documents:runQuery`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'documents' }], where: { compositeFilter: { op: 'AND', filters: [
+      { fieldFilter: { field: { fieldPath: 'id' }, op: 'EQUAL', value: { stringValue: projectId } } },
+      { fieldFilter: { field: { fieldPath: 'userId' }, op: 'EQUAL', value: { stringValue: uid } } },
+    ] } }, limit: 1 } }),
+  });
+  const rows = await response.json().catch(() => []);
+  if (!response.ok) throw new Error(`FIRESTORE_QUERY_${response.status}: ${rows?.error?.message || response.statusText}`);
+  const row = Array.isArray(rows) ? rows.find((item: any) => item.document?.name) : null;
+  return row?.document || null;
 }
+
+export async function getProject(projectId: string, token: string) {
+  const doc = await findProjectDocument(projectId, token);
+  if (!doc) return null;
+  return { ...Object.fromEntries(Object.entries(doc.fields || {}).map(([k,v]) => [k, fromFirestoreValue(v)])), _firestoreName: doc.name };
+}
+
 export async function patchProject(projectId: string, token: string, fields: Record<string, any>) {
-  const pid = firebaseProjectId(); if (!pid) throw new Error('FIREBASE_PROJECT_ID_NOT_CONFIGURED');
+  const doc = await findProjectDocument(projectId, token);
+  if (!doc?.name) throw new Error('DOCUMENT_NOT_FOUND');
   const mask = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
-  const response = await fetch(`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(pid)}/databases/${encodeURIComponent(firestoreDatabaseId())}/documents/documents/${encodeURIComponent(projectId)}?${mask}`, {
+  const response = await fetch(`https://firestore.googleapis.com/v1/${doc.name}?${mask}`, {
     method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields: Object.fromEntries(Object.entries(fields).map(([k,v]) => [k, toFirestoreValue(v)])) }),
   });
   if (!response.ok) throw new Error(`FIRESTORE_PATCH_${response.status}: ${await response.text()}`);
 }
+
 function contentToText(content: any): string[] {
   if (content === null || content === undefined) return []; if (typeof content === 'string') return content.replace(/<[^>]+>/g, '').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if (Array.isArray(content)) return content.flatMap(contentToText); if (typeof content === 'object') return Object.entries(content).flatMap(([k,v])=>[`${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`]); return [String(content)];
