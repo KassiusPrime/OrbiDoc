@@ -74,7 +74,7 @@ export const QuickScanReaderLauncher: React.FC = () => {
 
   return (
     <>
-
+      {open && (
         <div className="fixed inset-0 z-[100] bg-[#F7F9FC] dark:bg-[#080D18] flex flex-col">
           <header className="h-14 shrink-0 px-3 sm:px-5 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#101827]/95 backdrop-blur flex items-center gap-3">
             <OrbiDocLogo size="sm" />
@@ -97,7 +97,7 @@ export const QuickScanReaderLauncher: React.FC = () => {
           </main>
           {notice && <div role={notice.type === 'error' ? 'alert' : 'status'} className={`fixed z-[120] top-16 left-1/2 -translate-x-1/2 max-w-[92vw] px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold ${notice.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950 dark:border-rose-900 dark:text-rose-200' : 'bg-white border-slate-200 text-slate-800 dark:bg-slate-900 dark:border-slate-700 dark:text-white'}`}>{notice.message}</div>}
         </div>
-      )}
+        )}
     </>
   );
 };
