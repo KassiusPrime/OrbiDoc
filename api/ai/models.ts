@@ -1,10 +1,4 @@
-const FREE_MODELS = [
-  'openrouter/free',
-  'nvidia/nemotron-3.5-lightning:free',
-  'cohere/north-mini-code:free',
-  'liquid/lfm-2.5-2.6b:free',
-  'thinkingmachines/inkling-small:free',
-] as const;
+import { listModels } from '../_lib/ollamaNexus.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -13,13 +7,13 @@ export default async function handler(req: any, res: any) {
     return;
   }
   res.setHeader('Cache-Control', 'no-store');
+  const models = await listModels();
   res.status(200).json({
     assistant: 'Nexus AI',
-    gateway: 'free-inference',
+    gateway: 'Ollama (self-hosted)',
     unified: true,
-    userSelectableModels: false,
+    userSelectableModels: true,
     freeOnly: true,
-    configured: Boolean(String(process.env.OPENROUTER_API_KEY ?? '').trim()),
-    internalPoolSize: FREE_MODELS.length,
+    models,
   });
 }
