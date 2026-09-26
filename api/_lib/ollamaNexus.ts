@@ -278,9 +278,8 @@ async function webContextIfNeeded(body: NexusBody, items: readonly Message[]): P
   if (!explicit && !automatic) return { used: false };
   try {
     const result = await searchWebZeroCost(text);
-    return { context: result, used: true };
-  } catch (error) {
-    if (explicit || body.webSearchExplicit === true) throw error;
+    return result.sources.length ? { context: result, used: true } : { used: false };
+  } catch {
     return { used: false };
   }
 }
