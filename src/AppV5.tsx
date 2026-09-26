@@ -29,7 +29,7 @@ import { BrowserGuideModal } from './components/BrowserGuideModal';
 import { CloudWorkspace } from './components/CloudWorkspace';
 import { CopilotShell } from './components/CopilotShell';
 import { DesignEditor } from './components/DesignEditor';
-import { FabMenuSheet } from './components/FabMenuSheet';
+import { OrbitSpeedDial } from './components/orbit/OrbitSpeedDial';
 import { FilesWorkspace } from './components/FilesWorkspace';
 import { GoogleProfileBadge } from './components/GoogleProfileBadge';
 import { HistoryVault } from './components/HistoryVault';
@@ -246,7 +246,7 @@ const SidebarSection: React.FC<{
   onNavigate: (target: AppView) => void;
 }> = ({ label, items, view, onNavigate }) => (
   <div>
-    <div className="px-3 mb-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">{label}</div>
+    <div className="px-3 mb-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{label}</div>
     <nav className="space-y-1" aria-label={label}>
       {items.map((item) => {
         const Icon = item.icon;
@@ -257,7 +257,7 @@ const SidebarSection: React.FC<{
             type="button"
             onClick={() => onNavigate(item.id)}
             aria-current={active ? 'page' : undefined}
-            className={`w-full h-10 px-3 rounded-xl flex items-center gap-3 text-xs font-bold ${active ? 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            className={`w-full h-10 px-3 rounded-lg flex items-center gap-3 text-xs font-medium ${active ? (item.id === 'chat' ? 'bg-violet-500/8 text-violet-300' : 'bg-white/[0.05] text-slate-100') : 'text-slate-500 dark:text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}
           >
             <Icon className="w-4 h-4 shrink-0" />
             <span className="truncate">{item.label}</span>
@@ -571,7 +571,7 @@ export default function AppV5() {
           <SidebarSection label="Ferramentas" items={TOOL_NAV} view={view} onNavigate={navigate} />
 
           <div>
-            <div className="px-3 mb-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">OrbiDoc · Criar</div>
+            <div className="px-3 mb-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">OrbiDoc · Criar</div>
             <div className="space-y-1">
               {CREATE_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -587,7 +587,7 @@ export default function AppV5() {
 
         <div className="p-3 border-t border-slate-100 dark:border-[#27272A]">
           <button type="button" onClick={() => setInstallGuideOpen(true)} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800">
-            <div className="text-xs font-black">Instalar Orbit</div>
+            <div className="text-xs font-medium">Instalar Orbit</div>
             <div className="text-[10px] text-slate-500 mt-0.5">PWA · Android · Desktop</div>
           </button>
         </div>
@@ -606,7 +606,7 @@ export default function AppV5() {
           ) : null}
 
           <div className="min-w-0">
-            <div className="text-sm font-black truncate">{activeTitle}</div>
+            <div className="text-sm font-medium truncate">{activeTitle}</div>
             <div className="text-[10px] text-slate-400 hidden sm:block">
               {PROJECT_VIEWS.has(view) && activeProject ? 'Salvo localmente neste dispositivo' : online ? 'Online' : 'Modo offline'}
             </div>
@@ -619,10 +619,10 @@ export default function AppV5() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar no Orbispace…"
               aria-label="Buscar ferramenta ou criar"
-              className="w-full h-9 pl-9 pr-3 rounded-xl bg-slate-100 dark:bg-[#18181B] border border-transparent text-xs outline-none"
+              className="w-full h-9 pl-9 pr-3 rounded-lg bg-white/[0.03] dark:bg-white/[0.03] border border-white/6 text-xs outline-none"
             />
             {search.trim() ? (
-              <div className="absolute top-11 inset-x-0 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F0F11] shadow-xl p-1.5 z-50">
+              <div className="absolute top-11 inset-x-0 rounded-xl border border-slate-800/70 bg-[#141820] shadow-lg p-1.5 z-50">
                 {searchResults.length ? searchResults.map((result) => {
                   const Icon = result.icon;
                   const create = result.kind === 'create';
@@ -647,7 +647,7 @@ export default function AppV5() {
             ) : null}
           </div>
 
-          <span className={`hidden xl:inline-flex items-center px-2.5 py-1.5 rounded-full text-[10px] font-black ${online ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}`}>
+          <span className={`hidden xl:inline-flex items-center px-2.5 py-1.5 rounded-full text-[10px] font-medium ${online ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}`}>
             {online ? 'Online' : 'Offline'}
           </span>
 
@@ -689,7 +689,7 @@ export default function AppV5() {
         </div>
       ) : null}
 
-      <FabMenuSheet isOpen={fabOpen} onClose={() => setFabOpen(false)} onSelectAction={launchTool} />
+      <OrbitSpeedDial open={fabOpen} onOpen={() => setFabOpen(true)} onClose={() => setFabOpen(false)} hidden={view === 'chat' || view === 'ai' || view === 'compare'} />
       <BrowserGuideModal isOpen={installGuideOpen} onClose={() => setInstallGuideOpen(false)} deferredPrompt={deferredPrompt} onTriggerInstall={triggerInstall} />
 
       {notice ? (
