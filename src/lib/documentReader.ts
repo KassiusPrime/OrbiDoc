@@ -1,7 +1,6 @@
 import JSZip, { type JSZipObject } from 'jszip';
 import * as mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
-import { MAX_UPLOAD_BYTES } from './uploadLimits';
 
 export type ReaderKind = 'pdf' | 'image' | 'html' | 'text' | 'markdown' | 'epub' | 'zip' | 'docx' | 'spreadsheet' | 'presentation' | 'unsupported';
 
@@ -224,7 +223,7 @@ export async function readArchiveEntry(document: ReaderDocument, path: string): 
 }
 
 export async function readDocumentFile(file: File): Promise<ReaderDocument> {
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error(`O leitor local aceita arquivos de até ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB nesta instalação.`);
+  if (file.size > 120 * 1024 * 1024) throw new Error('O leitor local aceita arquivos de até 120 MB nesta versão.');
   const extension = extensionOf(file.name);
   const common = { id: crypto.randomUUID(), name: file.name, extension, mimeType: file.type || 'application/octet-stream', size: file.size, title: baseName(file.name), sourceFile: file };
   if (extension === 'epub') return readEpub(file);
