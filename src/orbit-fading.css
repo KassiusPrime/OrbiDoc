@@ -1,0 +1,21 @@
+/* Quiet Orbit shell: legacy floating launchers remain mounted for their modal flows,
+   but the single Speed Dial is their visible anchor. */
+#root button[aria-label="Abrir ferramentas de mídia e qualidade"],
+#root button[aria-label="Abrir histórico de versões"],
+#root button[aria-label="Abrir Scan e Reader"],
+#root button[aria-label="Abrir redimensionador de imagens"] {
+  display: none !important;
+}
+
+.orbit-fading-workspace {
+  --orbit-border: rgb(255 255 255 / 6%);
+  --orbit-elevated: #141820;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-fading-workspace * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
