@@ -19,7 +19,8 @@ test('ONLYOFFICE config endpoint fails closed without server bridge settings', (
   const route = read('api/onlyoffice/config.ts');
   assert.match(route, /ONLYOFFICE_NOT_CONFIGURED/);
   assert.match(route, /ONLYOFFICE_JWT_SECRET/);
-  assert.match(route, /ONLYOFFICE_CALLBACK_URL_BASE/);
+  assert.match(route, /FIREBASE_AUTH_REQUIRED/);
+  assert.match(route, /encryptBridgeToken/);
 });
 
 test('Nexus exposes Copilot-inspired navigation and contextual rail', () => {
