@@ -24,8 +24,8 @@ type ChatEntry = { id: string; role: ChatRole; content: string; createdAt: strin
 
 const CHAT_STORAGE_KEY = 'orbit_nexus_ai_chat_v1';
 const DRAFT_STORAGE_KEY = 'orbit_nexus_ai_draft_v1';
-const INTERNAL_PROVIDER = 'openrouter';
-const INTERNAL_MODEL = 'openrouter/free';
+const INTERNAL_PROVIDER = 'ollama';
+const INTERNAL_MODEL = 'llama3.2:3b';
 const URL_RE = /https?:\/\/[^\s]+/i;
 
 const suggestionPrompts = [
