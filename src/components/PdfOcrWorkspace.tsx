@@ -19,6 +19,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { OcrItem } from '../types';
 import { processFileOcr } from '../lib/ocrEngine';
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from '../lib/uploadLimits';
 
 interface PdfOcrWorkspaceProps {
   items: OcrItem[];
@@ -162,8 +163,8 @@ export const PdfOcrWorkspace: React.FC<PdfOcrWorkspaceProps> = ({
   const uploadFiles = async (files: File[]) => {
     if (!files.length) return;
     for (const file of files.slice(0, 20)) {
-      if (file.size > 80 * 1024 * 1024) {
-        showNotification(`${file.name} excede o limite local de 80 MB.`, 'error');
+      if (file.size > MAX_UPLOAD_BYTES) {
+        showNotification(`${file.name} excede o limite local de ${MAX_UPLOAD_MB} MB.`, 'error');
         continue;
       }
       await processOne(file);
