@@ -41,6 +41,18 @@ jobs:
       - run: bun run verify:mobile
       - run: bun run verify:auth
 
+  docker-self-hosted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prepare non-secret environment for Compose validation
+        run: cp .env.example .env
+      - name: Validate Docker Compose
+        run: docker compose config
+      - name: Build self-hosted image
+        run: docker build .
+
   native-android-apk:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
