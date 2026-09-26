@@ -12,13 +12,13 @@ export interface CopilotShellProps {
 export const CopilotShell: React.FC<CopilotShellProps> = ({
   children, title, contextTitle = 'Contexto', contextItems = [], onContextSelect,
 }) => {
-  const [rightOpen, setRightOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(false);
   return (
-    <section className="orbit-copilot-shell h-full min-h-0 flex overflow-hidden bg-white dark:bg-[#111318] border border-slate-200 dark:border-slate-800">
+    <section className="orbit-copilot-shell h-full min-h-0 flex overflow-hidden bg-white dark:bg-[#111318] border border-white/6">
       <div className="min-w-0 flex-1 flex flex-col">
-        <div className="h-12 shrink-0 border-b border-slate-200 dark:border-slate-800 flex items-center px-3 gap-2">
+        <div className="h-12 shrink-0 border-b border-white/6 flex items-center px-3 gap-2">
           <IconSparkles className="h-4 w-4 text-violet-600" />
-          <span className="text-xs font-black">{title}</span>
+          <span className="text-xs font-medium">{title}</span>
           <span className="ml-auto text-[9px] font-bold text-emerald-600 dark:text-emerald-400">IA gratuita</span>
           <button type="button" onClick={() => window.dispatchEvent(new Event('orbidoc:nexus-new-chat'))} className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-bold inline-flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800" aria-label="Novo chat">
             <IconPlus className="h-3.5 w-3.5" /> Novo chat
@@ -26,7 +26,7 @@ export const CopilotShell: React.FC<CopilotShellProps> = ({
         </div>
         <div className="min-h-0 flex-1">{children}</div>
       </div>
-      <aside className={`hidden xl:flex shrink-0 flex-col border-l border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-[#0d0f13] transition-[width] duration-200 ${rightOpen ? 'w-[250px]' : 'w-[44px]'}`}>
+      <aside className={`hidden xl:flex shrink-0 flex-col border-l border-slate-200 dark:border-slate-800 bg-[#0f1218]/60 transition-[width] duration-200 ${rightOpen ? 'w-[250px]' : 'w-[44px]'}`}>
         <div className="h-12 px-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           {rightOpen ? <span className="text-xs font-black">{contextTitle}</span> : null}
           <button type="button" onClick={() => setRightOpen(v => !v)} className="h-8 w-8 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-800 flex items-center justify-center" aria-label={rightOpen ? 'Recolher contexto' : 'Expandir contexto'}>

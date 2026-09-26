@@ -57,11 +57,11 @@ export const OrbitCommandPalette: React.FC = () => {
     { id: 'files', title: 'Abrir Meus arquivos', keywords: 'arquivos satellite files projetos', section: 'Navegar', icon: Folder, run: () => clickButton('Meus arquivos') },
     { id: 'apps', title: 'Abrir OrbiDoc', keywords: 'apps suite ferramentas office', section: 'Navegar', icon: Apps, run: () => clickButton('OrbiDoc') },
     { id: 'nexus', title: 'Abrir Nexus AI', keywords: 'assistente chat ai pesquisar', section: 'Navegar', icon: Robot, run: () => clickButton('Nexus AI') },
-    { id: 'nova', title: 'Criar no Orbit Nova', keywords: 'documento docx word nova texto', section: 'Criar', icon: FileText, run: () => createInOrbiDoc('Orbit Nova') },
-    { id: 'gravity', title: 'Criar no Orbit Gravity', keywords: 'planilha xlsx excel gravity dados', section: 'Criar', icon: FileSpreadsheet, run: () => createInOrbiDoc('Orbit Gravity') },
-    { id: 'aurora', title: 'Criar no Orbit Aurora', keywords: 'apresentacao pptx slides aurora', section: 'Criar', icon: Presentation, run: () => createInOrbiDoc('Orbit Aurora') },
-    { id: 'comet', title: 'Criar no Orbit Comet', keywords: 'design canvas comet imagem', section: 'Criar', icon: Palette, run: () => createInOrbiDoc('Orbit Comet') },
-    { id: 'nebula', title: 'Abrir Orbit Nebula', keywords: 'pdf ocr nebula extrair', section: 'Criar', icon: FileCheck, run: () => createInOrbiDoc('Orbit Nebula') },
+    { id: 'nova', title: 'Criar documento', keywords: 'documento docx word nova texto', section: 'Criar', icon: FileText, run: () => createInOrbiDoc('Documento') },
+    { id: 'gravity', title: 'Criar planilha', keywords: 'planilha xlsx excel gravity dados', section: 'Criar', icon: FileSpreadsheet, run: () => createInOrbiDoc('Planilha') },
+    { id: 'aurora', title: 'Criar apresentação', keywords: 'apresentacao pptx slides aurora', section: 'Criar', icon: Presentation, run: () => createInOrbiDoc('Apresentação') },
+    { id: 'comet', title: 'Criar design', keywords: 'design canvas comet imagem', section: 'Criar', icon: Palette, run: () => createInOrbiDoc('Design') },
+    { id: 'nebula', title: 'Abrir PDF & OCR', keywords: 'pdf ocr nebula extrair', section: 'Criar', icon: FileCheck, run: () => createInOrbiDoc('PDF & OCR') },
     { id: 'account', title: 'Conta Orbit e conexões', keywords: 'conta google microsoft github seguranca conexoes', section: 'Conta', icon: Settings, run: () => clickAria('Conta Orbit e conexões externas') },
   ], []);
 

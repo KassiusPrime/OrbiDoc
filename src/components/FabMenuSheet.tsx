@@ -24,11 +24,11 @@ interface FabMenuSheetProps {
 }
 
 const ACTIONS = [
-  { id: 'word', tab: 'word' as TabType, title: 'Orbit Nova', desc: 'Documento · texto rico, DOCX e PDF', icon: FileText, color: 'bg-blue-50 text-blue-700 dark:bg-blue-950/45 dark:text-blue-300' },
-  { id: 'excel', tab: 'excel' as TabType, title: 'Orbit Gravity', desc: 'Planilha · dados, fórmulas e XLSX', icon: FileSpreadsheet, color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300' },
-  { id: 'powerpoint', tab: 'powerpoint' as TabType, title: 'Orbit Aurora', desc: 'Apresentação · slides, layouts e PPTX', icon: Presentation, color: 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/45 dark:text-fuchsia-300' },
-  { id: 'canva', tab: 'canva' as TabType, title: 'Orbit Comet', desc: 'Design · canvas, mídia e composição', icon: Design, color: 'bg-orange-50 text-orange-700 dark:bg-orange-950/45 dark:text-orange-300' },
-  { id: 'extract', tab: 'extract' as TabType, title: 'Orbit Nebula', desc: 'PDF & OCR · ler, extrair e converter', icon: FileCheck, color: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/45 dark:text-cyan-300' },
+  { id: 'word', tab: 'word' as TabType, title: 'Documento', desc: 'Documento · texto rico, DOCX e PDF', icon: FileText, color: 'bg-blue-50 text-blue-700 dark:bg-blue-950/45 dark:text-blue-300' },
+  { id: 'excel', tab: 'excel' as TabType, title: 'Planilha', desc: 'Planilha · dados, fórmulas e XLSX', icon: FileSpreadsheet, color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300' },
+  { id: 'powerpoint', tab: 'powerpoint' as TabType, title: 'Apresentação', desc: 'Apresentação · slides, layouts e PPTX', icon: Presentation, color: 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/45 dark:text-fuchsia-300' },
+  { id: 'canva', tab: 'canva' as TabType, title: 'Design', desc: 'Design · canvas, mídia e composição', icon: Design, color: 'bg-orange-50 text-orange-700 dark:bg-orange-950/45 dark:text-orange-300' },
+  { id: 'extract', tab: 'extract' as TabType, title: 'PDF & OCR', desc: 'PDF & OCR · ler, extrair e converter', icon: FileCheck, color: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/45 dark:text-cyan-300' },
   { id: 'chat', tab: 'chat' as TabType, title: 'Nexus AI', desc: 'Assistente único do Orbit', icon: Sparkles, color: 'bg-violet-50 text-violet-700 dark:bg-violet-950/45 dark:text-violet-300' },
 ] as const;
 

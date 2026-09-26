@@ -10,11 +10,18 @@ test('Nexus AI exposes one assistant without provider or model selectors', () =>
   const runtime = read('api/_lib/nexusFreeAI.ts');
 
   assert.match(workspace, /Nexus AI/);
-  assert.match(workspace, /IA unificada · (orquestração gratuita ativa|gratuita)/);
-  assert.match(workspace, /Assistente unificado do (Orbispace|Orbit)/);
+  assert.match(workspace, /Nexus AI/);
+  assert.match(workspace, /Gratuito/);
+  assert.match(workspace, /Como posso ajudar\?/);
   assert.match(workspace, /Virtuoso/);
   assert.match(workspace, /Pesquisar|Web/);
   assert.doesNotMatch(workspace, /<select|<optgroup|providerLabel|researchModelKey/);
+  assert.doesNotMatch(workspace, /quickActions|MediaToolRail|modeLabels|Ferramentas de mídia/);
+  assert.doesNotMatch(workspace, /Documento atual.*Arquivos.*Mídia.*Colar.*Adicionar contexto/);
+  assert.match(workspace, /placeholder="Pergunte alguma coisa"/);
+  assert.match(workspace, /bg-\[#6750D8\]/);
+  assert.match(workspace, /max-w-3xl/);
+  assert.match(workspace, /opacity-0 transition-opacity/);
 
   // Compatibility arguments may still exist while older editors migrate,
   // but the client/server deliberately ignore model choice from the UI.
