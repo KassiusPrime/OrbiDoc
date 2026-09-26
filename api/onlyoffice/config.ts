@@ -21,6 +21,6 @@ export default async function handler(req:IncomingMessage,res:ServerResponse){
   if(project.onlyOfficeStorageUrl)documentUrl=project.onlyOfficeStorageUrl;
   else documentUrl=`${u.origin}/api/onlyoffice/document?token=${encodeURIComponent(bridge)}`;
   const payload:any={document:{fileType:kind==='word'?'docx':kind==='excel'?'xlsx':'pptx',key:createHash('sha256').update(`${projectId}:${kind}:${documentUrl}`).digest('hex').slice(0,40),title:String(project.title||'Orbit'),url:documentUrl,permissions:{edit:true,download:true,print:true,review:true,comment:true,fillForms:true,copy:true}},documentType:kind==='word'?'word':kind==='excel'?'cell':'slide',editorConfig:{mode:'edit',callbackUrl,customization:{autosave:true,forcesave:true,compactHeader:true},user:{id:projectId.slice(0,64),name:'Orbit user'}},height:'100%',width:'100%'};
-  payload.token=signJwt(payload,secret);return jsonResponse(res,200,payload);
+  payload.token=signJwt(payload,secret);payload.documentServerUrl=server;return jsonResponse(res,200,payload);
  }catch(e){return jsonResponse(res,502,{error:'ONLYOFFICE_BRIDGE_ERROR',message:e instanceof Error?e.message:'Bridge error'});}
 }
