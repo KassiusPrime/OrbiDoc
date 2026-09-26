@@ -15,6 +15,7 @@ export interface AiRuntimeMeta {
   fallbackUsed?: boolean;
   webSearch?: boolean;
   webEngine?: 'searxng-selfhosted';
+  model?: string;
 }
 
 const RUNTIME_EVENT = 'orbit:nexus-ai-runtime';
@@ -41,12 +42,14 @@ function requestBody(
   systemPrompt?: string,
   files?: unknown[],
   webSearch = false,
+  model?: string,
 ): string {
   return JSON.stringify({
     messages,
     systemPrompt,
     files,
     webSearch,
+    ...(model ? { model } : {}),
   });
 }
 
@@ -57,7 +60,7 @@ function requestBody(
  */
 export async function sendToVercel(
   _provider: string,
-  _model: string,
+  model: string,
   messages: AiMessage[],
   systemPrompt?: string,
   files?: unknown[],
@@ -70,7 +73,7 @@ export async function sendToVercel(
     const response = await fetch(orbitApiUrl('/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: requestBody(messages, systemPrompt, files, webSearch),
+      body: requestBody(messages, systemPrompt, files, webSearch, model),
       signal: controller.signal,
     });
 
@@ -89,6 +92,7 @@ export async function sendToVercel(
       fallbackUsed: data.fallbackUsed === true,
       webSearch: data.webSearch === true,
       webEngine: data.webEngine === 'searxng-selfhosted' ? 'searxng-selfhosted' : undefined,
+      model: typeof data.model === 'string' ? data.model : undefined,
     });
 
     return String(data.answer || '');
@@ -105,7 +109,7 @@ export async function sendToVercel(
 
 export async function sendToVercelStream(
   _provider: string,
-  _model: string,
+  model: string,
   messages: AiMessage[],
   onChunk: (chunk: string) => void,
   options?: {
@@ -124,7 +128,7 @@ export async function sendToVercelStream(
     const response = await fetch(orbitApiUrl('/api/chat/stream'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: requestBody(messages, options?.systemPrompt, options?.files, Boolean(options?.webSearch)),
+      body: requestBody(messages, options?.systemPrompt, options?.files, Boolean(options?.webSearch), model),
       signal: timeoutController.signal,
     });
 
