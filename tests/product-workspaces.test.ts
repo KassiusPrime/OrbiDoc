@@ -15,7 +15,9 @@ test('Nexus AI exposes one assistant without provider or model selectors', () =>
   assert.match(workspace, /Como posso ajudar\?/);
   assert.match(workspace, /Virtuoso/);
   assert.match(workspace, /Pesquisar|Web/);
-  assert.doesNotMatch(workspace, /<select|<optgroup|providerLabel|researchModelKey/);
+  assert.match(workspace, /<select/);
+  assert.match(workspace, /Modelo local do Nexus AI/);
+  assert.doesNotMatch(workspace, /providerLabel|researchModelKey/);
   assert.doesNotMatch(workspace, /quickActions|MediaToolRail|modeLabels|Ferramentas de mídia/);
   assert.doesNotMatch(workspace, /Documento atual.*Arquivos.*Mídia.*Colar.*Adicionar contexto/);
   assert.match(workspace, /placeholder="Pergunte alguma coisa"/);
@@ -26,10 +28,9 @@ test('Nexus AI exposes one assistant without provider or model selectors', () =>
   // Compatibility arguments may still exist while older editors migrate,
   // but the client/server deliberately ignore model choice from the UI.
   assert.match(client, /provider\/model are deliberately ignored/);
-  assert.match(runtime, /openrouter\/free/);
-  assert.match(runtime, /:free/);
-  assert.match(runtime, /max_price/);
-  assert.match(runtime, /allow_fallbacks/);
+  assert.match(runtime, /Ollama/);
+  assert.match(runtime, /OLLAMA_MODEL/);
+  assert.match(runtime, /searxng-selfhosted/);
 });
 
 test('video clip editor remains local and feature-detects browser recording support', () => {
