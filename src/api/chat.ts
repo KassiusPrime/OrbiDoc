@@ -1,6 +1,7 @@
 import { orbitApiUrl } from '../lib/orbitApiOrigin';
 
 const CLIENT_AI_TIMEOUT_MS = 70_000;
+const CLIENT_STREAM_IDLE_TIMEOUT_MS = 60_000;
 
 export interface AiMessage {
   role: 'system' | 'user' | 'assistant';
@@ -120,7 +121,11 @@ export async function sendToVercelStream(
   },
 ): Promise<void> {
   const timeoutController = new AbortController();
-  const timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_AI_TIMEOUT_MS);
+  let timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_STREAM_IDLE_TIMEOUT_MS);
+  const resetIdleTimeout = () => {
+    window.clearTimeout(timeoutId);
+    timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_STREAM_IDLE_TIMEOUT_MS);
+  };
   const abortFromCaller = () => timeoutController.abort();
   options?.signal?.addEventListener('abort', abortFromCaller, { once: true });
 
@@ -170,6 +175,7 @@ export async function sendToVercelStream(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      resetIdleTimeout();
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
