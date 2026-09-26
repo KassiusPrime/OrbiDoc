@@ -1,3 +1,5 @@
+import { assertBase64UploadSize } from './uploadLimits.js';
+
 const OPENROUTER_IMAGE_URL = 'https://openrouter.ai/api/v1/images';
 const IMAGE_TIMEOUT_MS = 65_000;
 
@@ -160,7 +162,7 @@ export async function editImageResilient(rawBody: unknown) {
   const image = normalizeImageUrl(body.image);
   const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
   if (!image || !prompt) throw new Error('Imagem e instrução de edição são obrigatórias.');
-  if (image.length > 11_000_000) throw new Error('A imagem é grande demais para edição neste endpoint.');
+  assertBase64UploadSize(image, 'A imagem');
   if (prompt.length > 8_000) throw new Error('A instrução de edição é grande demais.');
   return openRouterImageRequest(
     `Edite a imagem de referência seguindo exatamente esta instrução, preservando tudo que não foi solicitado para mudar: ${prompt}`,
@@ -173,7 +175,7 @@ export async function enhanceImageResilient(rawBody: unknown) {
   const body = (rawBody && typeof rawBody === 'object' ? rawBody : {}) as ImageBody;
   const image = normalizeImageUrl(body.image);
   if (!image) throw new Error('Envie uma imagem válida para restauração.');
-  if (image.length > 11_000_000) throw new Error('A imagem é grande demais para restauração neste endpoint.');
+  assertBase64UploadSize(image, 'A imagem');
   const profile = body.profile === 'anime' || body.profile === 'document' ? body.profile : 'photo';
   const scale: 2 | 4 = Number(body.scale) === 4 ? 4 : 2;
 
