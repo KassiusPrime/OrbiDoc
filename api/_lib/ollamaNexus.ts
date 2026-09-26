@@ -212,14 +212,11 @@ async function streamAttempt(
   const decoder = new TextDecoder();
   let buffer = '';
   let receivedByte = false;
-  let idleTimerAbort: AbortController | null = null;
-
   const readWithIdle = async () => {
-    if (idleTimerAbort) idleTimerAbort.abort();
-    idleTimerAbort = new AbortController();
-    const bridge = linkAbort(controller.signal, idleTimerAbort);
+    const idleController = new AbortController();
+    const bridge = linkAbort(controller.signal, idleController);
     try {
-      return await idleRead(reader, IDLE_TIMEOUT_MS, idleTimerAbort.signal);
+      return await idleRead(reader, IDLE_TIMEOUT_MS, idleController.signal);
     } finally {
       bridge();
     }
@@ -269,8 +266,6 @@ async function streamAttempt(
     (enriched as Error & { receivedByte?: boolean }).receivedByte = receivedByte;
     throw enriched;
   } finally {
-    const pendingAbort = idleTimerAbort;
-    if (pendingAbort) pendingAbort.abort();
     try { reader.releaseLock(); } catch {}
     unlink();
   }
