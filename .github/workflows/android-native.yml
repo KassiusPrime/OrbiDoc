@@ -178,4 +178,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/android-v') && env.BUILD_MODE == 'release' && env.SIGNING_CONFIGURED == 'true'
         env: { GH_TOKEN: ${{ github.token }} }
         run: |
-          gh release create "$GITHUB_REF_NAME" Orbit-release.apk Orbit-release.aab Orbit-release.sha256 --title "Orbit ${GITHUB_REF_NAME#android-}" --notes "Orbit Android local-first com Orbispace, OrbiDoc e Nexus AI unificado via OpenRouter free-only. O APK não contém seletor de modelo nem runtime Gemini/Groq paralelo."
+          gh release create "$GITHUB_REF_NAME" Orbit-release.apk Orbit-release.aab Orbit-release.sha256 --title "Orbit ${GITHUB_REF_NAME#android-}" --notes "Orbit Android local-first com Orbispace, OrbiDoc e Nexus AI unificado via Ollama self-hosted. O APK não contém runtime Gemini/Groq/OpenRouter paralelo."
