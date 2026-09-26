@@ -60,7 +60,7 @@ if (fs.existsSync(privacyPath)) {
   if (!/Firebase/i.test(privacy)) warnings.push('Revise privacy.html caso Firebase Authentication continue habilitado.');
   if (!/Nexus AI|inteligência artificial|\bIA\b/i.test(privacy)) warnings.push('Revise privacy.html caso os recursos do Nexus AI continuem habilitados.');
   if (!/delete-account\.html/i.test(privacy)) failures.push('privacy.html precisa apontar para o recurso público de exclusão de conta.');
-  if (!/OpenRouter/i.test(privacy)) failures.push('privacy.html precisa descrever o gateway de inferência usado pelo Nexus AI.');
+  if (!/Ollama/i.test(privacy)) failures.push('privacy.html precisa descrever o runtime local do Nexus AI.');
 }
 
 if (fs.existsSync(deletionPath)) {
