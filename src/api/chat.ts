@@ -14,7 +14,7 @@ export interface AiRuntimeMeta {
   freeOnly?: boolean;
   fallbackUsed?: boolean;
   webSearch?: boolean;
-  webEngine?: 'tavily-free';
+  webEngine?: 'searxng-selfhosted';
 }
 
 const RUNTIME_EVENT = 'orbit:nexus-ai-runtime';
@@ -88,7 +88,7 @@ export async function sendToVercel(
       freeOnly: data.freeOnly === true,
       fallbackUsed: data.fallbackUsed === true,
       webSearch: data.webSearch === true,
-      webEngine: data.webEngine === 'tavily-free' ? 'tavily-free' : undefined,
+      webEngine: data.webEngine === 'searxng-selfhosted' ? 'searxng-selfhosted' : undefined,
     });
 
     return String(data.answer || '');
