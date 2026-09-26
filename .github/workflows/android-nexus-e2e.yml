@@ -22,6 +22,7 @@ jobs:
     env:
       ORBIT_API_ORIGIN: ${{ inputs.orbit_api_origin }}
       CAPACITOR_ORIGIN: https://localhost
+      ORBIT_API_AUTH_TOKEN: ${{ secrets.ORBIT_API_AUTH_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
