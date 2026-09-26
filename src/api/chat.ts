@@ -54,9 +54,9 @@ function requestBody(
 }
 
 /**
- * Compatibility façade used by OrbiDoc tools while the product migrates to
- * Nexus AI. provider/model are deliberately ignored: users and feature code
- * cannot pin an internal model anymore.
+ * Compatibility façade used by existing Orbit tools.
+ * The provider argument remains for source compatibility; model is forwarded
+ * to the local Ollama runtime.
  */
 export async function sendToVercel(
   _provider: string,
