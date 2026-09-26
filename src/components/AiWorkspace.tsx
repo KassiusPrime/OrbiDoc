@@ -13,6 +13,8 @@ import {
 } from '@tabler/icons-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { sendToVercelStream, type AiMessage as ApiMessage } from '../api/chat';
+import { orbitApiUrl } from '../lib/orbitApiOrigin';
+import { MAX_UPLOAD_MB } from '../lib/uploadLimits';
 import { CleanMarkdown } from './CleanMarkdown';
 
 export type AiModelOption = { id: string; provider: string; label: string; enabled: boolean; recommended?: boolean; preview?: boolean; webSearch?: boolean };
@@ -141,12 +143,28 @@ export const SuggestionChips: React.FC<{ onSelect: (prompt: string) => void }> =
   </div>
 );
 
-const AIChatHeader: React.FC<{ busy: boolean; onClear: () => void }> = ({ busy, onClear }) => (
+const AIChatHeader: React.FC<{
+  busy: boolean;
+  onClear: () => void;
+  model: string;
+  models: string[];
+}> = ({ busy, onClear, model, models }) => (
   <header className="flex h-12 shrink-0 items-center border-b border-white/6 px-3 sm:px-5">
     <div className="flex min-w-0 items-center gap-2">
       <Sparkles className="h-4 w-4 text-[#8D7CFF]" />
       <span className="text-sm font-medium tracking-tight">Nexus AI</span>
-      <span className="text-[10px] text-slate-500">Gratuito</span>
+      <span className="text-[10px] text-slate-500">Local · Ollama</span>
+      {models.length ? (
+        <select
+          value={model}
+          onChange={(event) => window.dispatchEvent(new CustomEvent('orbit:nexus-model-change', { detail: event.target.value }))}
+          disabled={busy}
+          aria-label="Modelo local do Nexus AI"
+          className="ml-1 max-w-[190px] rounded-lg border border-slate-700/60 bg-transparent px-2 py-1 text-[10px] text-slate-400 outline-none hover:text-slate-200"
+        >
+          {models.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      ) : null}
     </div>
     <div className="ml-auto flex items-center gap-1">
       <button type="button" onClick={onClear} disabled={busy} className="h-8 rounded-lg px-2.5 text-[10px] font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 disabled:opacity-40">
@@ -170,7 +188,8 @@ export const AIComposer: React.FC<{
   onWebSearchChange: (value: boolean) => void;
   onPasteClipboard: () => void;
   onReadLink: () => void;
-}> = ({ value, busy, webSearch, onChange, onSubmit, onStop, onAttach, onWebSearchChange, onPasteClipboard, onReadLink }) => {
+  disabled?: boolean;
+}> = ({ value, busy, webSearch, onChange, onSubmit, onStop, onAttach, onWebSearchChange, onPasteClipboard, onReadLink, disabled = false }) => {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [plusOpen, setPlusOpen] = useState(false);
@@ -236,7 +255,7 @@ export const AIComposer: React.FC<{
               <Paperclip className="mx-auto h-4 w-4" />
             </button>
             <label className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[10px] font-medium transition-colors ${webSearch ? 'text-[#9A8BFF] bg-violet-500/10' : 'text-slate-600 hover:bg-white/5 hover:text-slate-300'}`}>
-              <input className="sr-only" type="checkbox" checked={webSearch} onChange={(event) => onWebSearchChange(event.target.checked)} disabled={busy} />
+              <input className="sr-only" type="checkbox" checked={webSearch} onChange={(event) => onWebSearchChange(event.target.checked)} disabled={disabled || busy} />
               <WorldSearch className="h-3.5 w-3.5" />Web
             </label>
             {URL_RE.test(value) ? <button type="button" onClick={onReadLink} disabled={busy} className="hidden sm:inline h-8 rounded-lg px-2 text-[10px] font-medium text-[#9A8BFF] hover:bg-violet-500/10">Ler link</button> : null}
@@ -246,7 +265,7 @@ export const AIComposer: React.FC<{
                   <Stop className="mx-auto h-3.5 w-3.5" />
                 </button>
               ) : (
-                <button type="button" onClick={onSubmit} disabled={!value.trim()} className="h-8 w-8 rounded-full bg-[#6750D8] text-white transition-opacity duration-150 disabled:opacity-30 hover:bg-[#7561E4]" aria-label="Enviar">
+                <button type="button" onClick={onSubmit} disabled={disabled || !value.trim()} className="h-8 w-8 rounded-full bg-[#6750D8] text-white transition-opacity duration-150 disabled:opacity-30 hover:bg-[#7561E4]" aria-label="Enviar">
                   <Send className="mx-auto h-3.5 w-3.5" />
                 </button>
               )}
@@ -278,6 +297,9 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
   const [input, setInput] = useState(() => localStorage.getItem(DRAFT_STORAGE_KEY) || '');
   const [busy, setBusy] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('orbit.chatModel') || '');
+  const [aiOnline, setAiOnline] = useState(true);
   const controllerRef = useRef<AbortController | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
@@ -292,6 +314,44 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
   }, [input]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(orbitApiUrl('/api/ai/models'))
+      .then((response) => response.ok ? response.json() as Promise<{ models?: Array<{ name?: unknown }> }> : Promise.reject(new Error('modelos indisponíveis')))
+      .then((data) => {
+        if (cancelled) return;
+        const models = (data.models || []).map((item) => typeof item.name === 'string' ? item.name : '').filter(Boolean);
+        setModelOptions(models);
+        const stored = localStorage.getItem('orbit.chatModel') || '';
+        const next = stored && models.includes(stored) ? stored : models[0] || '';
+        setSelectedModel(next);
+        if (next) localStorage.setItem('orbit.chatModel', next);
+      })
+      .catch(() => {
+        if (!cancelled) setModelOptions([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const onModelChange = (event: Event) => {
+      const value = (event as CustomEvent<string>).detail;
+      if (typeof value !== 'string') return;
+      setSelectedModel(value);
+      localStorage.setItem('orbit.chatModel', value);
+    };
+    const onHealth = (event: Event) => {
+      const detail = (event as CustomEvent<{ online?: boolean }>).detail;
+      setAiOnline(detail?.online !== false);
+    };
+    window.addEventListener('orbit:nexus-model-change', onModelChange);
+    window.addEventListener('orbit:nexus-health', onHealth);
+    return () => {
+      window.removeEventListener('orbit:nexus-model-change', onModelChange);
+      window.removeEventListener('orbit:nexus-health', onHealth);
+    };
+  }, []);
 
   const hasMessages = messages.length > 0;
   const lastUser = useMemo(() => [...messages].reverse().find((message) => message.role === 'user'), [messages]);
@@ -346,8 +406,8 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
   };
 
   const attach = async (file: File) => {
-    if (file.size > 2 * 1024 * 1024) {
-      showNotification('Para contexto direto no chat, use arquivos de texto de até 2 MB.', 'error');
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      showNotification(`O arquivo excede o limite de upload de ${MAX_UPLOAD_MB} MB.`, 'error');
       return;
     }
     const textual = /^(text\/|application\/(json|xml|yaml|x-yaml))/.test(file.type) || /\.(md|txt|csv|json|xml|ya?ml|ts|tsx|js|jsx|css|html)$/i.test(file.name);
@@ -365,7 +425,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
 
   const submit = async (preset?: string) => {
     const text = (preset ?? input).trim();
-    if (!text || busy) return;
+    if (!text || busy || !aiOnline) return;
     if (!navigator.onLine) {
       setInput(text);
       localStorage.setItem(DRAFT_STORAGE_KEY, text);
@@ -384,7 +444,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
 
     try {
       let answer = '';
-      await sendToVercelStream(INTERNAL_PROVIDER, INTERNAL_MODEL, toApiMessages(context), (chunk) => {
+      await sendToVercelStream(INTERNAL_PROVIDER, selectedModel || INTERNAL_MODEL, toApiMessages(context), (chunk) => {
         answer += chunk;
         setMessages((current) => current.map((message) => message.id === assistant.id ? { ...message, content: answer } : message));
       }, { signal: controller.signal, webSearch });
@@ -405,7 +465,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
 
   return (
     <section className="orbidoc-ai-studio h-full min-h-0 overflow-hidden flex flex-col bg-transparent" aria-label="Nexus AI">
-      <AIChatHeader busy={busy} onClear={clear} />
+      <AIChatHeader busy={busy} onClear={clear} model={selectedModel} models={modelOptions} />
       <div className="relative flex min-h-0 flex-1 flex-col">
         {!hasMessages ? (
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-8">
@@ -414,7 +474,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
                 <Sparkles className="h-5 w-5" />
               </div>
               <h1 className="mt-3 text-xl font-medium tracking-tight">Como posso ajudar?</h1>
-              <p className="mx-auto mt-1.5 max-w-xl text-xs text-slate-500">Escreva, analise arquivos ou peça ações no Orbit.</p>
+              <p className="mx-auto mt-1.5 max-w-xl text-xs text-slate-500">{aiOnline ? 'Escreva, analise arquivos ou peça ações no Orbit.' : 'IA offline — verifique o servidor.'}</p>
               <div className="mt-5 flex justify-center">
                 <SuggestionChips onSelect={(prompt) => void submit(prompt)} />
               </div>
@@ -446,7 +506,9 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
           onWebSearchChange={setWebSearch}
           onPasteClipboard={() => void pasteClipboard()}
           onReadLink={readLink}
+          disabled={!aiOnline}
         />
+        {!aiOnline ? <div className="px-3 pb-2 text-center text-[10px] font-medium text-rose-400">IA offline — verifique o servidor.</div> : null}
       </div>
     </section>
   );
