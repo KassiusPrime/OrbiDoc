@@ -28,11 +28,11 @@
       <p>Se você optar por criar uma Conta Orbit, a autenticação pode usar Firebase Authentication. Identificador de usuário, nome de exibição, endereço de e-mail, estado de verificação e preferências sincronizadas podem ser tratados para manter sessão e sincronização do Orbispace. O modo local continua disponível sem conta quando a instalação permitir.</p>
 
       <h2>4. Serviços externos opcionais</h2>
-      <p>Google Drive, OneDrive e GitHub são conexões separadas e opcionais. Vincular um desses serviços não concede acesso ao Nexus AI nem aos demais provedores. Orbit solicita apenas os escopos necessários ao fluxo escolhido e respeita as permissões concedidas no próprio provedor.</p>
+      <p>Google Drive, OneDrive e GitHub são conexões separadas e opcionais. Vincular um desses serviços não concede acesso ao Nexus AI nem aos demais serviços conectados. Orbit solicita apenas os escopos necessários ao fluxo escolhido e respeita as permissões concedidas no próprio provedor.</p>
 
       <h2>5. Nexus AI</h2>
-      <p>Nexus AI é o assistente unificado do Orbit. Quando você solicita geração, análise, revisão ou outra tarefa remota, o contexto necessário pode ser enviado ao OpenRouter, que é o único gateway de inferência LLM do Nexus AI. O sistema restringe as rotas a <code>openrouter/free</code> e variantes de modelo explicitamente gratuitas (<code>:free</code>) e não usa fallback para modelos pagos.</p>
-      <p>Os provedores finais disponíveis por trás de modelos gratuitos podem possuir políticas diferentes de retenção ou treinamento. Para conteúdo classificado pelo Orbit como sensível, o runtime pode exigir rotas com coleta de dados negada e Zero Data Retention (ZDR). Se nenhuma rota gratuita cumprir essa política, a solicitação deve falhar em vez de reduzir silenciosamente a proteção. Não envie conteúdo confidencial ao Nexus AI quando a interface informar que a política de privacidade exigida está indisponível.</p>
+      <p>Nexus AI usa o Ollama hospedado pelo servidor Orbit para executar inferência local. O texto enviado ao Nexus é processado no servidor configurado pelo operador da instalação; não há roteamento de inferência para OpenRouter, Gemini ou Groq.</p>
+      <p>Quando a pesquisa Web é habilitada, o Orbit pode consultar uma instância SearXNG configurada pelo operador. Os resultados são tratados como dados externos não confiáveis e não como instruções. Em uma instalação self-hosted, o operador é responsável pela infraestrutura, retenção e políticas de rede do servidor.</p>
 
       <h2>6. Pesquisa na Web</h2>
       <p>Quando uma pergunta exige informação atual, Orbit pode consultar um mecanismo de busca configurado para a camada gratuita e fornecer trechos e URLs como evidência não confiável ao Nexus AI. Essa etapa é separada da inferência. O sistema não usa automaticamente ferramentas de pesquisa pagas do OpenRouter como fallback quando a cota gratuita de busca está indisponível.</p>
