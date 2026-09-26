@@ -21,7 +21,7 @@ html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc
 }
 
 html[data-orbidoc-native='true'] .orbidoc-app-root main > div > [class~='h-[calc(100dvh-7.5rem)]'] > [class~='bg-rose-50'] > span::after {
-  content: 'IA ainda não conectada. Toque no botão de chave para conectar Gemini, Groq ou OpenRouter neste aparelho.';
+  content: 'IA local indisponível. Verifique o servidor Orbit/Ollama configurado para este aparelho.';
   font-size: 10px;
   line-height: 1.4;
   font-weight: 650;
