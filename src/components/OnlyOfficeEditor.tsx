@@ -5,7 +5,7 @@ import type { SavedProject } from '../types';
 type OnlyOfficeKind = 'word' | 'excel' | 'powerpoint';
 interface Props { project: SavedProject; kind: OnlyOfficeKind; onProjectChange: (project: SavedProject) => void; showNotification?: (message: string, type?: 'success' | 'error') => void; }
 declare global { interface Window { DocsAPI?: { DocEditor: new (elementId: string, config: Record<string, unknown>) => { destroyEditor?: () => void } } } }
-const SERVER_URL = String(import.meta.env.VITE_ONLYOFFICE_DOCUMENT_SERVER_URL || '').replace(/\/$/, '');
+const SERVER_URL = '';
 const CONFIG_URL = String(import.meta.env.VITE_ONLYOFFICE_CONFIG_URL || '/api/onlyoffice/config');
 const labels: Record<OnlyOfficeKind, string> = { word: 'Documento', excel: 'Planilha', powerpoint: 'Apresentação' };
 const editorType = (kind: OnlyOfficeKind) => kind === 'word' ? 'word' : kind === 'excel' ? 'cell' : 'slide';
@@ -13,27 +13,24 @@ const editorType = (kind: OnlyOfficeKind) => kind === 'word' ? 'word' : kind ===
 export const OnlyOfficeEditor: React.FC<Props> = ({ project, kind, showNotification }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [configured, setConfigured] = useState(Boolean(SERVER_URL));
-  const scriptUrl = useMemo(() => SERVER_URL ? `${SERVER_URL}/web-apps/apps/api/documents/api.js` : '', []);
+  const [configured, setConfigured] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     let instance: { destroyEditor?: () => void } | null = null;
     setLoading(true); setError('');
-    if (!SERVER_URL) { setConfigured(false); setLoading(false); return; }
     const load = async () => {
       try {
-        if (!window.DocsAPI) {
-          await new Promise<void>((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = scriptUrl; script.async = true;
-            script.onload = () => resolve(); script.onerror = () => reject(new Error('Não foi possível carregar a API do ONLYOFFICE Docs.'));
-            document.head.appendChild(script);
-          });
-        }
-        const response = await fetch(`${CONFIG_URL}?projectId=${encodeURIComponent(project.id)}&kind=${kind}`, { credentials: 'include', headers: { Accept: 'application/json' } });
+        const idToken = await (await import('../services/firebase')).auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Entre na sua conta para abrir este documento no ONLYOFFICE.');
+        const response = await fetch(`${CONFIG_URL}?projectId=${encodeURIComponent(project.id)}&kind=${kind}`, { credentials: 'include', headers: { Accept: 'application/json', Authorization: `Bearer ${idToken}` } });
         if (!response.ok) throw new Error(`Configuração ONLYOFFICE indisponível (HTTP ${response.status}).`);
-        const config = await response.json() as Record<string, unknown>;
+        const config = await response.json() as Record<string, any>;
+        const runtimeServerUrl = String(config.documentServerUrl || '').replace(/\/$/, '');
+        if (!runtimeServerUrl) throw new Error('O servidor ONLYOFFICE não foi informado pelo bridge.');
+        if (!window.DocsAPI) {
+          await new Promise<void>((resolve, reject) => { const script=document.createElement('script'); script.src=`${runtimeServerUrl}/web-apps/apps/api/documents/api.js`; script.async=true; script.onload=()=>resolve(); script.onerror=()=>reject(new Error('Não foi possível carregar a API do ONLYOFFICE Docs.')); document.head.appendChild(script); });
+        }
         if (cancelled || !window.DocsAPI?.DocEditor) return;
         instance = new window.DocsAPI.DocEditor('orbidoc-onlyoffice-editor', {
           ...config, documentType: editorType(kind), type: 'desktop', height: '100%', width: '100%',
@@ -51,7 +48,7 @@ export const OnlyOfficeEditor: React.FC<Props> = ({ project, kind, showNotificat
     };
     void load();
     return () => { cancelled = true; instance?.destroyEditor?.(); };
-  }, [kind, project.id, scriptUrl, showNotification]);
+  }, [kind, project.id, showNotification]);
 
   if (!configured) return <section className="h-full min-h-[560px] flex items-center justify-center bg-white dark:bg-[#111318] border border-slate-200 dark:border-slate-800"><div className="max-w-xl px-6 py-10 text-center"><div className="mx-auto h-12 w-12 rounded-xl bg-violet-50 dark:bg-violet-950/40 text-violet-600 flex items-center justify-center"><IconSettings className="h-6 w-6" /></div><h2 className="mt-4 text-lg font-black">ONLYOFFICE ainda não foi conectado</h2><p className="mt-2 text-sm text-slate-500 dark:text-slate-400">O Orbit está preparado para usar o ONLYOFFICE como editor principal, mas o servidor Docs e o bridge seguro de documentos precisam ser configurados.</p><div className="mt-4 text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4 text-xs leading-relaxed"><div className="font-black mb-2">Variáveis necessárias</div><div><code>VITE_ONLYOFFICE_DOCUMENT_SERVER_URL</code> — endereço público do ONLYOFFICE Docs.</div><div className="mt-1"><code>VITE_ONLYOFFICE_CONFIG_URL</code> — endpoint que gera a configuração segura do documento.</div><div className="mt-1">JWT e credenciais privadas devem permanecer no backend.</div></div><a href="https://api.onlyoffice.com/docs" target="_blank" rel="noreferrer" className="mt-5 inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 items-center gap-2 text-xs font-bold"><IconExternalLink className="h-4 w-4" /> Documentação ONLYOFFICE</a></div></section>;
 
