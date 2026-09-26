@@ -113,7 +113,7 @@ function systemPrompt(body: NexusBody): string {
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
-  const unlink = linkAbort(init.signal, controller);
+  const unlink = linkAbort(init.signal ?? undefined, controller);
   const timer = setTimeout(() => controller.abort(new Error('OLLAMA_CONNECT_TIMEOUT')), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
@@ -215,7 +215,7 @@ async function streamAttempt(
   let idleTimerAbort: AbortController | null = null;
 
   const readWithIdle = async () => {
-    idleTimerAbort?.abort();
+    if (idleTimerAbort) idleTimerAbort.abort();
     idleTimerAbort = new AbortController();
     const bridge = linkAbort(controller.signal, idleTimerAbort);
     try {
@@ -269,7 +269,8 @@ async function streamAttempt(
     (enriched as Error & { receivedByte?: boolean }).receivedByte = receivedByte;
     throw enriched;
   } finally {
-    idleTimerAbort?.abort();
+    const pendingAbort = idleTimerAbort;
+    if (pendingAbort) pendingAbort.abort();
     try { reader.releaseLock(); } catch {}
     unlink();
   }
@@ -338,7 +339,7 @@ export async function stream(
 
 export async function complete(body: NexusBody): Promise<NexusResult> {
   let answer = '';
-  let meta: NexusMeta | null = null;
+  let meta: NexusMeta | undefined;
   await stream(body, (chunk) => { answer += chunk; }, (value) => {
     meta = value;
   });
