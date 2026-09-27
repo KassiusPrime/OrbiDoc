@@ -52,6 +52,7 @@ services:
   # VoiceStudio é opcional porque a primeira inicialização baixa modelos pesados.
   # Ative com: docker compose --profile voice up -d
   voicestudio:
+    platform: linux/amd64
     image: ghcr.io/debpalash/omnivoice-studio:stable
     profiles: ["voice"]
     networks: [internal]
