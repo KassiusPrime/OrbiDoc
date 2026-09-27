@@ -158,7 +158,7 @@ const AIChatHeader: React.FC<{
         <select
           value={model}
           onChange={(event) => window.dispatchEvent(new CustomEvent('orbit:nexus-model-change', { detail: event.target.value }))}
-          disabled={busy}
+          disabled={busy || !aiOnline}
           aria-label="Modelo local do Nexus AI"
           className="ml-1 max-w-[190px] rounded-lg border border-slate-700/60 bg-transparent px-2 py-1 text-[10px] text-slate-400 outline-none hover:text-slate-200"
         >
@@ -226,7 +226,7 @@ export const AIComposer: React.FC<{
             </button>
           </div>
         ) : null}
-        <input ref={fileRef} type="file" className="sr-only" onChange={(event) => {
+        <input ref={fileRef} type="file" disabled={disabled || busy} className="sr-only" onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) onAttach(file);
           event.currentTarget.value = '';
@@ -234,6 +234,7 @@ export const AIComposer: React.FC<{
         <div className="rounded-2xl border border-slate-700/60 bg-[#0f1218] shadow-sm transition-colors duration-150 focus-within:border-slate-600">
           <textarea
             ref={ref}
+            disabled={disabled}
             value={value}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={(event) => {
@@ -248,17 +249,17 @@ export const AIComposer: React.FC<{
             className="block max-h-44 w-full resize-none bg-transparent px-4 pt-3.5 text-sm leading-relaxed outline-none placeholder:text-slate-600"
           />
           <div className="flex items-center gap-1.5 px-2.5 pb-2.5 pt-1.5">
-            <button type="button" onClick={() => setPlusOpen((open) => !open)} className="h-8 w-8 rounded-lg text-slate-600 hover:bg-white/5 hover:text-slate-300" aria-label="Adicionar contexto" aria-expanded={plusOpen}>
+            <button type="button" disabled={disabled || busy} onClick={() => setPlusOpen((open) => !open)} className="h-8 w-8 rounded-lg text-slate-600 hover:bg-white/5 hover:text-slate-300" aria-label="Adicionar contexto" aria-expanded={plusOpen}>
               <Plus className="mx-auto h-4 w-4" />
             </button>
-            <button type="button" onClick={openFiles} className="h-8 w-8 rounded-lg text-slate-600 hover:bg-white/5 hover:text-slate-300" aria-label="Anexar arquivo">
+            <button type="button" disabled={disabled || busy} onClick={openFiles} className="h-8 w-8 rounded-lg text-slate-600 hover:bg-white/5 hover:text-slate-300" aria-label="Anexar arquivo">
               <Paperclip className="mx-auto h-4 w-4" />
             </button>
             <label className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[10px] font-medium transition-colors ${webSearch ? 'text-[#9A8BFF] bg-violet-500/10' : 'text-slate-600 hover:bg-white/5 hover:text-slate-300'}`}>
               <input className="sr-only" type="checkbox" checked={webSearch} onChange={(event) => onWebSearchChange(event.target.checked)} disabled={disabled || busy} />
               <WorldSearch className="h-3.5 w-3.5" />Web
             </label>
-            {URL_RE.test(value) ? <button type="button" onClick={onReadLink} disabled={busy} className="hidden sm:inline h-8 rounded-lg px-2 text-[10px] font-medium text-[#9A8BFF] hover:bg-violet-500/10">Ler link</button> : null}
+            {URL_RE.test(value) ? <button type="button" onClick={onReadLink} disabled={disabled || busy} className="hidden sm:inline h-8 rounded-lg px-2 text-[10px] font-medium text-[#9A8BFF] hover:bg-violet-500/10">Ler link</button> : null}
             <div className="ml-auto">
               {busy ? (
                 <button type="button" onClick={onStop} className="h-8 w-8 rounded-full bg-slate-700 text-slate-100 hover:bg-slate-600" aria-label="Parar">
@@ -465,7 +466,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
 
   return (
     <section className="orbidoc-ai-studio h-full min-h-0 overflow-hidden flex flex-col bg-transparent" aria-label="Nexus AI">
-      <AIChatHeader busy={busy} onClear={clear} model={selectedModel} models={modelOptions} />
+      <AIChatHeader busy={busy} onClear={clear} model={selectedModel} models={modelOptions} aiOnline={aiOnline} />
       <div className="relative flex min-h-0 flex-1 flex-col">
         {!hasMessages ? (
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-8">

@@ -44,6 +44,7 @@ services:
     networks: [internal]
     environment:
       SEARXNG_BASE_URL: http://searxng:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-CHANGE_ME_generate_with_openssl_rand_hex_32}
     volumes:
       - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
     restart: unless-stopped

@@ -137,6 +137,7 @@ function idleRead<T>(reader: ReadableStreamDefaultReader<T>, timeoutMs: number, 
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       reject(new Error('OLLAMA_IDLE_TIMEOUT'));
     }, timeoutMs);
     const onAbort = () => {
@@ -217,6 +218,14 @@ async function streamAttempt(
     const bridge = linkAbort(controller.signal, idleController);
     try {
       return await idleRead(reader, IDLE_TIMEOUT_MS, idleController.signal);
+    } catch (error) {
+      // A timeout must tear down the upstream Ollama request, not merely stop
+      // awaiting reader.read(). Otherwise the model may keep consuming RAM/VRAM.
+      if (error instanceof Error && error.message === 'OLLAMA_IDLE_TIMEOUT') {
+        controller.abort(error);
+        await reader.cancel(error).catch(() => {});
+      }
+      throw error;
     } finally {
       bridge();
     }
@@ -267,6 +276,10 @@ async function streamAttempt(
     throw enriched;
   } finally {
     try { reader.releaseLock(); } catch {}
+    if (controller.signal.aborted) {
+      try { await reader.cancel(controller.signal.reason); } catch {}
+    }
+    controller.abort();
     unlink();
   }
 }
