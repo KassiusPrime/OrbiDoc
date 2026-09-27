@@ -148,7 +148,8 @@ const AIChatHeader: React.FC<{
   onClear: () => void;
   model: string;
   models: string[];
-}> = ({ busy, onClear, model, models }) => (
+  aiOnline: boolean;
+}> = ({ busy, onClear, model, models, aiOnline }) => (
   <header className="flex h-12 shrink-0 items-center border-b border-white/6 px-3 sm:px-5">
     <div className="flex min-w-0 items-center gap-2">
       <Sparkles className="h-4 w-4 text-[#8D7CFF]" />
