@@ -138,7 +138,7 @@ docker compose --profile voice up -d
 
 O serviço usa a imagem oficial publicada pelo projeto, volume persistente para dados do VoiceStudio e cache persistente de modelos.
 
-O serviço não publica a porta 3900 no host. O Orbit acessa `http://voicestudio:3900) somente pela rede interna.
+O serviço não publica a porta 3900 no host. O Orbit acessa `http://voicestudio:3900` somente pela rede interna.
 
 A chave `VOICE_STUDIO_API_KEY` é usada no tráfego entre containers quando configurada.
 
