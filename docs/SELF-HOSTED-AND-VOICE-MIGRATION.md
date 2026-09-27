@@ -202,6 +202,24 @@ Ferramentas previstas:
 
 Só depois de TTS/STT, artefatos e perfis estarem estáveis. Dublagem e audiobooks não devem aumentar a complexidade do chat principal.
 
+
+
+## Contrato visual incorporado ao runtime
+
+A especificação visual do Orbit também passa a ser um critério técnico:
+
+- cada documento é um `WorkObject` e abre uma única `surface` dentro do shell;
+- a surface ocupa somente a área central, sem uma segunda navegação global;
+- uma `ContextBar` e no máximo uma toolbar sticky;
+- recursos avançados ficam em drawer/inspector;
+- IA usa violeta e ações de arquivo usam azul;
+- o editor de documento permanece protagonista, com página A4/régua/status quando o editor local for usado;
+- conversores usam upload → fila → resultado, sem criar um produto paralelo;
+- TTS/STT usam a mesma surface de fala, com abas Text to Speech / Speech to Text, voz, idioma, velocidade e player/waveform;
+- ícones seguem uma única família consistente e devem permanecer acessíveis.
+
+Essas regras vêm do guia visual anexado ao projeto e não substituem os contratos funcionais. Elas impedem que novas superfícies de IA, voz e documentos voltem a criar um conjunto de miniaplicativos independentes.
+
 ## Critérios finais de aceitação
 
 ### IA
