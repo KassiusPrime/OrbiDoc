@@ -56,7 +56,7 @@ services:
     profiles: ["voice"]
     networks: [internal]
     environment:
-      OMNIVOICE_API_KEY: ${VOICE_STUDIO_API_KEY}
+      OMNIVOICE_API_KEY: ${VOICE_STUDIO_API_KEY:-}
       OMNIVOICE_SERVER_MODE: "1"
     volumes:
       - voicestudio_data:/app/omnivoice_data
