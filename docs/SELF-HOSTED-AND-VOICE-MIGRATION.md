@@ -167,15 +167,18 @@ Guardar separadamente:
 
 ### F12 — Leitura de documentos
 
-Adicionar ações contextuais:
+Implementado no editor local:
 
 - Ouvir documento;
 - Ouvir seleção;
-- Continuar leitura;
-- Pausar;
-- alterar voz/velocidade.
+- Pausar/continuar;
+- Parar;
+- leitura em blocos para evitar requisições TTS excessivas;
+- reprodução usando um único elemento de áudio, reduzindo bloqueios de autoplay em Android/iOS.
 
-O texto deve ser obtido do documento atual, não duplicado manualmente em estado paralelo.
+O texto é derivado do conteúdo atual do editor. A seleção usa a seleção nativa do documento; o arquivo original não é alterado pela leitura.
+
+Cliente reutilizável: src/api/voice.ts.
 
 ### F13 — TTS streaming
 
@@ -220,15 +223,29 @@ A especificação visual do Orbit também passa a ser um critério técnico:
 
 Essas regras vêm do guia visual anexado ao projeto e não substituem os contratos funcionais. Elas impedem que novas superfícies de IA, voz e documentos voltem a criar um conjunto de miniaplicativos independentes.
 
+
+## Contrato Web + Mobile
+
+O mesmo runtime funcional deve servir Web/PWA e Capacitor Android/iOS sem duplicar a lógica de IA.
+
+- Web/PWA continua usando /api/* same-origin.
+- Native usa VITE_ORBIT_API_ORIGIN, com fallback para VITE_PUBLIC_APP_URL antes do legado configurado.
+- TTS/STT usam o mesmo contrato HTTP nos dois ambientes.
+- Controles de voz têm alvos de toque e respeitam safe-area no shell mobile.
+- A leitura usa um único elemento Audio durante a fila para reduzir falhas de reprodução em WebView.
+- O chat mantém streaming SSE existente; nenhuma rota ou formato de evento foi alterado.
+
 ## Critérios finais de aceitação
 
 ### IA
 
-- [ ] Ollama é o único runtime de inferência.
-- [ ] SearXNG fornece Web real quando solicitado/necessário.
-- [ ] A ausência da Web não causa alucinação silenciosa: a UI deve indicar que a pesquisa não estava disponível quando isso for relevante.
-- [ ] Streaming continua compatível com o contrato existente.
-- [ ] Modelos locais podem ser selecionados.
+- [x] Ollama é o único runtime de inferência.
+- [x] SearXNG fornece Web real quando solicitado/necessário.
+- [x] Streaming continua compatível com o contrato existente.
+- [x] Modelos locais podem ser selecionados.
+- [x] Respostas têm instruções de saída limpa: sem preâmbulos artificiais, excesso de seções ou tabelas desnecessárias em telas pequenas.
+- [x] Retry não duplica a última pergunta dentro do histórico enviado.
+- [x] Contexto local continua sujeito ao limite seguro antes de chegar ao Ollama.
 
 ### Documentos
 
@@ -245,11 +262,14 @@ Essas regras vêm do guia visual anexado ao projeto e não substituem os contrat
 
 ### Voz
 
-- [ ] VoiceStudio é opcional.
-- [ ] Orbit inicia sem VoiceStudio.
-- [ ] STT/TTS não bloqueiam o chat.
-- [ ] Voz clonada exige consentimento.
-- [ ] Áudio é artefato, não texto/base64 permanente no histórico.
+- [x] VoiceStudio é opcional.
+- [x] Orbit inicia sem VoiceStudio.
+- [x] STT/TTS não bloqueiam o chat.
+- [x] Vozes são descobertas pelo endpoint OpenAI-compatible documentado.
+- [x] Leitura de documento e seleção funciona na mesma surface do editor.
+- [x] Reprodução foi preparada para Web/PWA e Capacitor Android/iOS.
+- [x] Voz clonada exige consentimento.
+- [x] Áudio é artefato, não texto/base64 permanente no histórico.
 
 ## Ordem recomendada
 
