@@ -9,6 +9,8 @@ export interface VoiceStudioWorkspaceProps {
   showNotification?: (message: string, type?: 'success' | 'error') => void;
   onSaveToHistory?: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => void;
   onSendToWord?: (text: string) => void;
+  engineProvider?: string;
+  engineModel?: string;
 }
 
 type VoiceStatus = { enabled: boolean; available: boolean; version?: string; capabilities?: { tts?: boolean; stt?: boolean } };
