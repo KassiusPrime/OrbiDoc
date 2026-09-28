@@ -28,6 +28,12 @@ const INTERNAL_PROVIDER = 'ollama';
 const INTERNAL_MODEL = 'llama3.2:3b';
 const URL_RE = /https?:\/\/[^\s]+/i;
 
+function retryMessages(messages: readonly ChatEntry[], userContent: string): ApiMessage[] {
+  const lastUserIndex = [...messages].map((message) => message.role).lastIndexOf('user');
+  const before = lastUserIndex >= 0 ? messages.slice(0, lastUserIndex) : messages;
+  return toApiMessages([...before, createEntry('user', userContent)]);
+}
+
 const suggestionPrompts = [
   { label: 'Resumir', prompt: 'Resuma o documento atual em pontos objetivos e preserve os fatos importantes.' },
   { label: 'Analisar', prompt: 'Analise o arquivo ou contexto atual e destaque riscos, padrões e próximos passos.' },
@@ -425,7 +431,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
     }
   };
 
-  const submit = async (preset?: string) => {
+  const submit = async (preset?: string, retry = false) => {
     const text = (preset ?? input).trim();
     if (!text || busy || !aiOnline) return;
     if (!navigator.onLine) {
@@ -446,7 +452,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
 
     try {
       let answer = '';
-      await sendToVercelStream(INTERNAL_PROVIDER, selectedModel || INTERNAL_MODEL, toApiMessages(context), (chunk) => {
+      await sendToVercelStream(INTERNAL_PROVIDER, selectedModel || INTERNAL_MODEL, retry ? retryMessages(messages, text) : toApiMessages(context), (chunk) => {
         answer += chunk;
         setMessages((current) => current.map((message) => message.id === assistant.id ? { ...message, content: answer } : message));
       }, { signal: controller.signal, webSearch });
@@ -485,7 +491,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
         ) : (
           <div className="min-h-0 flex-1">
             <div className="mx-auto h-full max-w-3xl">
-              <MessageList messages={messages} onCopy={copy} onSendToWord={onSendToWord} onRetry={lastUser ? () => void submit(lastUser.content) : undefined} virtuosoRef={virtuosoRef} />
+              <MessageList messages={messages} onCopy={copy} onSendToWord={onSendToWord} onRetry={lastUser ? () => void submit(lastUser.content, true) : undefined} virtuosoRef={virtuosoRef} />
             </div>
           </div>
         )}
