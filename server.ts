@@ -157,7 +157,7 @@ async function startServer(): Promise<void> {
   app.get('/api/voice/status', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     const enabled = process.env.VOICE_STUDIO_ENABLED === 'true';
-    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\\/$/, '');
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
     if (!enabled || !base) {
       res.json({ enabled, available: false, provider: 'none', capabilities: { tts: false, stt: false, streamingTts: false, voiceCloning: false }, reason: enabled ? 'VOICE_STUDIO_URL não configurada.' : 'VoiceStudio desativado.' });
       return;
@@ -187,7 +187,7 @@ async function startServer(): Promise<void> {
   app.get('/api/voice/models', voiceRateLimit, async (req, res) => {
     if (applyNativeCors(req, res)) return;
     if (requireAuthIfConfigured(req, res)) return;
-    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\\/$/, '');
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
     if (process.env.VOICE_STUDIO_ENABLED !== 'true' || !base) { res.status(503).json({ error: 'VoiceStudio desativado.' }); return; }
     try {
       const headers = new Headers({ Accept: 'application/json' });
@@ -201,7 +201,7 @@ async function startServer(): Promise<void> {
   app.get('/api/voice/voices', voiceRateLimit, async (req, res) => {
     if (applyNativeCors(req, res)) return;
     if (requireAuthIfConfigured(req, res)) return;
-    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\\/$/, '');
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
     if (process.env.VOICE_STUDIO_ENABLED !== 'true' || !base) { res.status(503).json({ error: 'VoiceStudio desativado.' }); return; }
     try {
       const headers = new Headers({ Accept: 'application/json' });
@@ -215,7 +215,7 @@ async function startServer(): Promise<void> {
   app.post('/api/voice/speech', voiceRateLimit, async (req, res) => {
     if (applyNativeCors(req, res)) return;
     if (requireAuthIfConfigured(req, res)) return;
-    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\\/$/, '');
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
     if (process.env.VOICE_STUDIO_ENABLED !== 'true' || !base) { res.status(503).json({ error: 'VoiceStudio desativado.' }); return; }
     const body = req.body || {};
     if (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 100_000) { res.status(400).json({ error: 'Texto de síntese ausente ou muito grande.' }); return; }
@@ -232,7 +232,7 @@ async function startServer(): Promise<void> {
   app.post('/api/voice/transcriptions', voiceRateLimit, async (req, res) => {
     if (applyNativeCors(req, res)) return;
     if (requireAuthIfConfigured(req, res)) return;
-    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\\/$/, '');
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
     if (process.env.VOICE_STUDIO_ENABLED !== 'true' || !base) { res.status(503).json({ error: 'VoiceStudio desativado.' }); return; }
     const contentType = String(req.headers['content-type'] || '');
     if (!contentType.toLowerCase().startsWith('multipart/form-data;')) { res.status(415).json({ error: 'Transcrição exige multipart/form-data com o campo file.' }); return; }
