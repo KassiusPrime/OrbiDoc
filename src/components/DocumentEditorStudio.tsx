@@ -256,6 +256,8 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
     stopVoice();
     const controller = new AbortController();
     voiceAbortRef.current = controller;
+    const audio = audioRef.current || new Audio();
+    audioRef.current = audio;
     setVoiceBusy(true);
     try {
       const chunks = splitTextForSpeech(text);
@@ -264,9 +266,6 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
         const blob = await synthesizeSpeech(chunk, { speed: 1 }, controller.signal);
         if (controller.signal.aborted) return;
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        setVoicePaused(false);
         await new Promise<void>((resolve, reject) => {
           const cleanup = () => {
             audio.onended = null;
@@ -275,6 +274,8 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
           };
           audio.onended = () => { cleanup(); resolve(); };
           audio.onerror = () => { cleanup(); reject(new Error('Falha ao reproduzir o áudio.')); };
+          audio.src = url;
+          audio.load();
           void audio.play().catch((error) => { cleanup(); reject(error); });
         });
       }
