@@ -9,13 +9,13 @@ export function createVoiceStudioRuntime():VoiceRuntime{return{
     if(!base())return{enabled:false,available:false,provider:'none',capabilities:{tts:false,stt:false,streamingTts:false,voiceCloning:false},reason:'VOICE_STUDIO_URL não configurada.'};
     try{
       const d=await json<{version?:unknown}>('/health');
-      return{enabled:process.env.VOICE_STUDIO_ENABLED==='true',available:true,provider:'voicestudio',version:typeof d.version==='string'?d.version:undefined,capabilities:{tts:false,stt:true,streamingTts:false,voiceCloning:false}};
+      return{enabled:process.env.VOICE_STUDIO_ENABLED==='true',available:true,provider:'voicestudio',version:typeof d.version==='string'?d.version:undefined,capabilities:{tts:true,stt:true,streamingTts:false,voiceCloning:true}};
     }catch(e){
       return{enabled:process.env.VOICE_STUDIO_ENABLED==='true',available:false,provider:'voicestudio',capabilities:{tts:false,stt:false,streamingTts:false,voiceCloning:false},reason:e instanceof Error?e.message:'VoiceStudio indisponível.'};
     }
   },
-  async listVoices(){throw new Error('Lista de vozes será conectada ao contrato OpenAI-compatible na Fase 10.');},
-  async listLanguages(){throw new Error('Lista de idiomas será conectada ao contrato de voz na Fase 10.');},
+  async listVoices(){const d=await json<{data?:Array<{id?:unknown;name?:unknown;language?:unknown;kind?:unknown;engine?:unknown}>}>('/v1/audio/voices');return (Array.isArray(d.data)?d.data:[]).filter(v=>typeof v.id==='string').map(v=>({id:String(v.id),name:typeof v.name==='string'?v.name:String(v.id),language:typeof v.language==='string'?v.language:undefined,kind:v.kind==='cloned'||v.kind==='designed'?'cloned': 'local',engine:typeof v.engine==='string'?v.engine:undefined}));},
+  async listLanguages(){const voices=await this.listVoices();const seen=new Map<string,string>();voices.forEach(v=>{if(v.language&&!seen.has(v.language))seen.set(v.language,v.language)});return Array.from(seen,([code,name])=>({code,name}));},
   async synthesize(_input:SynthesizeRequest,_s?:AbortSignal){throw new Error('TTS binário será conectado ao endpoint OpenAI-compatible /v1/audio/speech na Fase 10.');},
   async transcribe(input:TranscribeRequest,s?:AbortSignal){return json<Transcript>('/v1/audio/transcriptions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)},s)},
   async cloneVoice(input:CloneVoiceRequest,_s?:AbortSignal){if(!input.consentConfirmed)throw new Error('A clonagem de voz exige confirmação explícita de consentimento.');throw new Error('Clonagem será conectada ao POST /profiles com multipart na Fase 10.');},
