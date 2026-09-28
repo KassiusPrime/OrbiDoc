@@ -27,8 +27,10 @@ function normalizeHttpsOrigin(value: string | undefined): string | null {
 export function getOrbitApiOrigin(): string {
   if (!isOrbiDocNativeRuntime()) return '';
 
-  const configured = normalizeHttpsOrigin((import.meta as ViteImportMeta).env?.VITE_ORBIT_API_ORIGIN);
-  return configured ?? DEFAULT_ORBIT_API_ORIGIN;
+  const env = (import.meta as ViteImportMeta).env;
+  const configured = normalizeHttpsOrigin(env?.VITE_ORBIT_API_ORIGIN);
+  const publicApp = normalizeHttpsOrigin(env?.VITE_PUBLIC_APP_URL);
+  return configured ?? publicApp ?? DEFAULT_ORBIT_API_ORIGIN;
 }
 
 export function orbitApiUrl(pathname: string): string {
