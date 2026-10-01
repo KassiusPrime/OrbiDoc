@@ -1,6 +1,6 @@
 import { isOrbiDocNativeRuntime } from './nativeRuntime';
 
-const DEFAULT_ORBIT_API_ORIGIN = 'https://orbit-orbidoc.vercel.app';
+const DEFAULT_ORBIT_API_ORIGIN = 'https://orbidoc.vercel.app';
 
 type ViteImportMeta = ImportMeta & {
   env?: Record<string, string | undefined>;
