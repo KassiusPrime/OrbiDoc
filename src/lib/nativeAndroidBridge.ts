@@ -25,10 +25,10 @@ export function isNativeBridgeAvailable(): boolean {
 }
 
 /**
- * Nexus AI is intentionally NOT intercepted by the Android bridge anymore.
- * Web, PWA, desktop and Capacitor all use the same server-side OpenRouter
- * free-only orchestrator. This prevents provider drift and keeps API keys out
- * of the frontend/Android WebView contract.
+ * Nexus AI is intentionally NOT intercepted by the Android bridge.
+ * Web, PWA, desktop and Capacitor use the same server-side Ollama runtime.
+ * This prevents provider drift and keeps inference credentials out of the
+ * frontend/Android WebView contract.
  */
 export function installNativeAiApiBridge(): false {
   return false;

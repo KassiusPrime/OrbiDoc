@@ -1,4 +1,5 @@
-import { complete, type NexusBody } from './_lib/nexusFreeAI.js';
+import { complete, type NexusBody } from './_lib/ollamaNexus.js';
+import { requireAuthIfConfigured } from './_lib/apiAuth.js';
 import { applyNativeCors } from './_lib/nativeCors.js';
 
 function parseBody(body: unknown): NexusBody {
@@ -18,6 +19,7 @@ function compactError(error: unknown): string {
 
 export default async function handler(req: any, res: any) {
   if (applyNativeCors(req, res)) return;
+  if (requireAuthIfConfigured(req, res)) return;
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST, OPTIONS');
     res.status(405).json({ error: 'Método não permitido.' });

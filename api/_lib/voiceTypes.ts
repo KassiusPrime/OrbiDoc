@@ -1,0 +1,9 @@
+export type VoiceRuntimeStatus={enabled:boolean;available:boolean;provider:'voicestudio'|'none';version?:string;capabilities:{tts:boolean;stt:boolean;streamingTts:boolean;voiceCloning:boolean};reason?:string};
+export type VoiceProfile={id:string;name:string;language?:string;kind:'local'|'designed'|'cloned';engine?:string;consentRecorded?:boolean};
+export type VoiceLanguage={code:string;name:string};
+export type SynthesizeRequest={text:string;voiceId?:string;language?:string;speed?:number;format?:'wav'|'mp3'|'opus'};
+export type AudioArtifact={id:string;mimeType:string;url:string;durationMs?:number};
+export type AudioChunk={data:Uint8Array;mimeType:string;sequence:number;final?:boolean};
+export type TranscribeRequest={audio:string;language?:string;mimeType?:string};
+export type Transcript={text:string;language?:string;durationMs?:number};
+export type CloneVoiceRequest={name:string;referenceAudio:string;language?:string;consentConfirmed:boolean};

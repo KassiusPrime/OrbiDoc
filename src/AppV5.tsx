@@ -73,7 +73,7 @@ const PROJECT_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 
 
 // Compatibility adapter for editor props. The frontend never chooses an internal
 // model: src/api/chat.ts ignores these values and Nexus AI routes server-side.
-const NEXUS_ENGINE = Object.freeze({ provider: 'openrouter', model: 'openrouter/free', label: 'Nexus AI' });
+const NEXUS_ENGINE = Object.freeze({ provider: 'ollama', model: 'llama3.2:3b', label: 'Nexus AI' });
 
 const WORKSPACE_NAV: NavItem[] = [
   { id: 'home', label: 'Orbispace', icon: Home },

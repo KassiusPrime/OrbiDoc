@@ -38,12 +38,9 @@ for (const token of ['shouldUseAiInternet', 'ORBIT_NEXUS_WEB', 'webSearch: true'
 const androidBridge = read('src/lib/nativeAndroidBridge.ts');
 for (const token of ['installNativeAiApiBridge(): false', 'saveNativeBlob', 'downloadNativeUrl', 'consumeOpenFile']) if (!androidBridge.includes(token)) failures.push(`nativeAndroidBridge.ts não contém ${token}.`);
 if (/gemini|groq|setAiKey|listAiModels/i.test(androidBridge)) failures.push('nativeAndroidBridge.ts ainda contém roteamento/provedores de IA próprios do Android.');
-const nexus = read('api/_lib/nexusFreeAI.ts');
-const compatibility = read('api/_lib/nexusAI.ts');
-for (const token of ['openrouter/free', 'recordFailure', 'freeOnly: true', 'max_price']) if (!nexus.includes(token)) failures.push(`nexusFreeAI.ts não contém ${token}.`);
-if (!compatibility.includes("from './nexusFreeAI.js'")) failures.push('nexusAI.ts não delega ao runtime Nexus free-only.');
-if (!nexus.includes('PAID_MODEL_FORBIDDEN') && !compatibility.includes('PAID_MODEL_FORBIDDEN')) failures.push('Nexus AI não contém guarda explícita contra modelos pagos.');
-if (/createOpenRouter|generateText|streamText|@openrouter\/ai-sdk-provider/.test(nexus)) failures.push('nexusFreeAI.ts ainda referencia SDK/provider legado.');
+const nexus = read('api/_lib/ollamaNexus.ts');
+for (const token of ['OLLAMA_API_URL', '/api/chat', 'stream: true', 'IDLE_TIMEOUT_MS']) if (!nexus.includes(token)) failures.push(`ollamaNexus.ts não contém ${token}.`);
+if (/openrouter\.ai|api\.tavily\.com|PAID_MODEL_FORBIDDEN|max_price/.test(nexus)) failures.push('ollamaNexus.ts ainda referencia runtime remoto legado.');
 const nativeNetwork = read('src/lib/nativeNetwork.ts');
 if (!nativeNetwork.includes('fetchNativeUrlPayload')) failures.push('nativeNetwork.ts não expõe o transporte nativo de URLs.');
 const linkDownloader = read('src/lib/linkDownloader.ts');
@@ -67,7 +64,7 @@ for (const workflowFile of ['.github/workflows/ci.yml', '.github/workflows/andro
   if (!workflow.includes('configure-native-android-bridge.mjs')) failures.push(`${workflowFile} não injeta a ponte nativa Android.`);
   if (!workflow.includes('configure-native-android-network.mjs')) failures.push(`${workflowFile} não injeta o transporte nativo de URLs.`);
   if (workflow.includes('configure-native-ai-web.mjs')) failures.push(`${workflowFile} ainda injeta IA multi-provider dentro do APK.`);
-  if (!workflow.includes('verify:nexus')) failures.push(`${workflowFile} não valida a política Nexus AI free-only.`);
+  if (!workflow.includes('verify:nexus')) failures.push(`${workflowFile} não valida o runtime Nexus AI self-hosted.`);
   if (!workflow.includes('assembleDebug')) failures.push(`${workflowFile} não gera APK debug instalável.`);
 }
 const releaseWorkflow = read('.github/workflows/android-native.yml');
@@ -76,9 +73,9 @@ if (!releaseWorkflow.includes('assembleRelease')) warnings.push('Workflow Androi
 if (!releaseWorkflow.includes('apksigner')) warnings.push('Workflow Android ainda não verifica assinatura do APK release.');
 if (failures.length) { console.error('\nFalhas de prontidão nativa Android:'); failures.forEach((failure) => console.error(`- ${failure}`)); process.exit(1); }
 console.log('Orbit Android: shell Capacitor local, sem server.url e sem service worker obrigatório.');
-console.log('Orbit Android: `/api` do Nexus é resolvido para HTTPS de produção no runtime nativo e mantém same-origin na Web/PWA.');
+console.log('Orbit Android: `/api` do Nexus é resolvido pelo origin configurado no runtime nativo e mantém same-origin na Web/PWA.');
 console.log('Orbit Android: API aceita preflight dos origins do Capacitor e o manifesto garante android.permission.INTERNET.');
 console.log('Orbit Android: OCR por+eng lazy-loaded e configurado para assets empacotados no APK/AAB.');
-console.log('Orbit Android: Nexus AI não possui runtime paralelo no WebView; usa o mesmo backend OpenRouter free-only da Web/PWA.');
+console.log('Orbit Android: Nexus AI não possui runtime paralelo no WebView; usa o mesmo backend Ollama self-hosted da Web/PWA.');
 console.log('Orbit Android: exports seguem para MediaStore/Downloads e intents de arquivos permanecem habilitadas.');
 warnings.forEach((warning) => console.log(`Aviso: ${warning}`));

@@ -4,18 +4,20 @@ import test from 'node:test';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
-test('Nexus AI exposes one assistant without provider or model selectors', () => {
+test('Nexus AI exposes one assistant with a local model selector', () => {
   const workspace = read('src/components/AiWorkspace.tsx');
   const client = read('src/api/chat.ts');
-  const runtime = read('api/_lib/nexusFreeAI.ts');
+  const runtime = read('api/_lib/ollamaNexus.ts');
 
   assert.match(workspace, /Nexus AI/);
   assert.match(workspace, /Nexus AI/);
-  assert.match(workspace, /Gratuito/);
+  assert.match(workspace, /Local · Ollama/);
   assert.match(workspace, /Como posso ajudar\?/);
   assert.match(workspace, /Virtuoso/);
   assert.match(workspace, /Pesquisar|Web/);
-  assert.doesNotMatch(workspace, /<select|<optgroup|providerLabel|researchModelKey/);
+  assert.match(workspace, /<select/);
+  assert.match(workspace, /Modelo local do Nexus AI/);
+  assert.doesNotMatch(workspace, /providerLabel|researchModelKey/);
   assert.doesNotMatch(workspace, /quickActions|MediaToolRail|modeLabels|Ferramentas de mídia/);
   assert.doesNotMatch(workspace, /Documento atual.*Arquivos.*Mídia.*Colar.*Adicionar contexto/);
   assert.match(workspace, /placeholder="Pergunte alguma coisa"/);
@@ -23,13 +25,11 @@ test('Nexus AI exposes one assistant without provider or model selectors', () =>
   assert.match(workspace, /max-w-3xl/);
   assert.match(workspace, /opacity-0 transition-opacity/);
 
-  // Compatibility arguments may still exist while older editors migrate,
-  // but the client/server deliberately ignore model choice from the UI.
-  assert.match(client, /provider\/model are deliberately ignored/);
-  assert.match(runtime, /openrouter\/free/);
-  assert.match(runtime, /:free/);
-  assert.match(runtime, /max_price/);
-  assert.match(runtime, /allow_fallbacks/);
+  // Compatibility arguments remain in the API facade, while the selected local model is sent explicitly.
+  assert.match(client, /model\?: string/);
+  assert.match(runtime, /Ollama/);
+  assert.match(runtime, /OLLAMA_MODEL/);
+  assert.match(runtime, /searxng-selfhosted/);
 });
 
 test('video clip editor remains local and feature-detects browser recording support', () => {

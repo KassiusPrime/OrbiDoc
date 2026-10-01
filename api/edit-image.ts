@@ -1,4 +1,6 @@
 import { editImageResilient } from './_lib/imageRuntime.js';
+import { requireAuthIfConfigured } from './_lib/apiAuth.js';
+import { applyNativeCors } from './_lib/nativeCors.js';
 
 function parseBody(body: unknown): unknown {
   if (typeof body !== 'string') return body || {};
@@ -10,6 +12,8 @@ function compactError(error: unknown): string {
 }
 
 export default async function handler(req: any, res: any) {
+  if (applyNativeCors(req, res)) return;
+  if (requireAuthIfConfigured(req, res)) return;
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     res.status(405).json({ error: 'Método não permitido.' });

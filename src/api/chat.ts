@@ -1,6 +1,7 @@
 import { orbitApiUrl } from '../lib/orbitApiOrigin';
 
 const CLIENT_AI_TIMEOUT_MS = 70_000;
+const CLIENT_STREAM_IDLE_TIMEOUT_MS = 60_000;
 
 export interface AiMessage {
   role: 'system' | 'user' | 'assistant';
@@ -14,7 +15,8 @@ export interface AiRuntimeMeta {
   freeOnly?: boolean;
   fallbackUsed?: boolean;
   webSearch?: boolean;
-  webEngine?: 'tavily-free';
+  webEngine?: 'searxng-selfhosted';
+  model?: string;
 }
 
 const RUNTIME_EVENT = 'orbit:nexus-ai-runtime';
@@ -41,23 +43,25 @@ function requestBody(
   systemPrompt?: string,
   files?: unknown[],
   webSearch = false,
+  model?: string,
 ): string {
   return JSON.stringify({
     messages,
     systemPrompt,
     files,
     webSearch,
+    ...(model ? { model } : {}),
   });
 }
 
 /**
- * Compatibility façade used by OrbiDoc tools while the product migrates to
- * Nexus AI. provider/model are deliberately ignored: users and feature code
- * cannot pin an internal model anymore.
+ * Compatibility façade used by existing Orbit tools.
+ * The provider argument remains for source compatibility; model is forwarded
+ * to the local Ollama runtime.
  */
 export async function sendToVercel(
   _provider: string,
-  _model: string,
+  model: string,
   messages: AiMessage[],
   systemPrompt?: string,
   files?: unknown[],
@@ -70,7 +74,7 @@ export async function sendToVercel(
     const response = await fetch(orbitApiUrl('/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: requestBody(messages, systemPrompt, files, webSearch),
+      body: requestBody(messages, systemPrompt, files, webSearch, model),
       signal: controller.signal,
     });
 
@@ -88,7 +92,8 @@ export async function sendToVercel(
       freeOnly: data.freeOnly === true,
       fallbackUsed: data.fallbackUsed === true,
       webSearch: data.webSearch === true,
-      webEngine: data.webEngine === 'tavily-free' ? 'tavily-free' : undefined,
+      webEngine: data.webEngine === 'searxng-selfhosted' ? 'searxng-selfhosted' : undefined,
+      model: typeof data.model === 'string' ? data.model : undefined,
     });
 
     return String(data.answer || '');
@@ -105,7 +110,7 @@ export async function sendToVercel(
 
 export async function sendToVercelStream(
   _provider: string,
-  _model: string,
+  model: string,
   messages: AiMessage[],
   onChunk: (chunk: string) => void,
   options?: {
@@ -116,7 +121,11 @@ export async function sendToVercelStream(
   },
 ): Promise<void> {
   const timeoutController = new AbortController();
-  const timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_AI_TIMEOUT_MS);
+  let timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_STREAM_IDLE_TIMEOUT_MS);
+  const resetIdleTimeout = () => {
+    window.clearTimeout(timeoutId);
+    timeoutId = window.setTimeout(() => timeoutController.abort(), CLIENT_STREAM_IDLE_TIMEOUT_MS);
+  };
   const abortFromCaller = () => timeoutController.abort();
   options?.signal?.addEventListener('abort', abortFromCaller, { once: true });
 
@@ -124,7 +133,7 @@ export async function sendToVercelStream(
     const response = await fetch(orbitApiUrl('/api/chat/stream'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: requestBody(messages, options?.systemPrompt, options?.files, Boolean(options?.webSearch)),
+      body: requestBody(messages, options?.systemPrompt, options?.files, Boolean(options?.webSearch), model),
       signal: timeoutController.signal,
     });
 
@@ -166,6 +175,7 @@ export async function sendToVercelStream(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      resetIdleTimeout();
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';

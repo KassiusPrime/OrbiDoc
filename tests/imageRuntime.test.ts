@@ -1,97 +1,72 @@
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, test } from 'node:test';
-import { editImageResilient, generateImageResilient } from '../api/_lib/imageRuntime';
+import { afterEach, beforeEach, describe, mock, test } from 'node:test';
+import { editImageResilient, enhanceImageResilient, generateImageResilient } from '../api/_lib/imageRuntime';
 
-const originalFetch = globalThis.fetch;
-const originalKey = process.env.OPENROUTER_API_KEY;
-const originalImageModel = process.env.OPENROUTER_FREE_IMAGE_MODEL;
+const originalEndpoint = process.env.REAL_ESRGAN_ENDPOINT;
+const originalToken = process.env.REAL_ESRGAN_TOKEN;
 
 beforeEach(() => {
-  process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
-  delete process.env.OPENROUTER_FREE_IMAGE_MODEL;
+  delete process.env.REAL_ESRGAN_ENDPOINT;
+  delete process.env.REAL_ESRGAN_TOKEN;
 });
 
 afterEach(() => {
-  globalThis.fetch = originalFetch;
-  if (originalKey === undefined) delete process.env.OPENROUTER_API_KEY;
-  else process.env.OPENROUTER_API_KEY = originalKey;
-  if (originalImageModel === undefined) delete process.env.OPENROUTER_FREE_IMAGE_MODEL;
-  else process.env.OPENROUTER_FREE_IMAGE_MODEL = originalImageModel;
+  if (originalEndpoint === undefined) delete process.env.REAL_ESRGAN_ENDPOINT;
+  else process.env.REAL_ESRGAN_ENDPOINT = originalEndpoint;
+  if (originalToken === undefined) delete process.env.REAL_ESRGAN_TOKEN;
+  else process.env.REAL_ESRGAN_TOKEN = originalToken;
+  mock.restoreAll();
 });
 
-function installOpenRouterImageMock(expectedBase64: string, cost = 0) {
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    assert.equal(String(input), 'https://openrouter.ai/api/v1/images');
-    assert.equal(init?.method, 'POST');
-    const headers = new Headers(init?.headers);
-    assert.equal(headers.get('authorization'), 'Bearer test-openrouter-key');
-    const body = JSON.parse(String(init?.body || '{}')) as {
-      model?: string;
-      provider?: { allow_fallbacks?: boolean; max_price?: { prompt?: number; completion?: number } };
-      input_references?: unknown[];
-    };
-    assert.equal(body.model, 'example/free-image:free');
-    assert.equal(body.provider?.allow_fallbacks, false);
-    assert.equal(body.provider?.max_price?.prompt, 0);
-    assert.equal(body.provider?.max_price?.completion, 0);
+describe('Orbit image runtime self-hosted', () => {
+  test('generation is explicitly disabled without a local generator', async () => {
+    const fetchMock = mock.method(globalThis, 'fetch');
+    await assert.rejects(
+      generateImageResilient({ prompt: 'Crie uma órbita minimalista.' }),
+      /geração de imagens está desativada no runtime self-hosted/i,
+    );
+    assert.equal(fetchMock.mock.calls.length, 0);
+  });
 
-    return new Response(JSON.stringify({
-      data: [{ b64_json: expectedBase64, media_type: 'image/png' }],
-      usage: { cost },
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+  test('editing is explicitly disabled without a local generator', async () => {
+    const fetchMock = mock.method(globalThis, 'fetch');
+    await assert.rejects(
+      editImageResilient({
+        image: 'data:image/png;base64,c291cmNl',
+        prompt: 'Troque apenas o fundo.',
+      }),
+      /edição de imagens está desativada no runtime self-hosted/i,
+    );
+    assert.equal(fetchMock.mock.calls.length, 0);
+  });
+
+  test('enhancement fails clearly when Real-ESRGAN is not configured', async () => {
+    const fetchMock = mock.method(globalThis, 'fetch');
+    await assert.rejects(
+      enhanceImageResilient({ image: 'data:image/png;base64,c291cmNl' }),
+      /REAL_ESRGAN_ENDPOINT/i,
+    );
+    assert.equal(fetchMock.mock.calls.length, 0);
+  });
+
+  test('enhancement uses only the configured local media processor', async () => {
+    process.env.REAL_ESRGAN_ENDPOINT = 'http://realesrgan:8080/enhance';
+    mock.method(globalThis, 'fetch', async (input, init) => {
+      assert.equal(String(input), 'http://realesrgan:8080/enhance');
+      assert.equal(init?.method, 'POST');
+      return new Response(JSON.stringify({ imageUrl: 'data:image/png;base64,ZGVmYXVsdA==' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     });
-  }) as typeof fetch;
-}
 
-describe('Orbit image runtime', () => {
-  test('fails closed when no free image model is configured', async () => {
-    await assert.rejects(
-      generateImageResilient({ prompt: 'Crie uma órbita minimalista.' }),
-      /não oferece modelo de imagem :free|não fará fallback para um modelo pago/,
-    );
-  });
+    const result = await enhanceImageResilient({
+      image: 'data:image/png;base64,c291cmNl',
+      profile: 'document',
+      scale: 2,
+    });
 
-  test('rejects a configured paid image model before any network call', async () => {
-    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'vendor/paid-image';
-    await assert.rejects(
-      generateImageResilient({ prompt: 'Crie uma órbita minimalista.' }),
-      /PAID_IMAGE_MODEL_FORBIDDEN/,
-    );
-  });
-
-  test('uses OpenRouter only when an explicit :free image route is configured', async () => {
-    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
-    installOpenRouterImageMock('ZmFrZS1pbWFnZQ==');
-
-    const result = await generateImageResilient({ prompt: 'Crie uma órbita minimalista.' });
-    assert.equal(result.imageUrl, 'data:image/png;base64,ZmFrZS1pbWFnZQ==');
-    assert.equal(result.provider, 'openrouter');
-    assert.equal(result.assistant, 'Nexus AI');
+    assert.equal(result.provider, 'local-media-processor');
     assert.equal(result.freeOnly, true);
-  });
-
-  test('image edits use the same free-only OpenRouter guardrails', async () => {
-    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
-    installOpenRouterImageMock('ZWRpdGVkLWltYWdl');
-
-    const result = await editImageResilient({
-      image: 'data:image/png;base64,c291cmNlLWltYWdl',
-      prompt: 'Troque apenas o fundo por azul escuro.',
-    });
-
-    assert.equal(result.imageUrl, 'data:image/png;base64,ZWRpdGVkLWltYWdl');
-    assert.equal(result.provider, 'openrouter');
-  });
-
-  test('rejects a non-zero provider-reported image cost', async () => {
-    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
-    installOpenRouterImageMock('ZmFrZQ==', 0.01);
-
-    await assert.rejects(
-      generateImageResilient({ prompt: 'Teste de custo.' }),
-      /ZERO_COST_INVARIANT_VIOLATED/,
-    );
   });
 });

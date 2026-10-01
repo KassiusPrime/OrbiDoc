@@ -130,12 +130,9 @@ O app continua abrindo/editando localmente sem Internet. Internet é usada apena
 
 ### OrbiDoc Internet
 
-No APK BYOK, perguntas claramente atuais podem usar pesquisa nativa do provedor conectado:
-- Gemini → Google Search grounding;
-- Groq → Compound Web Search/Visit Website;
-- OpenRouter → Web Search/Web Fetch, com fallback para o plugin web legado quando necessário.
+No APK self-hosted, o Nexus AI usa o mesmo endpoint do servidor Orbit e não mantém um runtime de provedor de IA dentro do WebView. A pesquisa atual é opcional e, quando habilitada, usa a instância SearXNG configurada pelo operador.
 
-Essa pesquisa necessita Internet e pode consumir a cota/preço da chave do provedor do usuário. O núcleo local não depende dela.
+Essa arquitetura evita chaves de provedores de inferência no APK e mantém o contrato Android/PWA alinhado.
 
 ## Google Play — fluxo recomendado
 
