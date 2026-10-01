@@ -224,8 +224,10 @@ async function startServer(): Promise<void> {
       if (process.env.VOICE_STUDIO_API_KEY) headers.set('Authorization', `Bearer ${process.env.VOICE_STUDIO_API_KEY}`);
       const response = await fetch(`${base}/v1/audio/speech`, { method: 'POST', headers, body: JSON.stringify({ model: body.model, voice: body.voice, input: body.text, instructions: body.instructions, speed: body.speed, response_format: body.response_format || 'mp3', stream_format: body.stream_format || 'audio' }), signal: AbortSignal.timeout(120_000) });
       const contentType = response.headers.get('content-type') || 'audio/mpeg';
-      const buffer = Buffer.from(await response.arrayBuffer());
-      res.status(response.status).set('Content-Type', contentType).set('Cache-Control', 'no-store').send(buffer);
+      res.status(response.status).set('Content-Type', contentType).set('Cache-Control', 'no-store');
+      if (!response.body) { res.end(); return; }
+      const { Readable } = await import('node:stream');
+      Readable.fromWeb(response.body as import('node:stream/web').ReadableStream).pipe(res);
     } catch (error) { res.status(503).json({ error: compactError(error) }); }
   });
 
