@@ -88,8 +88,8 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
   onProjectChange,
   showNotification = () => {},
   onSaveToHistory,
-  engineProvider = 'gemini',
-  engineModel = 'gemini-3.6-flash',
+  engineProvider = 'ollama',
+  engineModel = 'llama3.2:3b',
 }) => {
   const storageKey = `orbidoc_document_v4_${project.id}`;
   const setupKey = `orbidoc_document_page_v1_${project.id}`;
