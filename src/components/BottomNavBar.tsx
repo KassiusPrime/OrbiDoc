@@ -1,8 +1,6 @@
 import React from 'react';
 import {
-  IconApps,
   IconFolder,
-  IconHome,
   IconRobot,
 } from '@tabler/icons-react';
 import { motion } from 'motion/react';
@@ -23,10 +21,8 @@ type NavigationTab = {
 type BottomTab = NavigationTab;
 
 const TABS: BottomTab[] = [
-  { kind: 'navigation', id: 'home', label: 'Início', icon: IconHome },
   { kind: 'navigation', id: 'projects', label: 'Arquivos', icon: IconFolder },
   { kind: 'navigation', id: 'chat', label: 'Assistente', icon: IconRobot },
-  { kind: 'navigation', id: 'office', label: 'Apps', icon: IconApps },
 ];
 
 const spring = { type: 'spring' as const, stiffness: 430, damping: 34, mass: 0.72 };
