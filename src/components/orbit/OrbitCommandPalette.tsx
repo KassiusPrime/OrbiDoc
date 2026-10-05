@@ -42,9 +42,8 @@ export const OrbitCommandPalette: React.FC = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const commands = useMemo<Command[]>(() => [
-    { id: 'home', title: 'Ir para Orbispace', keywords: 'inicio home workspace orbispace', section: 'Navegar', icon: Home, run: () => clickButton('Orbispace') },
+    { id: 'home', title: 'Abrir Leitor', keywords: 'inicio home leitor arquivos', section: 'Navegar', icon: Home, run: () => clickButton('Leitor') },
     { id: 'files', title: 'Abrir Meus arquivos', keywords: 'arquivos satellite files projetos', section: 'Navegar', icon: File, run: () => clickButton('Meus arquivos') },
-    { id: 'apps', title: 'Abrir OrbiDoc', keywords: 'apps suite ferramentas office', section: 'Navegar', icon: Apps, run: () => clickButton('OrbiDoc') },
     { id: 'nexus', title: 'Abrir Nexus AI', keywords: 'assistente chat ai pesquisar', section: 'Navegar', icon: Robot, run: () => clickButton('Nexus AI') },
     { id: 'account', title: 'Conta Orbit e conexões', keywords: 'conta google microsoft github seguranca conexoes', section: 'Conta', icon: Settings, run: () => clickAria('Conta Orbit e conexões externas') },
   ], []);
