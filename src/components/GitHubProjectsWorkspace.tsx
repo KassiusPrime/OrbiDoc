@@ -46,7 +46,7 @@ export const GitHubProjectsWorkspace: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<GitHubTextFile | null>(null);
   const [editorValue, setEditorValue] = useState('');
   const [query, setQuery] = useState('');
-  const [busy, setBusy] = useState<'repos' | 'tree' | 'file' | 'save' | 'download' | null>(null);
+  const [busy, setBusy] = useState<'repos' | 'tree' | 'file' | 'download' | null>(null);
   const [error, setError] = useState('');
   const [treeTruncated, setTreeTruncated] = useState(false);
 
@@ -144,7 +144,6 @@ export const GitHubProjectsWorkspace: React.FC = () => {
   }, [entries, query]);
 
   if (!open) return null;
-  const canWrite = false;
 
   return (
     <div className="fixed inset-0 z-[132] bg-[#F7F9FC] dark:bg-[#080D18] text-slate-900 dark:text-slate-100 flex flex-col">
