@@ -1,7 +1,9 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { NEXUS_FREE_MODELS, nexusAI, type NexusBody } from './api/_lib/nexusAI.js';
+import { complete, listModels, stream, status as nexusStatus, type NexusBody } from './api/_lib/ollamaNexus.js';
+import { applyNativeCors } from './api/_lib/nativeCors.js';
+import { requireAuthIfConfigured, authConfigured } from './api/_lib/apiAuth.js';
 import { editImageResilient, enhanceImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
@@ -148,38 +150,137 @@ async function startServer(): Promise<void> {
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
-  app.use(express.json({ limit: '12mb' }));
+  app.use(express.json({ limit: '20mb' }));
 
-  app.get('/api/ai/models', (_req, res) => {
-    const status = nexusAI.status();
+  const voiceRateLimit = rateLimit(30);
+
+  app.get('/api/voice/status', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
+    const enabled = process.env.VOICE_STUDIO_ENABLED === 'true';
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
+    if (!enabled || !base) {
+      res.json({ enabled, available: false, provider: 'none', capabilities: { tts: false, stt: false, streamingTts: false, voiceCloning: false }, reason: enabled ? 'VOICE_STUDIO_URL não configurada.' : 'VoiceStudio desativado.' });
+      return;
+    }
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const headers = new Headers({ Accept: 'application/json' });
+      if (process.env.VOICE_STUDIO_API_KEY) headers.set('Authorization', `Bearer ${process.env.VOICE_STUDIO_API_KEY}`);
+      const response = await fetch(`${base}/health`, { headers, signal: controller.signal });
+      clearTimeout(timer);
+      const health = await response.json().catch(() => ({})) as Record<string, unknown>;
+      res.status(response.ok ? 200 : 503).json({
+        enabled: true,
+        available: response.ok,
+        provider: 'voicestudio',
+        version: typeof health.version === 'string' ? health.version : undefined,
+        device: typeof health.device === 'string' ? health.device : undefined,
+        capabilities: { tts: response.ok, stt: response.ok, streamingTts: response.ok, voiceCloning: response.ok },
+        reason: response.ok ? undefined : 'VoiceStudio ainda está inicializando ou está indisponível.',
+      });
+    } catch {
+      res.status(503).json({ enabled: true, available: false, provider: 'voicestudio', capabilities: { tts: false, stt: false, streamingTts: false, voiceCloning: false }, reason: 'VoiceStudio indisponível.' });
+    }
+  });
+
+  app.get('/api/voice/models', voiceRateLimit, async (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
+    if (process.env.VOICE_STUDIO_ENABLED !== 'true' || !base) { res.status(503).json({ error: 'VoiceStudio desativado.' }); return; }
+    try {
+      const headers = new Headers({ Accept: 'application/json' });
+      if (process.env.VOICE_STUDIO_API_KEY) headers.set('Authorization', `Bearer ${process.env.VOICE_STUDIO_API_KEY}`);
+      const response = await fetch(`${base}/v1/models`, { headers, signal: AbortSignal.timeout(8000) });
+      const body = await response.text();
+      res.status(response.status).type(response.headers.get('content-type') || 'application/json').send(body);
+    } catch (error) { res.status(503).json({ error: compactError(error) }); }
+  });
+
+  app.get('/api/voice/voices', voiceRateLimit, async (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
+    if (process.env.VOICE_STUDIO_ENABLED !== 'true' || !base) { res.status(503).json({ error: 'VoiceStudio desativado.' }); return; }
+    try {
+      const headers = new Headers({ Accept: 'application/json' });
+      if (process.env.VOICE_STUDIO_API_KEY) headers.set('Authorization', `Bearer ${process.env.VOICE_STUDIO_API_KEY}`);
+      const response = await fetch(`${base}/v1/audio/voices`, { headers, signal: AbortSignal.timeout(8000) });
+      const body = await response.text();
+      res.status(response.status).type(response.headers.get('content-type') || 'application/json').send(body);
+    } catch (error) { res.status(503).json({ error: compactError(error) }); }
+  });
+
+  app.post('/api/voice/speech', voiceRateLimit, async (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
+    if (process.env.VOICE_STUDIO_ENABLED !== 'true' || !base) { res.status(503).json({ error: 'VoiceStudio desativado.' }); return; }
+    const body = req.body || {};
+    if (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 100_000) { res.status(400).json({ error: 'Texto de síntese ausente ou muito grande.' }); return; }
+    try {
+      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'audio/mpeg, audio/wav, audio/ogg, audio/*' });
+      if (process.env.VOICE_STUDIO_API_KEY) headers.set('Authorization', `Bearer ${process.env.VOICE_STUDIO_API_KEY}`);
+      const response = await fetch(`${base}/v1/audio/speech`, { method: 'POST', headers, body: JSON.stringify({ model: body.model, voice: body.voice, input: body.text, instructions: body.instructions, speed: body.speed, response_format: body.response_format || 'mp3', stream_format: body.stream_format || 'audio' }), signal: AbortSignal.timeout(120_000) });
+      const contentType = response.headers.get('content-type') || 'audio/mpeg';
+      res.status(response.status).set('Content-Type', contentType).set('Cache-Control', 'no-store');
+      if (!response.body) { res.end(); return; }
+      const { Readable } = await import('node:stream');
+      Readable.fromWeb(response.body as import('node:stream/web').ReadableStream).pipe(res);
+    } catch (error) { res.status(503).json({ error: compactError(error) }); }
+  });
+
+  app.post('/api/voice/transcriptions', voiceRateLimit, async (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
+    const base = String(process.env.VOICE_STUDIO_URL ?? '').trim().replace(/\/$/, '');
+    if (process.env.VOICE_STUDIO_ENABLED !== 'true' || !base) { res.status(503).json({ error: 'VoiceStudio desativado.' }); return; }
+    const contentType = String(req.headers['content-type'] || '');
+    if (!contentType.toLowerCase().startsWith('multipart/form-data;')) { res.status(415).json({ error: 'Transcrição exige multipart/form-data com o campo file.' }); return; }
+    try {
+      const headers = new Headers({ 'Content-Type': contentType, Accept: 'application/json' });
+      if (process.env.VOICE_STUDIO_API_KEY) headers.set('Authorization', `Bearer ${process.env.VOICE_STUDIO_API_KEY}`);
+      const upstream = await fetch(`${base}/v1/audio/transcriptions`, { method: 'POST', headers, body: req as unknown as BodyInit, duplex: 'half' } as RequestInit & { duplex: 'half' });
+      const body = await upstream.text();
+      res.status(upstream.status).type(upstream.headers.get('content-type') || 'application/json').send(body);
+    } catch (error) { res.status(503).json({ error: compactError(error) }); }
+  });
+
+  app.get('/api/ai/models', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const models = await listModels();
     res.json({
       assistant: 'Nexus AI',
-      gateway: 'OpenRouter',
+      gateway: 'Ollama (self-hosted)',
       unified: true,
-      userSelectableModels: false,
+      userSelectableModels: true,
       freeOnly: true,
-      configured: status.configured,
-      internalPoolSize: NEXUS_FREE_MODELS.length,
+      configured: models.some((model) => model.name === (process.env.OLLAMA_MODEL || 'llama3.2:3b')),
+      models,
     });
   });
 
-  app.get('/api/ai/status', (_req, res) => {
-    const status = nexusAI.status();
+  app.get('/api/ai/status', async (_req, res) => {
+    const status = await nexusStatus();
     res.setHeader('Cache-Control', 'no-store');
     res.json({
       assistant: status.assistant,
       gateway: status.gateway,
       configured: status.configured,
       freeOnly: status.freeOnly,
-      healthyModels: status.circuits.filter((circuit) => circuit.failures < 3).length,
-      unavailableModels: status.circuits.filter((circuit) => circuit.failures >= 3).length,
-      totalModels: status.circuits.length,
+      ollama: status.ollama,
+      model: status.model,
+      modelPresent: status.modelPresent,
+      search: status.search,
+      healthyModels: status.configured ? 1 : 0,
+      unavailableModels: status.configured ? 0 : 1,
+      totalModels: 1,
     });
   });
 
-  app.get('/api/health', (_req, res) => {
-    const status = nexusAI.status();
+  app.get('/api/health', async (_req, res) => {
+    const status = await nexusStatus();
     res.setHeader('Cache-Control', 'no-store');
     res.json({
       status: 'ok',
@@ -187,10 +288,14 @@ async function startServer(): Promise<void> {
       workspace: 'Orbispace',
       office: 'OrbiDoc',
       ai: {
-        assistant: 'Nexus AI',
-        gateway: 'OpenRouter',
+        assistant: status.assistant,
+        gateway: status.gateway,
         configured: status.configured,
-        freeOnly: true,
+        freeOnly: status.freeOnly,
+        ollama: status.ollama,
+        model: status.model,
+        modelPresent: status.modelPresent,
+        search: status.search,
         internalPoolSize: status.circuits.length,
       },
     });
@@ -199,6 +304,8 @@ async function startServer(): Promise<void> {
   app.post('/api/github/oauth-token', rateLimit(OAUTH_RATE_MAX_REQUESTS), exchangeGitHubOAuth);
 
   app.post('/api/chat/stream', rateLimit(RATE_MAX_REQUESTS), async (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
@@ -206,10 +313,13 @@ async function startServer(): Promise<void> {
 
     const write = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
     try {
-      await nexusAI.stream(
+      const abort = new AbortController();
+      req.on('close', () => abort.abort(new Error('Cliente desconectou.')));
+      await stream(
         (req.body || {}) as NexusBody,
         (chunk) => write({ chunk }),
         (meta) => write({ meta }),
+        abort.signal,
       );
     } catch (error) {
       write({ error: compactError(error) });
@@ -221,7 +331,7 @@ async function startServer(): Promise<void> {
 
   const chatHandler = async (req: express.Request, res: express.Response) => {
     try {
-      const result = await nexusAI.complete((req.body || {}) as NexusBody);
+      const result = await complete((req.body || {}) as NexusBody);
       res.setHeader('Cache-Control', 'no-store');
       res.setHeader('X-Orbit-Request-Id', result.requestId);
       res.json(result);
@@ -230,10 +340,20 @@ async function startServer(): Promise<void> {
     }
   };
 
-  app.post('/api/chat', rateLimit(RATE_MAX_REQUESTS), chatHandler);
-  app.post('/api/chats', rateLimit(RATE_MAX_REQUESTS), chatHandler);
+  app.post('/api/chat', rateLimit(RATE_MAX_REQUESTS), (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
+    return chatHandler(req, res);
+  });
+  app.post('/api/chats', rateLimit(RATE_MAX_REQUESTS), (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
+    return chatHandler(req, res);
+  });
 
   app.post('/api/generate-image', rateLimit(IMAGE_RATE_MAX_REQUESTS), async (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
     try {
       res.setHeader('Cache-Control', 'no-store');
       res.json(await generateImageResilient(req.body || {}));
@@ -243,6 +363,8 @@ async function startServer(): Promise<void> {
   });
 
   app.post('/api/edit-image', rateLimit(IMAGE_RATE_MAX_REQUESTS), async (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
     try {
       res.setHeader('Cache-Control', 'no-store');
       res.json(await editImageResilient(req.body || {}));
@@ -252,6 +374,8 @@ async function startServer(): Promise<void> {
   });
 
   app.post('/api/enhance-image', rateLimit(IMAGE_RATE_MAX_REQUESTS), async (req, res) => {
+    if (applyNativeCors(req, res)) return;
+    if (requireAuthIfConfigured(req, res)) return;
     try {
       res.setHeader('Cache-Control', 'no-store');
       res.json(await enhanceImageResilient(req.body || {}));
@@ -272,6 +396,7 @@ async function startServer(): Promise<void> {
     app.use((_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
+  if (!authConfigured()) console.warn('Orbit API: API_AUTH_TOKEN não configurado; chat e endpoints de imagem estão abertos ao modo LAN/CORS permitido.');
   app.listen(PORT, '0.0.0.0', () => console.log(`Orbit server listening on port ${PORT}`));
 }
 

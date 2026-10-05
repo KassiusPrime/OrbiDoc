@@ -12,6 +12,7 @@ import {
 import { saveAs } from 'file-saver';
 import { enhanceImageLocally, type EnhancementProfile, type EnhancementScale } from '../lib/imageEnhancer';
 import { HistoryItem } from '../types';
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from '../lib/uploadLimits';
 
 interface ImageWorkspaceProps {
   onSaveToHistory?: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => void;
@@ -113,8 +114,8 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
       showNotification('Selecione uma imagem válida.', 'error');
       return;
     }
-    if (file.size > 15 * 1024 * 1024) {
-      showNotification('A imagem precisa ter menos de 15 MB.', 'error');
+    if (file.size > MAX_UPLOAD_BYTES) {
+      showNotification(`A imagem precisa ter menos de ${MAX_UPLOAD_MB} MB.`, 'error');
       return;
     }
     try {

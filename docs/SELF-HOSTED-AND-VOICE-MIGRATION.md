@@ -1,0 +1,300 @@
+# Orbit — Plano de migração Self-Hosted e Runtime de Voz
+
+## Objetivo
+
+Executar a migração do runtime de IA para infraestrutura local/self-hosted sem quebrar os contratos existentes do Orbit, mantendo:
+
+- inferência exclusivamente local via Ollama;
+- pesquisa Web real via SearXNG self-hosted;
+- streaming SSE existente;
+- documentos como objetos de trabalho de primeira classe;
+- ONLYOFFICE como editor principal de documentos Office;
+- PDF/OCR, DOCX, XLSX, PPTX, TXT/Markdown e formatos já suportados;
+- Android/Capacitor, autenticação, OAuth e integrações existentes;
+- VoiceStudio como camada opcional e desacoplada.
+
+## Regras de não regressão
+
+1. Não alterar os contratos de `POST /api/chat`, `POST /api/chat/stream`, `GET /api/health` e `GET /api/ai/models`.
+2. Não reintroduzir OpenRouter, Tavily ou outro provedor externo de inferência.
+3. SearXNG fornece evidência Web; seu conteúdo é sempre tratado como dado não confiável e nunca como instrução.
+4. Falha do SearXNG não pode derrubar o chat.
+5. Falha do VoiceStudio não pode impedir o Orbit de iniciar.
+6. Firebase Auth/Firestore, ONLYOFFICE, OAuth, Capacitor, Android e assets offline de OCR permanecem protegidos.
+7. Nenhuma chave privada pode chegar a `VITE_*`.
+8. O frontend não deve transformar áudio em base64 persistente no histórico do chat; áudio deve ser tratado como artefato.
+9. Documentos precisam manter o arquivo original, metadados e possibilidade de reabertura/exportação quando o formato permitir.
+10. Uma funcionalidade nova só é considerada concluída depois de passar pelos gates de lint, typecheck, testes e build.
+
+## Fases
+
+### F1 — Ollama
+
+- Adapter local em `api/_lib/ollamaNexus.ts`.
+- Modelo padrão: `llama3.2:3b`.
+- Timeout de conexão e timeout de inatividade separados.
+- Retry somente antes do primeiro byte.
+- Abort upstream quando o cliente encerra a requisição.
+- Limite de contexto para evitar consumo excessivo de memória.
+- Seleção de modelo preservada no frontend.
+
+### F2 — SearXNG
+
+- `GET /search?q=...&format=json&language=pt-BR`.
+- Timeout de 8 segundos.
+- Máximo de cinco fontes por consulta.
+- URLs somente HTTP/HTTPS.
+- Deduplicação por URL.
+- Resultados encapsulados em `<web_data source="searxng_selfhosted" trust="untrusted">`.
+- Pesquisa explícita pelo usuário continua disponível.
+- Pesquisa automática é acionada para consultas com sinais temporais atuais; consultas sem necessidade de atualização não precisam gerar tráfego Web.
+
+**Critério funcional:** quando a pesquisa Web estiver habilitada e o SearXNG estiver disponível, o modelo recebe resultados reais do mecanismo local em vez de apenas responder com conhecimento paramétrico.
+
+### F3 — Docker Self-Hosted
+
+Stack atual:
+
+- `app`
+- `ollama`
+- `ollama-init`
+- `searxng`
+- `voicestudio` opcional por profile
+
+Somente a porta 3000 do Orbit é publicada pelo Compose principal. Ollama, SearXNG e VoiceStudio permanecem na rede interna.
+
+### F4 — Documentos
+
+O Orbit deve tratar documentos em quatro camadas:
+
+1. **Arquivo original** — preservado para download, armazenamento e reabertura.
+2. **Leitura** — extração de texto/estrutura para IA, busca e pré-visualização.
+3. **Editor** — ONLYOFFICE para DOCX/ODT, XLSX/ODS/CSV e PPTX quando configurado.
+4. **Conversão/exportação** — PDF, DOCX e outros formatos já suportados pelo produto.
+
+O fluxo de IA deve receber texto extraído/selecionado e metadados do documento, sem destruir o arquivo original.
+
+Formatos já contemplados no código incluem PDF, DOCX, XLSX/XLS, CSV, TXT, Markdown, HTML, JSON, XML, imagens e outros leitores existentes.
+
+### F5 — PDF/OCR
+
+- pdf.js para PDFs.
+- Tesseract.js para OCR.
+- Assets locais devem continuar funcionando no runtime nativo.
+- Scanner e exportação PDF devem continuar usando o pipeline existente.
+- PDFs pesquisáveis devem usar texto extraído quando disponível e OCR apenas quando necessário.
+
+### F6 — CI e limpeza
+
+Gates obrigatórios:
+
+```
+bun run lint
+bun run typecheck
+bun run test
+bun run build
+bun run verify:nexus
+bun run check
+```
+
+Nenhuma remoção de código antigo deve ocorrer apenas porque uma implementação nova existe; primeiro confirmar que não há importação, rota, teste ou fluxo protegido dependendo dela.
+
+### F7 — Aceitação do runtime principal
+
+Validar:
+
+- chat normal;
+- streaming;
+- seleção de modelo;
+- indisponibilidade do Ollama;
+- pesquisa Web;
+- indisponibilidade do SearXNG;
+- uploads;
+- documentos;
+- autenticação;
+- build de produção;
+- Android separado, sem alterações especulativas.
+
+## VoiceStudio
+
+### F8 — Contrato de voz
+
+Criado:
+
+- `api/_lib/voiceTypes.ts`
+- `api/_lib/voiceRuntime.ts`
+- `api/_lib/voiceStudioRuntime.ts`
+- `tests/voiceRuntime.test.ts`
+
+O contrato mantém o VoiceStudio como implementação substituível.
+
+### F9 — VoiceStudio self-hosted
+
+O Compose agora possui um profile opcional:
+
+```
+docker compose --profile voice up -d
+```
+
+O serviço usa a imagem oficial publicada pelo projeto, volume persistente para dados do VoiceStudio e cache persistente de modelos.
+
+O serviço não publica a porta 3900 no host. O Orbit acessa `http://voicestudio:3900` somente pela rede interna.
+
+A chave `VOICE_STUDIO_API_KEY` é usada no tráfego entre containers quando configurada.
+
+### F10 — Voz no Orbit
+
+Usar os endpoints documentados do VoiceStudio:
+
+- `POST /v1/audio/speech` para TTS;
+- `POST /v1/audio/transcriptions` para STT;
+- `GET /v1/models` para descoberta;
+- `POST /profiles` para clonagem, com confirmação explícita de consentimento.
+
+Não criar endpoints fictícios como `/api/tts`, `/api/stt` ou `/api/voices/clone`.
+
+### F11 — Ditado
+
+Microfone → STT → transcrição bruta → refinamento pelo Ollama → documento.
+
+Guardar separadamente:
+
+- `rawTranscript`;
+- `refinedTranscript`;
+- idioma;
+- timestamps quando disponíveis;
+- referência do artefato de áudio, quando persistido.
+
+### F12 — Leitura de documentos
+
+Implementado no editor local:
+
+- Ouvir documento;
+- Ouvir seleção;
+- Pausar/continuar;
+- Parar;
+- leitura em blocos para evitar requisições TTS excessivas;
+- reprodução usando um único elemento de áudio, reduzindo bloqueios de autoplay em Android/iOS.
+
+O texto é derivado do conteúdo atual do editor. A seleção usa a seleção nativa do documento; o arquivo original não é alterado pela leitura.
+
+Cliente reutilizável: src/api/voice.ts.
+
+### F13 — TTS streaming
+
+Usar o modo de streaming documentado pelo VoiceStudio. Áudio deve chegar como fluxo/artefato e não ser acumulado indefinidamente em base64 no estado React.
+
+### F14 — Perfis de voz
+
+Biblioteca de vozes separada do histórico de chat. Clonagem exige consentimento explícito e deve manter metadados de origem/licença.
+
+### F15 — MCP
+
+Adicionar VoiceStudio ao `ecosystem-mcp` somente depois do contrato REST estar estável.
+
+Ferramentas previstas:
+
+- `generate_speech`;
+- `transcribe`;
+- `list_voices`;
+- `list_languages`;
+- `check_health`;
+- `clone_voice` com consentimento.
+
+### F16 — Dublagem e audiobooks
+
+Só depois de TTS/STT, artefatos e perfis estarem estáveis. Dublagem e audiobooks não devem aumentar a complexidade do chat principal.
+
+
+
+## Contrato visual incorporado ao runtime
+
+A especificação visual do Orbit também passa a ser um critério técnico:
+
+- cada documento é um `WorkObject` e abre uma única `surface` dentro do shell;
+- a surface ocupa somente a área central, sem uma segunda navegação global;
+- uma `ContextBar` e no máximo uma toolbar sticky;
+- recursos avançados ficam em drawer/inspector;
+- IA usa violeta e ações de arquivo usam azul;
+- o editor de documento permanece protagonista, com página A4/régua/status quando o editor local for usado;
+- conversores usam upload → fila → resultado, sem criar um produto paralelo;
+- TTS/STT usam a mesma surface de fala, com abas Text to Speech / Speech to Text, voz, idioma, velocidade e player/waveform;
+- ícones seguem uma única família consistente e devem permanecer acessíveis.
+
+Essas regras vêm do guia visual anexado ao projeto e não substituem os contratos funcionais. Elas impedem que novas superfícies de IA, voz e documentos voltem a criar um conjunto de miniaplicativos independentes.
+
+
+## Contrato Web + Mobile
+
+O mesmo runtime funcional deve servir Web/PWA e Capacitor Android/iOS sem duplicar a lógica de IA.
+
+- Web/PWA continua usando /api/* same-origin.
+- Native usa VITE_ORBIT_API_ORIGIN, com fallback para VITE_PUBLIC_APP_URL antes do legado configurado.
+- TTS/STT usam o mesmo contrato HTTP nos dois ambientes.
+- Controles de voz têm alvos de toque e respeitam safe-area no shell mobile.
+- A leitura usa um único elemento Audio durante a fila para reduzir falhas de reprodução em WebView.
+- O chat mantém streaming SSE existente; nenhuma rota ou formato de evento foi alterado.
+
+## Critérios finais de aceitação
+
+### IA
+
+- [x] Ollama é o único runtime de inferência.
+- [x] SearXNG fornece Web real quando solicitado/necessário.
+- [x] Streaming continua compatível com o contrato existente.
+- [x] Modelos locais podem ser selecionados.
+- [x] Respostas têm instruções de saída limpa: sem preâmbulos artificiais, excesso de seções ou tabelas desnecessárias em telas pequenas.
+- [x] Retry não duplica a última pergunta dentro do histórico enviado.
+- [x] Contexto local continua sujeito ao limite seguro antes de chegar ao Ollama.
+
+### Documentos
+
+- [ ] PDF abre e pode ser lido/extraído.
+- [ ] PDF escaneado pode passar por OCR.
+- [ ] DOCX abre e preserva o original.
+- [ ] XLSX/ODS/CSV continuam utilizáveis como planilhas.
+- [ ] PPTX continua utilizável como apresentação.
+- [ ] ONLYOFFICE salva de volta para o armazenamento quando configurado.
+- [ ] Exportação não corrompe o arquivo.
+- [ ] Arquivos grandes são rejeitados de forma previsível.
+- [ ] Falha de OCR/conversão mostra erro recuperável.
+- [ ] Android mantém assets offline de OCR.
+
+### Voz
+
+- [x] VoiceStudio é opcional.
+- [x] Orbit inicia sem VoiceStudio.
+- [x] STT/TTS não bloqueiam o chat.
+- [x] Vozes são descobertas pelo endpoint OpenAI-compatible documentado.
+- [x] Leitura de documento e seleção funciona na mesma surface do editor.
+- [x] Reprodução foi preparada para Web/PWA e Capacitor Android/iOS.
+- [x] Voz clonada exige consentimento.
+- [x] Áudio é artefato, não texto/base64 permanente no histórico.
+
+## Ordem recomendada
+
+```
+Ollama
+  ↓
+SearXNG
+  ↓
+Docker
+  ↓
+Documentos + PDF/OCR + ONLYOFFICE
+  ↓
+CI/aceitação
+  ↓
+VoiceStudio
+  ↓
+STT/TTS
+  ↓
+Ditado e leitura de documentos
+  ↓
+Streaming de voz
+  ↓
+Perfis de voz
+  ↓
+MCP
+  ↓
+Dublagem/audiobooks
+```

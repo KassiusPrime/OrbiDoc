@@ -1,24 +1,18 @@
-name: Orbit Android Nexus Production E2E
+name: Orbit Android Nexus Self-Hosted E2E
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/api/chat.ts"
-      - "src/lib/orbitApiOrigin.ts"
-      - "api/chat.ts"
-      - "api/chat/stream.ts"
-      - "api/_lib/nativeCors.ts"
-      - "api/_lib/nexusAI.ts"
-      - "scripts/configure-native-android-network.mjs"
-      - ".github/workflows/android-nexus-e2e.yml"
   workflow_dispatch:
+    inputs:
+      orbit_api_origin:
+        description: 'Origin HTTPS do servidor Orbit self-hosted publicamente acessível pelo runner'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: orbit-android-nexus-production-e2e
+  group: orbit-android-nexus-selfhosted-e2e
   cancel-in-progress: true
 
 jobs:
@@ -26,48 +20,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      ORBIT_PRODUCTION_ORIGIN: https://doc-swiss.vercel.app
+      ORBIT_API_ORIGIN: ${{ inputs.orbit_api_origin }}
       CAPACITOR_ORIGIN: https://localhost
+      ORBIT_API_AUTH_TOKEN: ${{ secrets.ORBIT_API_AUTH_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Wait for production Capacitor CORS revision
+      - name: Verify Capacitor preflight
         shell: bash
         run: |
           set -euo pipefail
-          endpoint="$ORBIT_PRODUCTION_ORIGIN/api/chat"
-          for attempt in $(seq 1 24); do
-            headers="$(mktemp)"
-            status="$(curl -sS -o /dev/null -D "$headers" -w '%{http_code}' \
-              -X OPTIONS "$endpoint" \
-              -H "Origin: $CAPACITOR_ORIGIN" \
-              -H 'Access-Control-Request-Method: POST' \
-              -H 'Access-Control-Request-Headers: content-type' || true)"
-            if [ "$status" = "204" ] && grep -qi "^access-control-allow-origin: $CAPACITOR_ORIGIN" "$headers"; then
-              echo "Capacitor preflight ativo em produção."
-              exit 0
-            fi
-            echo "Aguardando deploy de produção com CORS nativo ($attempt/24, HTTP $status)..."
-            sleep 10
-          done
-          echo '::error::Produção não publicou o preflight do Capacitor dentro da janela esperada.'
-          exit 1
-
-      - name: APK-origin -> Orbit API -> OpenRouter -> Nexus AI
-        shell: bash
-        run: |
-          set -euo pipefail
-          endpoint="$ORBIT_PRODUCTION_ORIGIN/api/chat"
+          endpoint="$ORBIT_API_ORIGIN/api/chat"
           headers="$(mktemp)"
-          response="$(mktemp)"
-          payload='{"messages":[{"role":"user","content":"Responda em uma frase curta confirmando que o Nexus AI recebeu este teste Android."}],"systemPrompt":"Você está executando um smoke test do Orbit Android. Responda de forma curta, sem Markdown.","webSearch":false,"maxOutputTokens":80}'
+          status="$(curl -sS -o /dev/null -D "$headers" -w '%{http_code}'             -X OPTIONS "$endpoint"             -H "Origin: $CAPACITOR_ORIGIN"             -H 'Access-Control-Request-Method: POST'             -H 'Access-Control-Request-Headers: content-type,authorization')"
+          test "$status" = "204"
+          grep -qi "^access-control-allow-origin: $CAPACITOR_ORIGIN" "$headers"
 
-          status="$(curl -sS --retry 2 --retry-delay 2 --max-time 100 \
-            -o "$response" -D "$headers" -w '%{http_code}' \
-            -X POST "$endpoint" \
-            -H "Origin: $CAPACITOR_ORIGIN" \
-            -H 'Content-Type: application/json' \
-            --data "$payload")"
+      - name: APK-origin -> Orbit API -> Ollama -> Nexus AI
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="$ORBIT_API_ORIGIN/api/chat"
+          response="$(mktemp)"
+          headers="$(mktemp)"
+          payload='{"messages":[{"role":"user","content":"Responda em uma frase curta confirmando que o Nexus AI recebeu este teste Android."}],"systemPrompt":"Você está executando um smoke test do Orbit Android. Responda de forma curta, sem Markdown.","webSearch":false,"maxOutputTokens":80}'
+          auth_args=()
+          if [ -n "${ORBIT_API_AUTH_TOKEN:-}" ]; then
+            auth_args=(-H "Authorization: Bearer $ORBIT_API_AUTH_TOKEN")
+          fi
+
+          status="$(curl -sS --retry 2 --retry-delay 2 --max-time 100             -o "$response" -D "$headers" -w '%{http_code}'             -X POST "$endpoint"             -H "Origin: $CAPACITOR_ORIGIN"             -H 'Content-Type: application/json'             "${auth_args[@]}"             --data "$payload")"
 
           if [ "$status" != "200" ]; then
             echo "::error::Nexus respondeu HTTP $status"
@@ -88,19 +70,19 @@ jobs:
           if (data.freeOnly !== true) throw new Error('Nexus não confirmou freeOnly=true.');
           if (typeof data.requestId !== 'string' || data.requestId.length < 8) throw new Error('requestId ausente.');
           if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('Resposta do Nexus vazia.');
-          console.log(`Nexus AI respondeu ao origin Android. requestId=${data.requestId}; strategy=${data.strategy}; fallback=${Boolean(data.fallbackUsed)}`);
+          console.log(`Nexus AI respondeu via servidor Ollama. requestId=${data.requestId}; model=${data.model || 'n/a'}`);
           NODE
 
-      - name: Verify production health remains free-only
+      - name: Verify self-hosted health
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsS --max-time 30 "$ORBIT_PRODUCTION_ORIGIN/api/health" -o health.json
+          curl -fsS --max-time 30 "$ORBIT_API_ORIGIN/api/health" -o health.json
           node <<'NODE'
           const fs = require('node:fs');
           const data = JSON.parse(fs.readFileSync('health.json', 'utf8'));
           if (data.ai?.assistant !== 'Nexus AI') throw new Error('Health sem Nexus AI.');
-          if (data.ai?.configured !== true || data.ai?.freeOnly !== true) throw new Error('Nexus não está configurado em free-only.');
-          if (!(Number(data.ai?.healthyModels) > 0)) throw new Error('Nenhum modelo gratuito saudável.');
-          console.log(`Orbit production: ${data.ai.healthyModels}/${data.ai.totalModels} modelos gratuitos saudáveis.`);
+          if (data.ai?.gateway !== 'Ollama (self-hosted)') throw new Error('Health não está em Ollama self-hosted.');
+          if (data.ai?.ollama !== true || data.ai?.modelPresent !== true) throw new Error('Ollama/modelo não estão prontos.');
+          console.log(`Orbit self-hosted: modelo ${data.ai.model} pronto; SearXNG=${Boolean(data.ai.search)}`);
           NODE

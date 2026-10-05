@@ -1,4 +1,4 @@
-import { nexusAI } from '../_lib/nexusAI.js';
+import { status as nexusStatus } from '../_lib/ollamaNexus.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -7,7 +7,7 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const status = nexusAI.status();
+  const status = await nexusStatus();
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).json({
     assistant: status.assistant,
@@ -17,5 +17,9 @@ export default async function handler(req: any, res: any) {
     healthyModels: status.circuits.filter((circuit) => circuit.failures < 3).length,
     unavailableModels: status.circuits.filter((circuit) => circuit.failures >= 3).length,
     totalModels: status.circuits.length,
+    ollama: status.ollama,
+    model: status.model,
+    modelPresent: status.modelPresent,
+    search: status.search,
   });
 }

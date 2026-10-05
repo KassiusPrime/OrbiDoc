@@ -25,6 +25,10 @@ import {
   IconTable as Table,
   IconUnderline as Underline,
   IconUpload as Upload,
+  IconPlayerPause as Pause,
+  IconPlayerPlay as Play,
+  IconPlayerStop as Stop,
+  IconVolume as Volume,
 } from '@tabler/icons-react';
 import { saveAs } from 'file-saver';
 import { convertFile } from '../lib/fileConversion';
@@ -32,6 +36,7 @@ import { richHtmlToDocxBlob, richHtmlToText, sanitizeRichHtml } from '../lib/ric
 import { sendToVercel } from '../api/chat';
 import { HistoryItem, SavedProject } from '../types';
 import { OFFICE_FONTS } from '../lib/officeStudio';
+import { splitTextForSpeech, synthesizeSpeech } from '../api/voice';
 
 interface DocumentEditorStudioProps {
   project: SavedProject;
@@ -83,8 +88,8 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
   onProjectChange,
   showNotification = () => {},
   onSaveToHistory,
-  engineProvider = 'gemini',
-  engineModel = 'gemini-3.6-flash',
+  engineProvider = 'ollama',
+  engineModel = 'llama3.2:3b',
 }) => {
   const storageKey = `orbidoc_document_v4_${project.id}`;
   const setupKey = `orbidoc_document_page_v1_${project.id}`;
@@ -105,10 +110,16 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
   const [zoom, setZoom] = useState(100);
   const [aiBusy, setAiBusy] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [voicePaused, setVoicePaused] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const voiceAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== html) editorRef.current.innerHTML = html;
   }, [project.id]);
+
+  useEffect(() => () => stopVoice(), []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -226,6 +237,69 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
     finally { setExportBusy(false); }
   };
 
+  const stopVoice = () => {
+    voiceAbortRef.current?.abort();
+    voiceAbortRef.current = null;
+    audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.currentTime = 0;
+    setVoiceBusy(false);
+    setVoicePaused(false);
+  };
+
+  const readAloud = async (selectionOnly = false) => {
+    const selected = selectionOnly ? window.getSelection()?.toString().trim() : '';
+    const text = selected || richHtmlToText(sanitizeRichHtml(html)).trim();
+    if (!text) {
+      showNotification(selectionOnly ? 'Selecione um trecho do documento para ouvir.' : 'O documento ainda não tem conteúdo para leitura.', 'error');
+      return;
+    }
+    stopVoice();
+    const controller = new AbortController();
+    voiceAbortRef.current = controller;
+    const audio = audioRef.current || new Audio();
+    audioRef.current = audio;
+    setVoiceBusy(true);
+    try {
+      const chunks = splitTextForSpeech(text);
+      for (const chunk of chunks) {
+        if (controller.signal.aborted) return;
+        const blob = await synthesizeSpeech(chunk, { speed: 1 }, controller.signal);
+        if (controller.signal.aborted) return;
+        const url = URL.createObjectURL(blob);
+        await new Promise<void>((resolve, reject) => {
+          const cleanup = () => {
+            audio.onended = null;
+            audio.onerror = null;
+            URL.revokeObjectURL(url);
+          };
+          audio.onended = () => { cleanup(); resolve(); };
+          audio.onerror = () => { cleanup(); reject(new Error('Falha ao reproduzir o áudio.')); };
+          audio.src = url;
+          audio.load();
+          void audio.play().catch((error) => { cleanup(); reject(error); });
+        });
+      }
+    } catch (error: any) {
+      if (!controller.signal.aborted) showNotification(error?.message || 'Não foi possível iniciar a leitura.', 'error');
+    } finally {
+      if (voiceAbortRef.current === controller) voiceAbortRef.current = null;
+      setVoiceBusy(false);
+      setVoicePaused(false);
+    }
+  };
+
+  const toggleVoicePause = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      void audio.play();
+      setVoicePaused(false);
+    } else {
+      audio.pause();
+      setVoicePaused(true);
+    }
+  };
+
   const runAi = async (action: 'improve' | 'summarize' | 'expand') => {
     const text = richHtmlToText(html);
     if (!text.trim()) return;
@@ -260,6 +334,11 @@ export const DocumentEditorStudio: React.FC<DocumentEditorStudioProps> = ({
           <input ref={fileInputRef} type="file" className="hidden" accept=".docx,.html,.htm,.txt,.md" onChange={(event) => { void importDocument(event.target.files?.[0]); event.target.value = ''; }} />
           <button onClick={() => fileInputRef.current?.click()} className="h-8 px-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-[10px] font-bold inline-flex items-center gap-1"><Upload className="w-3.5 h-3.5" /> Importar</button>
           <button onClick={() => window.print()} className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" title="Imprimir"><Printer className="w-4 h-4 mx-auto" /></button>
+          <span className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+          <button type="button" onClick={() => void readAloud(false)} disabled={voiceBusy} className="h-8 px-2.5 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 text-[10px] font-black inline-flex items-center gap-1 whitespace-nowrap" title="Ouvir documento"><Volume className="w-3.5 h-3.5" /> Ouvir</button>
+          <button type="button" onClick={() => void readAloud(true)} disabled={voiceBusy} className="h-8 px-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-[10px] font-bold inline-flex items-center gap-1 whitespace-nowrap" title="Ouvir seleção"><Volume className="w-3.5 h-3.5" /> Seleção</button>
+          {voiceBusy ? <button type="button" onClick={toggleVoicePause} className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" title={voicePaused ? 'Continuar' : 'Pausar'}>{voicePaused ? <Play className="w-4 h-4 mx-auto" /> : <Pause className="w-4 h-4 mx-auto" />}</button> : null}
+          {voiceBusy ? <button type="button" onClick={stopVoice} className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500" title="Parar leitura"><Stop className="w-4 h-4 mx-auto" /></button> : null}
           <div className="relative group"><button disabled={exportBusy} className="h-8 px-2.5 rounded-lg bg-blue-600 text-white text-[10px] font-black inline-flex items-center gap-1"><Download className="w-3.5 h-3.5" />{exportBusy ? 'Exportando…' : 'Exportar'}</button><div className="hidden group-hover:block absolute right-0 top-8 z-40 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1">{(['docx','pdf','html','txt'] as const).map((format) => <button key={format} onClick={() => void exportAs(format)} className="w-full px-3 py-2 text-left text-[10px] font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">{format.toUpperCase()}</button>)}</div></div>
         </div>
 

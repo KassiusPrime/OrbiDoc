@@ -1,4 +1,4 @@
-import { status as nexusStatus } from './_lib/nexusFreeAI.js';
+import { status as nexusStatus } from './_lib/ollamaNexus.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     res.status(405).json({ error: 'Método não permitido.' });
     return;
   }
-  const status = nexusStatus();
+  const status = await nexusStatus();
   const healthyModels = status.circuits.filter((circuit) => circuit.failures < 3).length;
   const unavailableModels = status.circuits.filter((circuit) => circuit.failures >= 3).length;
   res.setHeader('Cache-Control', 'no-store');
@@ -23,6 +23,10 @@ export default async function handler(req: any, res: any) {
       healthyModels,
       unavailableModels,
       totalModels: status.circuits.length,
+      ollama: status.ollama,
+      model: status.model,
+      modelPresent: status.modelPresent,
+      search: status.search,
     },
   });
 }

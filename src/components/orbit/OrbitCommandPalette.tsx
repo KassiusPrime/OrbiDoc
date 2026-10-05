@@ -1,13 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  IconApps as Apps,
-  IconFileCheck as FileCheck,
-  IconFileSpreadsheet as FileSpreadsheet,
-  IconFileText as FileText,
+  IconFile as File,
   IconFolder as Folder,
   IconHome as Home,
-  IconPalette as Palette,
-  IconPresentation as Presentation,
   IconRobot as Robot,
   IconSearch as Search,
   IconSettings as Settings,
@@ -19,7 +14,7 @@ type Command = {
   id: string;
   title: string;
   keywords: string;
-  section: 'Navegar' | 'Criar' | 'Conta';
+  section: 'Navegar' | 'Conta';
   icon: React.ComponentType<{ className?: string }>;
   run: () => void;
 };
@@ -39,12 +34,6 @@ function clickAria(label: string) {
   return Boolean(button);
 }
 
-function createInOrbiDoc(moduleName: string) {
-  const opened = clickAria('Criar novo');
-  if (!opened) clickButton('Criar no OrbiDoc');
-  window.setTimeout(() => clickButton(moduleName), 80);
-}
-
 export const OrbitCommandPalette: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<PaletteMode>('commands');
@@ -53,21 +42,15 @@ export const OrbitCommandPalette: React.FC = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const commands = useMemo<Command[]>(() => [
-    { id: 'home', title: 'Ir para Orbispace', keywords: 'inicio home workspace orbispace', section: 'Navegar', icon: Home, run: () => clickButton('Orbispace') },
-    { id: 'files', title: 'Abrir Meus arquivos', keywords: 'arquivos satellite files projetos', section: 'Navegar', icon: Folder, run: () => clickButton('Meus arquivos') },
-    { id: 'apps', title: 'Abrir OrbiDoc', keywords: 'apps suite ferramentas office', section: 'Navegar', icon: Apps, run: () => clickButton('OrbiDoc') },
+    { id: 'home', title: 'Abrir Leitor', keywords: 'inicio home leitor arquivos', section: 'Navegar', icon: Home, run: () => clickButton('Leitor') },
+    { id: 'files', title: 'Abrir Meus arquivos', keywords: 'arquivos satellite files projetos', section: 'Navegar', icon: File, run: () => clickButton('Meus arquivos') },
     { id: 'nexus', title: 'Abrir Nexus AI', keywords: 'assistente chat ai pesquisar', section: 'Navegar', icon: Robot, run: () => clickButton('Nexus AI') },
-    { id: 'nova', title: 'Criar documento', keywords: 'documento docx word nova texto', section: 'Criar', icon: FileText, run: () => createInOrbiDoc('Documento') },
-    { id: 'gravity', title: 'Criar planilha', keywords: 'planilha xlsx excel gravity dados', section: 'Criar', icon: FileSpreadsheet, run: () => createInOrbiDoc('Planilha') },
-    { id: 'aurora', title: 'Criar apresentação', keywords: 'apresentacao pptx slides aurora', section: 'Criar', icon: Presentation, run: () => createInOrbiDoc('Apresentação') },
-    { id: 'comet', title: 'Criar design', keywords: 'design canvas comet imagem', section: 'Criar', icon: Palette, run: () => createInOrbiDoc('Design') },
-    { id: 'nebula', title: 'Abrir PDF & OCR', keywords: 'pdf ocr nebula extrair', section: 'Criar', icon: FileCheck, run: () => createInOrbiDoc('PDF & OCR') },
     { id: 'account', title: 'Conta Orbit e conexões', keywords: 'conta google microsoft github seguranca conexoes', section: 'Conta', icon: Settings, run: () => clickAria('Conta Orbit e conexões externas') },
   ], []);
 
   const results = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('pt-BR');
-    const base = mode === 'files' ? commands.filter((command) => command.id === 'files' || command.id === 'nova' || command.id === 'gravity' || command.id === 'aurora' || command.id === 'comet' || command.id === 'nebula') : commands;
+    const base = mode === 'files' ? commands.filter((command) => command.id === 'files') : commands;
     if (!needle) return base;
     return base.filter((command) => `${command.title} ${command.keywords}`.toLocaleLowerCase('pt-BR').includes(needle));
   }, [commands, mode, query]);
@@ -129,7 +112,7 @@ export const OrbitCommandPalette: React.FC = () => {
               if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex((index) => Math.max(0, index - 1)); }
               if (event.key === 'Enter' && results[activeIndex]) { event.preventDefault(); execute(results[activeIndex]); }
             }}
-            placeholder={mode === 'files' ? 'Buscar arquivo ou tipo para criar…' : 'Digite um comando, módulo ou destino…'}
+            placeholder={mode === 'files' ? 'Buscar arquivo…' : 'Buscar no Orbit…'}
             className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
           />
           <span className="hidden sm:inline-flex rounded-[8px] border border-slate-200 dark:border-slate-700 px-1.5 py-1 text-[9px] font-bold text-slate-400">ESC</span>

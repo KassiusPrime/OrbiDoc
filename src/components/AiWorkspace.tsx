@@ -13,6 +13,8 @@ import {
 } from '@tabler/icons-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { sendToVercelStream, type AiMessage as ApiMessage } from '../api/chat';
+import { orbitApiUrl } from '../lib/orbitApiOrigin';
+import { MAX_UPLOAD_MB } from '../lib/uploadLimits';
 import { CleanMarkdown } from './CleanMarkdown';
 
 export type AiModelOption = { id: string; provider: string; label: string; enabled: boolean; recommended?: boolean; preview?: boolean; webSearch?: boolean };
@@ -22,9 +24,15 @@ type ChatEntry = { id: string; role: ChatRole; content: string; createdAt: strin
 
 const CHAT_STORAGE_KEY = 'orbit_nexus_ai_chat_v1';
 const DRAFT_STORAGE_KEY = 'orbit_nexus_ai_draft_v1';
-const INTERNAL_PROVIDER = 'openrouter';
-const INTERNAL_MODEL = 'openrouter/free';
+const INTERNAL_PROVIDER = 'ollama';
+const INTERNAL_MODEL = 'llama3.2:3b';
 const URL_RE = /https?:\/\/[^\s]+/i;
+
+function retryMessages(messages: readonly ChatEntry[], userContent: string): ApiMessage[] {
+  const lastUserIndex = [...messages].map((message) => message.role).lastIndexOf('user');
+  const before = lastUserIndex >= 0 ? messages.slice(0, lastUserIndex) : messages;
+  return toApiMessages([...before, createEntry('user', userContent)]);
+}
 
 const suggestionPrompts = [
   { label: 'Resumir', prompt: 'Resuma o documento atual em pontos objetivos e preserve os fatos importantes.' },
@@ -141,12 +149,29 @@ export const SuggestionChips: React.FC<{ onSelect: (prompt: string) => void }> =
   </div>
 );
 
-const AIChatHeader: React.FC<{ busy: boolean; onClear: () => void }> = ({ busy, onClear }) => (
+const AIChatHeader: React.FC<{
+  busy: boolean;
+  onClear: () => void;
+  model: string;
+  models: string[];
+  aiOnline: boolean;
+}> = ({ busy, onClear, model, models, aiOnline }) => (
   <header className="flex h-12 shrink-0 items-center border-b border-white/6 px-3 sm:px-5">
     <div className="flex min-w-0 items-center gap-2">
       <Sparkles className="h-4 w-4 text-[#8D7CFF]" />
       <span className="text-sm font-medium tracking-tight">Nexus AI</span>
-      <span className="text-[10px] text-slate-500">Gratuito</span>
+      <span className="text-[10px] text-slate-500">Local · Ollama</span>
+      {models.length ? (
+        <select
+          value={model}
+          onChange={(event) => window.dispatchEvent(new CustomEvent('orbit:nexus-model-change', { detail: event.target.value }))}
+          disabled={busy || !aiOnline}
+          aria-label="Modelo local do Nexus AI"
+          className="ml-1 max-w-[190px] rounded-lg border border-slate-700/60 bg-transparent px-2 py-1 text-[10px] text-slate-400 outline-none hover:text-slate-200"
+        >
+          {models.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      ) : null}
     </div>
     <div className="ml-auto flex items-center gap-1">
       <button type="button" onClick={onClear} disabled={busy} className="h-8 rounded-lg px-2.5 text-[10px] font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 disabled:opacity-40">
@@ -170,10 +195,23 @@ export const AIComposer: React.FC<{
   onWebSearchChange: (value: boolean) => void;
   onPasteClipboard: () => void;
   onReadLink: () => void;
-}> = ({ value, busy, webSearch, onChange, onSubmit, onStop, onAttach, onWebSearchChange, onPasteClipboard, onReadLink }) => {
+  disabled?: boolean;
+}> = ({ value, busy, webSearch, onChange, onSubmit, onStop, onAttach, onWebSearchChange, onPasteClipboard, onReadLink, disabled = false }) => {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [plusOpen, setPlusOpen] = useState(false);
+
+  useEffect(() => {
+    const onContext = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string; title?: string }>).detail;
+      const text = String(detail?.text || '').trim();
+      if (!text) return;
+      const prefix = detail?.title ? `Arquivo: ${detail.title}\\n\\n` : '';
+      setInput(`${prefix}${text}\\n\\n`);
+    };
+    window.addEventListener('orbit:nexus-context', onContext);
+    return () => window.removeEventListener('orbit:nexus-context', onContext);
+  }, []);
 
   useEffect(() => {
     const node = ref.current;
@@ -207,7 +245,7 @@ export const AIComposer: React.FC<{
             </button>
           </div>
         ) : null}
-        <input ref={fileRef} type="file" className="sr-only" onChange={(event) => {
+        <input ref={fileRef} type="file" disabled={disabled || busy} className="sr-only" onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) onAttach(file);
           event.currentTarget.value = '';
@@ -215,6 +253,7 @@ export const AIComposer: React.FC<{
         <div className="rounded-2xl border border-slate-700/60 bg-[#0f1218] shadow-sm transition-colors duration-150 focus-within:border-slate-600">
           <textarea
             ref={ref}
+            disabled={disabled}
             value={value}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={(event) => {
@@ -229,24 +268,24 @@ export const AIComposer: React.FC<{
             className="block max-h-44 w-full resize-none bg-transparent px-4 pt-3.5 text-sm leading-relaxed outline-none placeholder:text-slate-600"
           />
           <div className="flex items-center gap-1.5 px-2.5 pb-2.5 pt-1.5">
-            <button type="button" onClick={() => setPlusOpen((open) => !open)} className="h-8 w-8 rounded-lg text-slate-600 hover:bg-white/5 hover:text-slate-300" aria-label="Adicionar contexto" aria-expanded={plusOpen}>
+            <button type="button" disabled={disabled || busy} onClick={() => setPlusOpen((open) => !open)} className="h-8 w-8 rounded-lg text-slate-600 hover:bg-white/5 hover:text-slate-300" aria-label="Adicionar contexto" aria-expanded={plusOpen}>
               <Plus className="mx-auto h-4 w-4" />
             </button>
-            <button type="button" onClick={openFiles} className="h-8 w-8 rounded-lg text-slate-600 hover:bg-white/5 hover:text-slate-300" aria-label="Anexar arquivo">
+            <button type="button" disabled={disabled || busy} onClick={openFiles} className="h-8 w-8 rounded-lg text-slate-600 hover:bg-white/5 hover:text-slate-300" aria-label="Anexar arquivo">
               <Paperclip className="mx-auto h-4 w-4" />
             </button>
             <label className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[10px] font-medium transition-colors ${webSearch ? 'text-[#9A8BFF] bg-violet-500/10' : 'text-slate-600 hover:bg-white/5 hover:text-slate-300'}`}>
-              <input className="sr-only" type="checkbox" checked={webSearch} onChange={(event) => onWebSearchChange(event.target.checked)} disabled={busy} />
+              <input className="sr-only" type="checkbox" checked={webSearch} onChange={(event) => onWebSearchChange(event.target.checked)} disabled={disabled || busy} />
               <WorldSearch className="h-3.5 w-3.5" />Web
             </label>
-            {URL_RE.test(value) ? <button type="button" onClick={onReadLink} disabled={busy} className="hidden sm:inline h-8 rounded-lg px-2 text-[10px] font-medium text-[#9A8BFF] hover:bg-violet-500/10">Ler link</button> : null}
+            {URL_RE.test(value) ? <button type="button" onClick={onReadLink} disabled={disabled || busy} className="hidden sm:inline h-8 rounded-lg px-2 text-[10px] font-medium text-[#9A8BFF] hover:bg-violet-500/10">Ler link</button> : null}
             <div className="ml-auto">
               {busy ? (
                 <button type="button" onClick={onStop} className="h-8 w-8 rounded-full bg-slate-700 text-slate-100 hover:bg-slate-600" aria-label="Parar">
                   <Stop className="mx-auto h-3.5 w-3.5" />
                 </button>
               ) : (
-                <button type="button" onClick={onSubmit} disabled={!value.trim()} className="h-8 w-8 rounded-full bg-[#6750D8] text-white transition-opacity duration-150 disabled:opacity-30 hover:bg-[#7561E4]" aria-label="Enviar">
+                <button type="button" onClick={onSubmit} disabled={disabled || !value.trim()} className="h-8 w-8 rounded-full bg-[#6750D8] text-white transition-opacity duration-150 disabled:opacity-30 hover:bg-[#7561E4]" aria-label="Enviar">
                   <Send className="mx-auto h-3.5 w-3.5" />
                 </button>
               )}
@@ -278,6 +317,9 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
   const [input, setInput] = useState(() => localStorage.getItem(DRAFT_STORAGE_KEY) || '');
   const [busy, setBusy] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('orbit.chatModel') || '');
+  const [aiOnline, setAiOnline] = useState(true);
   const controllerRef = useRef<AbortController | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
@@ -292,6 +334,44 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
   }, [input]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(orbitApiUrl('/api/ai/models'))
+      .then((response) => response.ok ? response.json() as Promise<{ models?: Array<{ name?: unknown }> }> : Promise.reject(new Error('modelos indisponíveis')))
+      .then((data) => {
+        if (cancelled) return;
+        const models = (data.models || []).map((item) => typeof item.name === 'string' ? item.name : '').filter(Boolean);
+        setModelOptions(models);
+        const stored = localStorage.getItem('orbit.chatModel') || '';
+        const next = stored && models.includes(stored) ? stored : models[0] || '';
+        setSelectedModel(next);
+        if (next) localStorage.setItem('orbit.chatModel', next);
+      })
+      .catch(() => {
+        if (!cancelled) setModelOptions([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const onModelChange = (event: Event) => {
+      const value = (event as CustomEvent<string>).detail;
+      if (typeof value !== 'string') return;
+      setSelectedModel(value);
+      localStorage.setItem('orbit.chatModel', value);
+    };
+    const onHealth = (event: Event) => {
+      const detail = (event as CustomEvent<{ online?: boolean }>).detail;
+      setAiOnline(detail?.online !== false);
+    };
+    window.addEventListener('orbit:nexus-model-change', onModelChange);
+    window.addEventListener('orbit:nexus-health', onHealth);
+    return () => {
+      window.removeEventListener('orbit:nexus-model-change', onModelChange);
+      window.removeEventListener('orbit:nexus-health', onHealth);
+    };
+  }, []);
 
   const hasMessages = messages.length > 0;
   const lastUser = useMemo(() => [...messages].reverse().find((message) => message.role === 'user'), [messages]);
@@ -346,8 +426,8 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
   };
 
   const attach = async (file: File) => {
-    if (file.size > 2 * 1024 * 1024) {
-      showNotification('Para contexto direto no chat, use arquivos de texto de até 2 MB.', 'error');
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      showNotification(`O arquivo excede o limite de upload de ${MAX_UPLOAD_MB} MB.`, 'error');
       return;
     }
     const textual = /^(text\/|application\/(json|xml|yaml|x-yaml))/.test(file.type) || /\.(md|txt|csv|json|xml|ya?ml|ts|tsx|js|jsx|css|html)$/i.test(file.name);
@@ -363,9 +443,9 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
     }
   };
 
-  const submit = async (preset?: string) => {
+  const submit = async (preset?: string, retry = false) => {
     const text = (preset ?? input).trim();
-    if (!text || busy) return;
+    if (!text || busy || !aiOnline) return;
     if (!navigator.onLine) {
       setInput(text);
       localStorage.setItem(DRAFT_STORAGE_KEY, text);
@@ -384,7 +464,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
 
     try {
       let answer = '';
-      await sendToVercelStream(INTERNAL_PROVIDER, INTERNAL_MODEL, toApiMessages(context), (chunk) => {
+      await sendToVercelStream(INTERNAL_PROVIDER, selectedModel || INTERNAL_MODEL, retry ? retryMessages(messages, text) : toApiMessages(context), (chunk) => {
         answer += chunk;
         setMessages((current) => current.map((message) => message.id === assistant.id ? { ...message, content: answer } : message));
       }, { signal: controller.signal, webSearch });
@@ -405,7 +485,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
 
   return (
     <section className="orbidoc-ai-studio h-full min-h-0 overflow-hidden flex flex-col bg-transparent" aria-label="Nexus AI">
-      <AIChatHeader busy={busy} onClear={clear} />
+      <AIChatHeader busy={busy} onClear={clear} model={selectedModel} models={modelOptions} aiOnline={aiOnline} />
       <div className="relative flex min-h-0 flex-1 flex-col">
         {!hasMessages ? (
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-8">
@@ -414,7 +494,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
                 <Sparkles className="h-5 w-5" />
               </div>
               <h1 className="mt-3 text-xl font-medium tracking-tight">Como posso ajudar?</h1>
-              <p className="mx-auto mt-1.5 max-w-xl text-xs text-slate-500">Escreva, analise arquivos ou peça ações no Orbit.</p>
+              <p className="mx-auto mt-1.5 max-w-xl text-xs text-slate-500">{aiOnline ? 'Escreva, analise arquivos ou peça ações no Orbit.' : 'IA offline — verifique o servidor.'}</p>
               <div className="mt-5 flex justify-center">
                 <SuggestionChips onSelect={(prompt) => void submit(prompt)} />
               </div>
@@ -423,7 +503,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
         ) : (
           <div className="min-h-0 flex-1">
             <div className="mx-auto h-full max-w-3xl">
-              <MessageList messages={messages} onCopy={copy} onSendToWord={onSendToWord} onRetry={lastUser ? () => void submit(lastUser.content) : undefined} virtuosoRef={virtuosoRef} />
+              <MessageList messages={messages} onCopy={copy} onSendToWord={onSendToWord} onRetry={lastUser ? () => void submit(lastUser.content, true) : undefined} virtuosoRef={virtuosoRef} />
             </div>
           </div>
         )}
@@ -446,7 +526,9 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
           onWebSearchChange={setWebSearch}
           onPasteClipboard={() => void pasteClipboard()}
           onReadLink={readLink}
+          disabled={!aiOnline}
         />
+        {!aiOnline ? <div className="px-3 pb-2 text-center text-[10px] font-medium text-rose-400">IA offline — verifique o servidor.</div> : null}
       </div>
     </section>
   );
