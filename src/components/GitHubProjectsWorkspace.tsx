@@ -6,7 +6,6 @@ import {
   IconFileCode as FileCode,
   IconFolder as Folder,
   IconRefresh as Refresh,
-  IconDeviceFloppy as Save,
   IconSettings as Settings,
   IconX as X,
 } from '@tabler/icons-react';
@@ -120,21 +119,7 @@ export const GitHubProjectsWorkspace: React.FC = () => {
     }
   };
 
-  const saveFile = async () => {
-    if (!selectedRepo || !selectedFile) return;
-    setBusy('save');
-    setError('');
-    try {
-      const result = await saveGitHubTextFile(selectedRepo, selectedFile, editorValue);
-      const nextSha = String(result?.content?.sha || selectedFile.sha);
-      setSelectedFile({ ...selectedFile, sha: nextSha, content: editorValue, size: new Blob([editorValue]).size });
-      await openRepository(selectedRepo);
-    } catch (reason: any) {
-      setError(reason?.message || 'Falha ao salvar no GitHub.');
-    } finally {
-      setBusy(null);
-    }
-  };
+
 
   const downloadProject = async () => {
     if (!selectedRepo) return;
@@ -159,8 +144,7 @@ export const GitHubProjectsWorkspace: React.FC = () => {
   }, [entries, query]);
 
   if (!open) return null;
-  const canWrite = Boolean(selectedRepo?.permissions?.push || selectedRepo?.permissions?.admin || selectedRepo?.permissions?.maintain);
-  const dirty = Boolean(selectedFile && selectedFile.content !== editorValue);
+  const canWrite = false;
 
   return (
     <div className="fixed inset-0 z-[132] bg-[#F7F9FC] dark:bg-[#080D18] text-slate-900 dark:text-slate-100 flex flex-col">
@@ -200,9 +184,9 @@ export const GitHubProjectsWorkspace: React.FC = () => {
 
         <main className="min-h-0 min-w-0 flex flex-col bg-white dark:bg-[#0E1118]">
           {selectedFile ? <>
-            <div className="shrink-0 min-h-12 px-3 sm:px-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3"><div className="min-w-0 flex-1"><div className="text-[10px] font-black truncate">{selectedFile.path}</div><div className="text-[8px] text-slate-400">{canWrite ? 'Você pode editar este arquivo' : 'Somente leitura'}{dirty ? ' · alterações não salvas' : ''}</div></div><button type="button" onClick={() => void saveFile()} disabled={!canWrite || !dirty || busy === 'save'} className="h-9 px-3 rounded-xl bg-[#3157F6] text-white text-[10px] font-black inline-flex items-center gap-2 disabled:opacity-40"><Save className="w-4 h-4" /> Salvar no GitHub</button></div>
-            <textarea value={editorValue} onChange={(event) => setEditorValue(event.target.value)} readOnly={!canWrite} spellCheck={false} className="flex-1 min-h-0 w-full resize-none border-0 outline-none p-4 sm:p-6 bg-white dark:bg-[#0E1118] font-mono text-[12px] leading-relaxed" />
-          </> : <div className="h-full flex items-center justify-center p-8 text-center"><div><GitHub className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700" /><div className="mt-3 text-sm font-black">{selectedRepo ? 'Escolha um arquivo de texto' : 'Escolha um repositório'}</div><p className="mt-1 max-w-md text-[10px] leading-relaxed text-slate-400">O OrbiDoc só acessa os projetos selecionados na instalação do GitHub App. Downloads preservam o projeto inteiro em ZIP; edição direta respeita as permissões reais do proprietário/colaborador.</p></div></div>}
+            <div className="shrink-0 min-h-12 px-3 sm:px-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3"><div className="min-w-0 flex-1"><div className="text-[10px] font-black truncate">{selectedFile.path}</div><div className="text-[8px] text-slate-400">{canWrite ? 'Somente leitura' : 'Somente leitura'}{dirty ? ' · ' : ''}</div></div></div>
+            <textarea value={editorValue} onChange={(event) => setEditorValue(event.target.value)} readOnly spellCheck={false} className="flex-1 min-h-0 w-full resize-none border-0 outline-none p-4 sm:p-6 bg-white dark:bg-[#0E1118] font-mono text-[12px] leading-relaxed" />
+          </> : <div className="h-full flex items-center justify-center p-8 text-center"><div><GitHub className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700" /><div className="mt-3 text-sm font-black">{selectedRepo ? 'Escolha um arquivo de texto' : 'Escolha um repositório'}</div><p className="mt-1 max-w-md text-[10px] leading-relaxed text-slate-400">O OrbiDoc só acessa os projetos selecionados na instalação do GitHub App. O Orbit usa o GitHub como fonte de leitura. Você pode navegar e baixar o projeto inteiro em ZIP; alterações continuam sendo feitas no GitHub.</p></div></div>}
         </main>
       </div>
     </div>
