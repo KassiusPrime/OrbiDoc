@@ -202,6 +202,18 @@ export const AIComposer: React.FC<{
   const [plusOpen, setPlusOpen] = useState(false);
 
   useEffect(() => {
+    const onContext = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string; title?: string }>).detail;
+      const text = String(detail?.text || '').trim();
+      if (!text) return;
+      const prefix = detail?.title ? `Arquivo: ${detail.title}\\n\\n` : '';
+      setInput(`${prefix}${text}\\n\\n`);
+    };
+    window.addEventListener('orbit:nexus-context', onContext);
+    return () => window.removeEventListener('orbit:nexus-context', onContext);
+  }, []);
+
+  useEffect(() => {
     const node = ref.current;
     if (!node) return;
     node.style.height = '0px';
