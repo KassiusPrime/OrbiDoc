@@ -30,7 +30,7 @@ const assertions = [
   [webllm.includes('WebGPU') && webllm.includes('webllm.worker.ts'), 'Runtime WebLLM não está protegido por Web Worker/WebGPU.'],
   [webllm.includes('Llama-3.2-1B-Instruct-q4f16_1-MLC'), 'Modelo WebLLM móvel não está definido.'],
   [webllm.includes('indexeddb'), 'WebLLM não usa cache persistente apropriado para modelo local.'],
-  [bottomNav.includes("label: 'Início'") && bottomNav.includes("label: 'Arquivos'") && bottomNav.includes("label: 'Assistente'") && bottomNav.includes("label: 'Apps'"), 'Bottom navigation não mantém o shell mínimo do leitor.'],
+  [bottomNav.includes("label: 'Arquivos'") && bottomNav.includes("label: 'Assistente'") && !bottomNav.includes("label: 'Criar'") && !bottomNav.includes("label: 'Apps'"), 'Bottom navigation não mantém o shell mínimo do leitor.'],
   [!bottomNav.includes("label: 'Criar'"), 'Bottom navigation ainda expõe criação de arquivos.'],
   [!main.includes('Criar agora') && !main.includes('Criar no OrbiDoc'), 'App principal ainda expõe ações de criação.'],
   [platform.includes('safe-area-inset-top') && platform.includes('safe-area-inset-bottom'), 'Safe areas mobile não estão protegidas.'],
