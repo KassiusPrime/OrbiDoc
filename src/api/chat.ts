@@ -1,4 +1,5 @@
 import { orbitApiUrl } from '../lib/orbitApiOrigin';
+import { streamWebLLM, webllmModel, webllmSupported } from '../ai/webllm';
 
 const CLIENT_AI_TIMEOUT_MS = 70_000;
 const CLIENT_STREAM_IDLE_TIMEOUT_MS = 60_000;
@@ -130,6 +131,27 @@ export async function sendToVercelStream(
   options?.signal?.addEventListener('abort', abortFromCaller, { once: true });
 
   try {
+    // Prefer browser-local WebLLM when the request is purely conversational.
+    // WebLLM runs through WebGPU in a worker, keeping the UI responsive and avoiding
+    // a server round-trip. Web search and file uploads intentionally stay server-side.
+    let browserChunks = 0;
+    const canUseBrowserAI = webllmSupported() && !options?.webSearch && !options?.files?.length;
+    if (canUseBrowserAI) {
+      try {
+        publishRuntime({ assistant: 'Nexus AI', freeOnly: true, fallbackUsed: false, webSearch: false, model: webllmModel() });
+        await streamWebLLM(messages, (chunk) => {
+          browserChunks += 1;
+          onChunk(chunk);
+        }, options?.signal);
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') throw error;
+        if (browserChunks > 0) throw error;
+        // Browser WebGPU is an optimization, not a hard dependency.
+        // Fall through to the self-hosted Ollama API when initialization fails.
+      }
+    }
+
     const response = await fetch(orbitApiUrl('/api/chat/stream'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
