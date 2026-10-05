@@ -45,6 +45,12 @@ export default function AppV5() {
   }, [theme]);
 
   useEffect(() => {
+    const onNavigateChat = () => setView('chat');
+    window.addEventListener('orbit:navigate-chat', onNavigateChat);
+    return () => window.removeEventListener('orbit:navigate-chat', onNavigateChat);
+  }, []);
+
+  useEffect(() => {
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
     const onInstall = (event: Event) => { event.preventDefault(); setDeferredPrompt(event); };
