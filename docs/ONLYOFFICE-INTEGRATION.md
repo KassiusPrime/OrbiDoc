@@ -20,7 +20,7 @@ O editor visual de Design continua separado porque não é um editor Office. OCR
 5. O callback só baixa arquivos cuja origem corresponda à origem configurada do Document Server; redirecionamentos são bloqueados.
 6. O arquivo editado é salvo no Firebase Storage e a referência é atualizada no Firestore.
 
-Os três endpoints são registrados no servidor Express compartilhado. Eles não devem existir simultaneamente como funções Vercel separadas em api/onlyoffice/, porque isso sombreava o servidor principal e produzia FUNCTION_INVOCATION_FAILED.
+A lógica dos três endpoints fica em módulos compartilhados em api/_lib. Adaptadores finos em api/onlyoffice/ expõem as funções Vercel, e o servidor Express registra os mesmos handlers para execução self-hosted. Isso evita duplicar a lógica entre ambientes.
 
 ## Configuração necessária na Vercel
 
@@ -47,6 +47,7 @@ A persistência usa Firebase Firestore e Storage com o token Firebase do usuári
 - valida a autenticação antes de emitir a configuração;
 - expira os tokens intermediários;
 - limita o corpo do callback a 1 MiB;
+- vincula o callback à chave da versão do documento emitida na configuração;
 - valida tipo de documento e campos obrigatórios;
 - restringe a origem de download à origem configurada do ONLYOFFICE;
 - bloqueia redirecionamentos para reduzir risco de SSRF;
