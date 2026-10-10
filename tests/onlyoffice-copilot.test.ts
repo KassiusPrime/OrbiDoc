@@ -6,13 +6,13 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 
 test('Word, Sheets, and Slides route to Orbit-owned editor engines', () => {
   const app = read('src/AppV5.tsx');
-  assert.match(app, /import \\{ DocumentEditor \\} from '\\.\\/components\\/DocumentEditor'/);
-  assert.match(app, /import \\{ SpreadsheetEditor \\} from '\\.\\/components\\/SpreadsheetEditor'/);
-  assert.match(app, /import \\{ PresentationEditor \\} from '\\.\\/components\\/PresentationEditor'/);
-  assert.match(app, /<DocumentEditor key=\\{project\\.id\\}/);
-  assert.match(app, /<SpreadsheetEditor key=\\{project\\.id\\}/);
-  assert.match(app, /<PresentationEditor key=\\{project\\.id\\}/);
-  assert.doesNotMatch(app, /OnlyOfficeEditor/);
+  assert.ok(app.includes("import { DocumentEditor } from './components/DocumentEditor'"));
+  assert.ok(app.includes("import { SpreadsheetEditor } from './components/SpreadsheetEditor'"));
+  assert.ok(app.includes("import { PresentationEditor } from './components/PresentationEditor'"));
+  assert.ok(app.includes('<DocumentEditor key={project.id}'));
+  assert.ok(app.includes('<SpreadsheetEditor key={project.id}'));
+  assert.ok(app.includes('<PresentationEditor key={project.id}'));
+  assert.ok(!app.includes('OnlyOfficeEditor'));
 });
 test('ONLYOFFICE routes are registered before JSON body parsing in the shared Express server', () => {
   const server = read('server.ts');
