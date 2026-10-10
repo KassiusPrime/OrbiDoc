@@ -1,8 +1,104 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { decryptBridgeToken, getProject, jsonResponse, patchProject, uploadOfficeFile } from '../_lib/onlyofficeStorage';
-export default async function handler(req:IncomingMessage,res:ServerResponse){
- if(req.method!=='POST')return jsonResponse(res,405,{error:'METHOD_NOT_ALLOWED'});
- const u=new URL(req.url||'/','http://localhost'),b=decryptBridgeToken(String(u.searchParams.get('token')||''),String(process.env.ONLYOFFICE_JWT_SECRET||''));
- if(!b||typeof b.projectId!=='string'||typeof b.idToken!=='string'||Number(b.exp||0)<Date.now())return jsonResponse(res,401,{error:'CALLBACK_TOKEN_INVALID'});
- try{const chunks:Buffer[]=[];for await(const c of req as any)chunks.push(Buffer.from(c));const body=JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');if(![2,6].includes(Number(body.status))||typeof body.url!=='string')return jsonResponse(res,200,{error:0});const p=await getProject(b.projectId,b.idToken);if(!p?.id)return jsonResponse(res,404,{error:'DOCUMENT_NOT_FOUND'});const kind=String(b.kind||'word') as any,ext=kind==='word'?'docx':kind==='excel'?'xlsx':'pptx',mime=kind==='word'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':kind==='excel'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'application/vnd.openxmlformats-officedocument.presentationml.presentation';const d=await fetch(body.url);if(!d.ok)throw new Error(`ONLYOFFICE_DOWNLOAD_${d.status}`);const buf=Buffer.from(await d.arrayBuffer());if(buf.length>25*1024*1024)throw new Error('DOCUMENT_TOO_LARGE');const storage=await uploadOfficeFile(`onlyoffice/${b.projectId}/${kind}.${ext}`,buf,mime,b.idToken);const storageField=kind==='word'?'onlyOfficeStorageUrlWord':kind==='excel'?'onlyOfficeStorageUrlExcel':'onlyOfficeStorageUrlPowerpoint';await patchProject(b.projectId,b.idToken,{[storageField]:storage,onlyOfficeFileType:ext,onlyOfficeSavedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});return jsonResponse(res,200,{error:0});}catch(e){return jsonResponse(res,500,{error:1,message:e instanceof Error?e.message:'Callback error'});}
+
+const MAX_CALLBACK_BODY_BYTES = 1024 * 1024;
+const trustedDownloadUrl = (candidate: string, configuredServer: string) => {
+  try {
+    const target = new URL(candidate);
+    const server = new URL(configuredServer);
+    return target.origin === server.origin && !target.username && !target.password;
+  } catch {
+    return false;
+  }
+};
+
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  if (req.method !== 'POST') return jsonResponse(res, 405, { error: 'METHOD_NOT_ALLOWED' });
+
+  const secret = String(process.env.ONLYOFFICE_JWT_SECRET || '');
+  if (!secret) return jsonResponse(res, 503, { error: 'ONLYOFFICE_NOT_CONFIGURED' });
+
+  const u = new URL(req.url || '/', 'http://localhost');
+  const b = decryptBridgeToken(String(u.searchParams.get('token') || ''), secret);
+  if (
+    !b
+    || typeof b.projectId !== 'string'
+    || typeof b.idToken !== 'string'
+    || Number(b.exp || 0) < Date.now()
+    || !['word', 'excel', 'powerpoint'].includes(String(b.kind || ''))
+  ) {
+    return jsonResponse(res, 401, { error: 'CALLBACK_TOKEN_INVALID' });
+  }
+
+  try {
+    const chunks: Buffer[] = [];
+    let bodyBytes = 0;
+    for await (const chunk of req as any) {
+      const part = Buffer.from(chunk);
+      bodyBytes += part.length;
+      if (bodyBytes > MAX_CALLBACK_BODY_BYTES) {
+        return jsonResponse(res, 413, { error: 'CALLBACK_PAYLOAD_TOO_LARGE' });
+      }
+      chunks.push(part);
+    }
+
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+    const status = Number(body.status);
+    if (![2, 6].includes(status)) return jsonResponse(res, 200, { error: 0 });
+    if (typeof body.url !== 'string' || typeof body.key !== 'string') {
+      return jsonResponse(res, 400, { error: 1, message: 'INVALID_CALLBACK_PAYLOAD' });
+    }
+
+    const documentServer = String(
+      process.env.ONLYOFFICE_DOCUMENT_SERVER_URL
+      || process.env.VITE_ONLYOFFICE_DOCUMENT_SERVER_URL
+      || '',
+    ).trim().replace(/\/$/, '');
+    if (!documentServer || !trustedDownloadUrl(body.url, documentServer)) {
+      return jsonResponse(res, 400, { error: 1, message: 'UNTRUSTED_DOCUMENT_URL' });
+    }
+
+    const project = await getProject(b.projectId, b.idToken);
+    if (!project?.id || project.id !== b.projectId) {
+      return jsonResponse(res, 404, { error: 'DOCUMENT_NOT_FOUND' });
+    }
+
+    const kind = String(b.kind) as 'word' | 'excel' | 'powerpoint';
+    const ext = kind === 'word' ? 'docx' : kind === 'excel' ? 'xlsx' : 'pptx';
+    const mime = kind === 'word'
+      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      : kind === 'excel'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+    const download = await fetch(body.url, { redirect: 'error' });
+    if (!download.ok) throw new Error(`ONLYOFFICE_DOWNLOAD_${download.status}`);
+    const file = Buffer.from(await download.arrayBuffer());
+    if (file.length > 25 * 1024 * 1024) throw new Error('DOCUMENT_TOO_LARGE');
+
+    const storage = await uploadOfficeFile(
+      `onlyoffice/${b.projectId}/${kind}.${ext}`,
+      file,
+      mime,
+      b.idToken,
+    );
+    const storageField = kind === 'word'
+      ? 'onlyOfficeStorageUrlWord'
+      : kind === 'excel'
+        ? 'onlyOfficeStorageUrlExcel'
+        : 'onlyOfficeStorageUrlPowerpoint';
+
+    await patchProject(b.projectId, b.idToken, {
+      [storageField]: storage,
+      onlyOfficeFileType: ext,
+      onlyOfficeSavedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    return jsonResponse(res, 200, { error: 0 });
+  } catch (error) {
+    return jsonResponse(res, 500, {
+      error: 1,
+      message: error instanceof Error ? error.message : 'Callback error',
+    });
+  }
 }
