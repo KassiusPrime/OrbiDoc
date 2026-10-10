@@ -18,7 +18,7 @@ export default async function onlyOfficeCallbackHandler(req: IncomingMessage, re
   if (!secret) return jsonResponse(res, 503, { error: 'ONLYOFFICE_NOT_CONFIGURED' });
   const u = new URL(req.url || '/', 'http://localhost');
   const bridge = decryptBridgeToken(String(u.searchParams.get('token') || ''), secret);
-  if (!bridge || typeof bridge.projectId !== 'string' || typeof bridge.idToken !== 'string' || Number(bridge.exp || 0) < Date.now() || !['word', 'excel', 'powerpoint'].includes(String(bridge.kind || ''))) {
+  if (!bridge || typeof bridge.projectId !== 'string' || typeof bridge.idToken !== 'string' || typeof bridge.documentKey !== 'string' || Number(bridge.exp || 0) < Date.now() || !['word', 'excel', 'powerpoint'].includes(String(bridge.kind || ''))) {
     return jsonResponse(res, 401, { error: 'CALLBACK_TOKEN_INVALID' });
   }
 
@@ -43,6 +43,7 @@ export default async function onlyOfficeCallbackHandler(req: IncomingMessage, re
     const status = Number(body.status);
     if (![2, 6].includes(status)) return jsonResponse(res, 200, { error: 0 });
     if (typeof body.url !== 'string' || typeof body.key !== 'string') return jsonResponse(res, 400, { error: 1, message: 'INVALID_CALLBACK_PAYLOAD' });
+    if (body.key !== bridge.documentKey) return jsonResponse(res, 400, { error: 1, message: 'DOCUMENT_KEY_MISMATCH' });
 
     const documentServer = String(process.env.ONLYOFFICE_DOCUMENT_SERVER_URL || process.env.VITE_ONLYOFFICE_DOCUMENT_SERVER_URL || '').trim().replace(/\/$/, '');
     if (!documentServer || !trustedDownloadUrl(body.url, documentServer)) return jsonResponse(res, 400, { error: 1, message: 'UNTRUSTED_DOCUMENT_URL' });
