@@ -104,3 +104,15 @@ Antes de criar essas abstrações, verificar o que já existe em `officeStudio` 
 - OrbiDoc DesignEditor: https://github.com/KassiusPrime/OrbiDoc/blob/main/src/components/DesignEditor.tsx
 - OrbiDoc DesignEditorPro: https://github.com/KassiusPrime/OrbiDoc/blob/main/src/components/DesignEditorPro.tsx
 - OrbiDoc DesignEditorStudio: https://github.com/KassiusPrime/OrbiDoc/blob/main/src/components/DesignEditorStudio.tsx
+
+
+## Implementação inicial neste branch
+
+A primeira fatia de integração foi implementada no Design Studio nativo do Orbit, sem importar o motor Rust/WASM do PhotoCraft:
+- cada camada pode ser ocultada/mostrada;
+- camadas ocultas não aparecem na prévia nem no canvas de exportação;
+- camadas têm modos de mesclagem Normal, Multiplicar, Tela, Sobrepor, Escurecer, Clarear e Diferença;
+- os metadados ficam junto dos elementos do projeto, preservando compatibilidade com documentos antigos (camadas sem os campos novos continuam visíveis e em modo Normal);
+- testes de regressão cobrem visibilidade e composição.
+
+Isso melhora o modelo de camadas existente e é uma integração inspirada no PhotoCraft, não a incorporação do motor PhotoCraft. A integração WASM real continua condicionada a um protótipo separado para validar o build Rust, tamanho do bundle, compatibilidade móvel e a ponte de importação/exportação. Não embutir o editor de terceiros por iframe sem um contrato de segurança e transferência de arquivos.
