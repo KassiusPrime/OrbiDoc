@@ -48,13 +48,13 @@ export default async function onlyOfficeConfigHandler(req: IncomingMessage, res:
     if (!project?.id || project.id !== projectId) return jsonResponse(res, 404, { error: 'DOCUMENT_NOT_FOUND' });
     const storageField = kind === 'word' ? 'onlyOfficeStorageUrlWord' : kind === 'excel' ? 'onlyOfficeStorageUrlExcel' : 'onlyOfficeStorageUrlPowerpoint';
     let documentUrl = clean(project[storageField]);
-    const bridge = encryptBridgeToken({ projectId, kind, idToken, exp: Date.now() + 55 * 60 * 1000 }, secret);
-    if (!documentUrl) documentUrl = `${origin}/api/onlyoffice/document?token=${encodeURIComponent(bridge)}`;
-    const callbackUrl = `${origin}/api/onlyoffice/callback?token=${encodeURIComponent(bridge)}`;
     const sourceVersion = project[storageField]
       ? String(project[storageField])
       : JSON.stringify({ title: project.title || '', content: project.content ?? project.details ?? project.summary ?? project.previewSnippet ?? '', updatedAt: project.updatedAt || '', createdAt: project.createdAt || '' });
     const key = createHash('sha256').update(`${projectId}:${kind}:${sourceVersion}`).digest('hex').slice(0, 40);
+    const bridge = encryptBridgeToken({ projectId, kind, idToken, documentKey: key, exp: Date.now() + 55 * 60 * 1000 }, secret);
+    if (!documentUrl) documentUrl = `${origin}/api/onlyoffice/document?token=${encodeURIComponent(bridge)}`;
+    const callbackUrl = `${origin}/api/onlyoffice/callback?token=${encodeURIComponent(bridge)}`;
     const payload: Record<string, any> = {
       document: {
         fileType: kind === 'word' ? 'docx' : kind === 'excel' ? 'xlsx' : 'pptx',
