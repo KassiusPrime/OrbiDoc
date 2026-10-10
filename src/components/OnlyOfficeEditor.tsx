@@ -23,7 +23,6 @@ export const OnlyOfficeEditor: React.FC<Props> = ({ project, kind, showNotificat
         const idToken = await (await import('../services/firebase')).auth.currentUser?.getIdToken();
         if (!idToken) throw new Error('Entre na sua conta para abrir este documento no ONLYOFFICE.');
         const response = await fetch(`${CONFIG_URL}?projectId=${encodeURIComponent(project.id)}&kind=${kind}`, { credentials: 'include', headers: { Accept: 'application/json', Authorization: `Bearer ${idToken}` } });
-        if (!response.ok) throw new Error(`Configuração ONLYOFFICE indisponível (HTTP ${response.status}).`);
         const config = await response.json().catch(() => ({})) as Record<string, any>;
         if (!response.ok) {
           if (config.error === 'ONLYOFFICE_NOT_CONFIGURED') {
