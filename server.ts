@@ -3,6 +3,9 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { NEXUS_FREE_MODELS, nexusAI, type NexusBody } from './api/_lib/nexusAI.js';
 import { editImageResilient, enhanceImageResilient, generateImageResilient } from './api/_lib/imageRuntime.js';
+import onlyOfficeConfigHandler from './api/_lib/onlyofficeConfigHandler.js';
+import onlyOfficeDocumentHandler from './api/_lib/onlyofficeDocumentHandler.js';
+import onlyOfficeCallbackHandler from './api/_lib/onlyofficeCallbackHandler.js';
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_REQUESTS = 120;
@@ -148,6 +151,14 @@ async function startServer(): Promise<void> {
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
+
+  // Register ONLYOFFICE routes on the same Express server used by the rest of the app.
+  // The files in api/onlyoffice were previously auto-discovered as separate Vercel functions,
+  // which returned FUNCTION_INVOCATION_FAILED in the deployed project.
+  app.get('/api/onlyoffice/config', (req, res) => { void onlyOfficeConfigHandler(req, res); });
+  app.get('/api/onlyoffice/document', (req, res) => { void onlyOfficeDocumentHandler(req, res); });
+  app.post('/api/onlyoffice/callback', (req, res) => { void onlyOfficeCallbackHandler(req, res); });
+
   app.use(express.json({ limit: '12mb' }));
 
   app.get('/api/ai/models', (_req, res) => {
