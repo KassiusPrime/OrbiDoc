@@ -52,8 +52,8 @@ const APPS = [
   {
     id: 'word' as TabType,
     title: 'Documentos',
-    subtitle: 'ONLYOFFICE · documentos profissionais',
-    description: 'Edição completa de documentos Office com formatação, tabelas, imagens, revisão, colaboração e exportação.',
+    subtitle: 'Orbit Writer · documentos profissionais',
+    description: 'Editor próprio com formatação, tabelas, imagens, modelos, histórico e exportação DOCX/PDF.',
     icon: FileText,
     accent: 'bg-blue-600',
     iconClass: 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
@@ -62,8 +62,8 @@ const APPS = [
   {
     id: 'excel' as TabType,
     title: 'Planilhas',
-    subtitle: 'ONLYOFFICE · planilhas e análise',
-    description: 'Fórmulas, múltiplas abas, formatação, gráficos, colaboração e compatibilidade com XLSX/ODS/CSV.',
+    subtitle: 'Orbit Sheets · planilhas e análise',
+    description: 'Editor próprio com múltiplas abas, células, fórmulas, formatação, gráficos e exportação XLSX/CSV.',
     icon: FileSpreadsheet,
     accent: 'bg-emerald-600',
     iconClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
@@ -72,8 +72,8 @@ const APPS = [
   {
     id: 'powerpoint' as TabType,
     title: 'Apresentações',
-    subtitle: 'ONLYOFFICE · apresentações',
-    description: 'Slides, objetos, notas, temas, colaboração e compatibilidade com PPTX/ODP/PDF.',
+    subtitle: 'Orbit Slides · apresentações',
+    description: 'Editor próprio com slides, objetos, temas, geração de PPTX e exportação PDF.',
     icon: Presentation,
     accent: 'bg-orange-600',
     iconClass: 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
