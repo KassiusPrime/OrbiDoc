@@ -19,6 +19,8 @@ export type StudioElement = {
   fontWeight: number;
   textAlign: 'left' | 'center' | 'right';
   locked?: boolean;
+  visible?: boolean;
+  blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'difference';
 };
 
 export type AlignmentGuides = { vertical: number[]; horizontal: number[] };
