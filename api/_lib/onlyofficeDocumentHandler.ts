@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { decryptBridgeToken, getProject, buildOfficeFile, jsonResponse } from './onlyofficeStorage';
+import { decryptBridgeToken, getProject, buildOfficeFile, jsonResponse } from './onlyofficeStorage.js';
 export default async function onlyOfficeDocumentHandler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== 'GET') return jsonResponse(res, 405, { error: 'METHOD_NOT_ALLOWED' });
   const u = new URL(req.url || '/', 'http://localhost');
