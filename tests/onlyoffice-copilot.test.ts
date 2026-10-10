@@ -23,6 +23,14 @@ test('ONLYOFFICE config endpoint fails closed without server bridge settings', (
   assert.match(route, /encryptBridgeToken/);
 });
 
+test('ONLYOFFICE serverless bridge lazy-loads office-generation dependencies', () => {
+  const storage = read('api/_lib/onlyofficeStorage.ts');
+  assert.doesNotMatch(storage, /^import .* from ['"](?:docx|xlsx|pptxgenjs)['"]/m);
+  assert.match(storage, /await import\(['"]docx['"]\)/);
+  assert.match(storage, /await import\(['"]xlsx['"]\)/);
+  assert.match(storage, /await import\(['"]pptxgenjs['"]\)/);
+});
+
 test('ONLYOFFICE callback restricts download URLs to the configured Document Server origin', () => {
   const route = read('api/onlyoffice/callback.ts');
   assert.match(route, /trustedDownloadUrl/);
