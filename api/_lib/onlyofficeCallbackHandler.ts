@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { decryptBridgeToken, getProject, jsonResponse, patchProject, uploadOfficeFile } from './onlyofficeStorage';
+import { decryptBridgeToken, getProject, jsonResponse, patchProject, uploadOfficeFile } from './onlyofficeStorage.js';
 
 const MAX_CALLBACK_BODY_BYTES = 1024 * 1024;
 const trustedDownloadUrl = (candidate: string, configuredServer: string) => {
@@ -23,15 +23,23 @@ export default async function onlyOfficeCallbackHandler(req: IncomingMessage, re
   }
 
   try {
-    const chunks: Buffer[] = [];
-    let bodyBytes = 0;
-    for await (const chunk of req as any) {
-      const part = Buffer.from(chunk);
-      bodyBytes += part.length;
-      if (bodyBytes > MAX_CALLBACK_BODY_BYTES) return jsonResponse(res, 413, { error: 'CALLBACK_PAYLOAD_TOO_LARGE' });
-      chunks.push(part);
+    const request = req as any;
+    let body: any;
+    if (request.body !== undefined && request.body !== null) {
+      const serialized = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+      if (Buffer.byteLength(serialized) > MAX_CALLBACK_BODY_BYTES) return jsonResponse(res, 413, { error: 'CALLBACK_PAYLOAD_TOO_LARGE' });
+      body = typeof request.body === 'string' ? JSON.parse(request.body || '{}') : request.body;
+    } else {
+      const chunks: Buffer[] = [];
+      let bodyBytes = 0;
+      for await (const chunk of req as any) {
+        const part = Buffer.from(chunk);
+        bodyBytes += part.length;
+        if (bodyBytes > MAX_CALLBACK_BODY_BYTES) return jsonResponse(res, 413, { error: 'CALLBACK_PAYLOAD_TOO_LARGE' });
+        chunks.push(part);
+      }
+      body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
     }
-    const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
     const status = Number(body.status);
     if (![2, 6].includes(status)) return jsonResponse(res, 200, { error: 0 });
     if (typeof body.url !== 'string' || typeof body.key !== 'string') return jsonResponse(res, 400, { error: 1, message: 'INVALID_CALLBACK_PAYLOAD' });
