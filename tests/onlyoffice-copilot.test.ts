@@ -67,3 +67,13 @@ test('Nexus exposes Copilot-inspired navigation and contextual rail', () => {
   assert.doesNotMatch(shell, /hidden md:flex shrink-0 flex-col border-r/);
   assert.match(ai, /orbidoc:nexus-new-chat/);
 });
+
+
+test('ONLYOFFICE setup screen explains backend variables and surfaces the configuration error', () => {
+  const editor = read('src/components/OnlyOfficeEditor.tsx');
+  assert.match(editor, /ONLYOFFICE_NOT_CONFIGURED/);
+  assert.match(editor, /ONLYOFFICE_DOCUMENT_SERVER_URL/);
+  assert.match(editor, /ONLYOFFICE_JWT_SECRET/);
+  assert.match(editor, /Conectando ao ONLYOFFICE/);
+  assert.doesNotMatch(editor, /VITE_ONLYOFFICE_DOCUMENT_SERVER_URL/);
+});
