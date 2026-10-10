@@ -4,17 +4,16 @@ import { readFileSync } from 'node:fs';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('office workspaces route through ONLYOFFICE', () => {
+test('Word, Sheets, and Slides route to Orbit-owned editor engines', () => {
   const app = read('src/AppV5.tsx');
-  assert.match(app, /OnlyOfficeEditor/);
-  assert.match(app, /kind="word"/);
-  assert.match(app, /kind="excel"/);
-  assert.match(app, /kind="powerpoint"/);
-  assert.doesNotMatch(app, /<DocumentEditor /);
-  assert.doesNotMatch(app, /<SpreadsheetEditor /);
-  assert.doesNotMatch(app, /<PresentationEditor /);
+  assert.ok(app.includes("import { DocumentEditor } from './components/DocumentEditor'"));
+  assert.ok(app.includes("import { SpreadsheetEditor } from './components/SpreadsheetEditor'"));
+  assert.ok(app.includes("import { PresentationEditor } from './components/PresentationEditor'"));
+  assert.ok(app.includes('<DocumentEditor key={project.id}'));
+  assert.ok(app.includes('<SpreadsheetEditor key={project.id}'));
+  assert.ok(app.includes('<PresentationEditor key={project.id}'));
+  assert.ok(!app.includes('OnlyOfficeEditor'));
 });
-
 test('ONLYOFFICE routes are registered before JSON body parsing in the shared Express server', () => {
   const server = read('server.ts');
   const callbackRoute = server.indexOf("app.post('/api/onlyoffice/callback'");
