@@ -23,6 +23,22 @@ test('ONLYOFFICE config endpoint fails closed without server bridge settings', (
   assert.match(route, /encryptBridgeToken/);
 });
 
+test('ONLYOFFICE callback restricts download URLs to the configured Document Server origin', () => {
+  const route = read('api/onlyoffice/callback.ts');
+  assert.match(route, /trustedDownloadUrl/);
+  assert.match(route, /target\.origin === server\.origin/);
+  assert.match(route, /redirect: 'error'/);
+  assert.match(route, /UNTRUSTED_DOCUMENT_URL/);
+});
+
+test('ONLYOFFICE callback limits request body size and validates document kind', () => {
+  const route = read('api/onlyoffice/callback.ts');
+  assert.match(route, /MAX_CALLBACK_BODY_BYTES/);
+  assert.match(route, /CALLBACK_PAYLOAD_TOO_LARGE/);
+  assert.match(route, /word.*excel.*powerpoint/s);
+  assert.match(route, /typeof body\.key !== 'string'/);
+});
+
 test('Nexus exposes Copilot-inspired navigation and contextual rail', () => {
   const shell = read('src/components/CopilotShell.tsx');
   const ai = read('src/components/AiWorkspace.tsx');
