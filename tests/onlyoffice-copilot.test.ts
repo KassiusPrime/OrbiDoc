@@ -15,12 +15,24 @@ test('office workspaces route through ONLYOFFICE', () => {
   assert.doesNotMatch(app, /<PresentationEditor /);
 });
 
+test('ONLYOFFICE routes are registered before JSON body parsing in the shared Express server', () => {
+  const server = read('server.ts');
+  const callbackRoute = server.indexOf("app.post('/api/onlyoffice/callback'");
+  const bodyParser = server.indexOf("app.use(express.json({ limit: '12mb' }))");
+  assert.ok(callbackRoute >= 0 && bodyParser > callbackRoute, 'callback must receive the raw request stream');
+  assert.match(server, /onlyOfficeConfigHandler/);
+  assert.match(server, /onlyOfficeDocumentHandler/);
+  assert.match(server, /onlyOfficeCallbackHandler/);
+});
+
 test('ONLYOFFICE config endpoint fails closed without server bridge settings', () => {
-  const route = read('api/onlyoffice/config.ts');
+  const route = read('api/_lib/onlyofficeConfigHandler.ts');
   assert.match(route, /ONLYOFFICE_NOT_CONFIGURED/);
   assert.match(route, /ONLYOFFICE_JWT_SECRET/);
   assert.match(route, /FIREBASE_AUTH_REQUIRED/);
   assert.match(route, /encryptBridgeToken/);
+  assert.match(route, /VERCEL_URL/);
+  assert.match(route, /PUBLIC_ORIGIN_NOT_CONFIGURED/);
 });
 
 test('ONLYOFFICE serverless bridge lazy-loads office-generation dependencies', () => {
@@ -32,7 +44,7 @@ test('ONLYOFFICE serverless bridge lazy-loads office-generation dependencies', (
 });
 
 test('ONLYOFFICE callback restricts download URLs to the configured Document Server origin', () => {
-  const route = read('api/onlyoffice/callback.ts');
+  const route = read('api/_lib/onlyofficeCallbackHandler.ts');
   assert.match(route, /trustedDownloadUrl/);
   assert.match(route, /target\.origin === server\.origin/);
   assert.match(route, /redirect: 'error'/);
@@ -40,7 +52,7 @@ test('ONLYOFFICE callback restricts download URLs to the configured Document Ser
 });
 
 test('ONLYOFFICE callback limits request body size and validates document kind', () => {
-  const route = read('api/onlyoffice/callback.ts');
+  const route = read('api/_lib/onlyofficeCallbackHandler.ts');
   assert.match(route, /MAX_CALLBACK_BODY_BYTES/);
   assert.match(route, /CALLBACK_PAYLOAD_TOO_LARGE/);
   assert.match(route, /word.*excel.*powerpoint/s);
