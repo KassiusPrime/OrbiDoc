@@ -6,15 +6,15 @@ Este roadmap é a ponte entre a matriz de engenharia reversa e o código.
 - [x] Inspecionar estrutura atual: React/TypeScript/Vite, Express, Firebase, hub e engines existentes.
 - [x] Identificar dependência de Document Server no editor Office atual.
 - [x] Registrar APIs públicas de extensibilidade como referência.
-- [ ] Auditar todos os pontos de navegação e decidir os caminhos de migração sem quebrar projetos salvos.
+- [x] Auditar as rotas principais: Word/Excel/PowerPoint passam a abrir os editores próprios; manter o código ONLYOFFICE isolado como legado até concluir a auditoria de referências e APIs.
 - [ ] Definir fixtures DOCX/XLSX/PPTX/PSD/SVG/PDF com recursos progressivos.
 
 ## Fase 1 — núcleo de extensões
-- [ ] Criar `OrbitExtensionManifest` e um registry estático.
-- [ ] Criar contrato `OrbitAiTool` com validação de argumentos e permissões.
-- [ ] Substituir invocação por seletores DOM por chamadas de comandos tipados.
+- [x] Criar `OrbitExtensionManifest` e um registry estático.
+- [x] Criar catálogo `OrbitAiTool` com validação de argumentos, permissões por chamada e adaptadores injetáveis.
+- [ ] Migrar gradualmente as ações de IA dos editores para o dispatcher tipado; os adaptadores ainda precisam ser ligados às operações reais.
 - [ ] Definir eventos comuns: `document.open`, `document.changed`, `document.saved`, `asset.created`, `export.completed`.
-- [ ] Adicionar capability flags para desktop/mobile e offline.
+- [x] Registrar suporte declarativo por extensão para desktop/mobile; o gate de execução offline ainda precisa de integração.
 
 ## Fase 2 — Writer
 - [ ] Modelo de documento tipado e versionado.
