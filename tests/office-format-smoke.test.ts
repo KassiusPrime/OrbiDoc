@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
 import * as XLSX from 'xlsx';
-import PptxGenJS from 'pptxgenjs';
+import * as PptxGenModule from 'pptxgenjs';
 import JSZip from 'jszip';
 import mammoth from 'mammoth';
+
+const PptxGen = ((PptxGenModule as unknown as { default?: { default?: unknown } }).default as { default?: unknown } | undefined)?.default ?? (PptxGenModule as unknown as { default?: unknown }).default ?? PptxGenModule;
 
 const hasZipSignature = (value: Uint8Array) =>
   value.length > 4 && value[0] === 0x50 && value[1] === 0x4b;
@@ -58,7 +60,7 @@ test('XLSX fixture round-trips cell values, formulas, and workbook metadata', as
 });
 
 test('PPTX fixture contains presentation, slide, and relationship parts', async () => {
-  const presentation = new PptxGenJS();
+  const presentation = new (PptxGen as new () => InstanceType<typeof import('pptxgenjs').default>)();
   presentation.layout = 'LAYOUT_WIDE';
   presentation.author = 'Orbit test suite';
   presentation.subject = 'Office format compatibility';
