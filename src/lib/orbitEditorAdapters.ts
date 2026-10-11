@@ -88,7 +88,7 @@ function createSlides(title: string, topic: string, count: number): SlideData[] 
     const isTitle = index === 0;
     const isClosing = index === count - 1 && count > 2;
     return {
-      id: `orbit-ai-slide-${index + 1}-${Math.random().toString(36).slice(2, 10)}`,
+      id: `orbit-ai-slide-${index + 1}-${crypto.randomUUID()}`,
       title: isTitle ? title : isClosing ? 'Conclusão e próximos passos' : `Ponto ${index}`,
       subtitle: isTitle ? safeTopic.slice(0, 180) : undefined,
       bullets: isTitle ? [] : isClosing
