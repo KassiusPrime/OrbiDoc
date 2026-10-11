@@ -70,7 +70,7 @@ const validators = {
   applyStyle: (input: unknown): input is JsonObject =>
     isObject(input) && hasOnlyKeys(input, ['style', 'start', 'end']) &&
     typeof input.style === 'string' && /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(input.style) &&
-    Number.isInteger(input.start) && Number.isInteger(input.end) &&
+    typeof input.start === 'number' && Number.isInteger(input.start) && typeof input.end === 'number' && Number.isInteger(input.end) &&
     Number(input.start) >= 0 && Number(input.end) >= Number(input.start),
   rewriteSelection: (input: unknown): input is JsonObject =>
     isObject(input) && hasOnlyKeys(input, ['instruction', 'selection']) &&
@@ -93,7 +93,7 @@ const validators = {
   createDeck: (input: unknown): input is JsonObject =>
     isObject(input) && hasOnlyKeys(input, ['title', 'topic', 'slideCount']) &&
     stringField(input, 'title', 200) && stringField(input, 'topic', 4_000) &&
-    (input.slideCount === undefined || (Number.isInteger(input.slideCount) && Number(input.slideCount) >= 1 && Number(input.slideCount) <= 80)),
+    (input.slideCount === undefined || (typeof input.slideCount === 'number' && Number.isInteger(input.slideCount) && input.slideCount >= 1 && input.slideCount <= 80)),
   rewriteSlide: (input: unknown): input is JsonObject =>
     isObject(input) && hasOnlyKeys(input, ['slideId', 'instruction']) &&
     safeIdentifier(input.slideId) && stringField(input, 'instruction', 2_000),
@@ -117,7 +117,7 @@ const validators = {
     safeIdentifier(input.fileId) && (input.language === undefined || (typeof input.language === 'string' && /^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(input.language))),
   extractTable: (input: unknown): input is JsonObject =>
     isObject(input) && hasOnlyKeys(input, ['fileId', 'page']) &&
-    safeIdentifier(input.fileId) && (input.page === undefined || (Number.isInteger(input.page) && Number(input.page) >= 1 && Number(input.page) <= 100_000)),
+    safeIdentifier(input.fileId) && (input.page === undefined || (typeof input.page === 'number' && Number.isInteger(input.page) && input.page >= 1 && input.page <= 100_000)),
   transcribe: (input: unknown): input is JsonObject =>
     isObject(input) && hasOnlyKeys(input, ['fileId', 'language']) &&
     safeIdentifier(input.fileId) && (input.language === undefined || (typeof input.language === 'string' && input.language.length <= 64)),
