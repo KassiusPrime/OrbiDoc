@@ -17,11 +17,11 @@ test('each extension declares capabilities, permissions, and a version', () => {
   }
 });
 
-test('Nexus is the core and Writer, Sheets, and Slides are explicitly planned as native engines', () => {
+test('Nexus is the core and Writer, Sheets, and Slides expose their native editor engines', () => {
   assert.equal(getOrbitExtension('orbit.nexus')?.stage, 'core');
-  assert.equal(getOrbitExtension('orbit.writer')?.stage, 'planned');
-  assert.equal(getOrbitExtension('orbit.sheets')?.stage, 'planned');
-  assert.equal(getOrbitExtension('orbit.slides')?.stage, 'planned');
+  assert.equal(getOrbitExtension('orbit.writer')?.stage, 'native-existing');
+  assert.equal(getOrbitExtension('orbit.sheets')?.stage, 'native-existing');
+  assert.equal(getOrbitExtension('orbit.slides')?.stage, 'native-existing');
   assert.equal(getOrbitExtensionForRoute('canva')?.id, 'orbit.design');
 });
 
