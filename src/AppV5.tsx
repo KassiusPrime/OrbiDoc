@@ -36,7 +36,9 @@ import { HistoryVault } from './components/HistoryVault';
 import { HomeDashboard } from './components/HomeDashboard';
 import { ImageWorkspace } from './components/ImageWorkspace';
 import { OfficeSuiteHub } from './components/OfficeSuiteHub';
-import { OnlyOfficeEditor } from './components/OnlyOfficeEditor';
+import { DocumentEditor } from './components/DocumentEditor';
+import { SpreadsheetEditor } from './components/SpreadsheetEditor';
+import { PresentationEditor } from './components/PresentationEditor';
 import { OrbiDocLogo } from './components/OrbiDocLogo';
 import { PdfOcrWorkspace } from './components/PdfOcrWorkspace';
 import { convertFile } from './lib/fileConversion';
@@ -491,15 +493,15 @@ export default function AppV5() {
     if (view === 'cloud') return <CloudWorkspace googleUser={googleUser} microsoftUser={microsoftUser} showNotification={showNotification} />;
     if (view === 'word') {
       const project = currentProject('word');
-      return project ? <OnlyOfficeEditor key={project.id} project={project} kind="word" onProjectChange={persistProject} showNotification={showNotification} /> : renderProjectMissing('word');
+      return project ? <DocumentEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('word');
     }
     if (view === 'excel') {
       const project = currentProject('excel');
-      return project ? <OnlyOfficeEditor key={project.id} project={project} kind="excel" onProjectChange={persistProject} showNotification={showNotification} /> : renderProjectMissing('excel');
+      return project ? <SpreadsheetEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('excel');
     }
     if (view === 'powerpoint') {
       const project = currentProject('powerpoint');
-      return project ? <OnlyOfficeEditor key={project.id} project={project} kind="powerpoint" onProjectChange={persistProject} showNotification={showNotification} /> : renderProjectMissing('powerpoint');
+      return project ? <PresentationEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('powerpoint');
     }
     if (view === 'canva') {
       const project = currentProject('canva');
