@@ -1,4 +1,4 @@
-import { getImageGenerationStatus } from './_lib/imageRuntime.js';
+import { getVerifiedImageGenerationStatus } from './_lib/imageRuntime.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
