@@ -43,7 +43,7 @@ test('image generation stays unavailable without configured credentials and vali
   const ui = read('src/components/ImageWorkspace.tsx');
   assert.match(runtime, /getVerifiedImageGenerationStatus/);
   assert.match(runtime, /openrouter\.ai\/api\/v1\/images\/models/);
-  assert.match(runtime, /ORBIT_IMAGE_BILLING_ENABLED/);
+  assert.match(runtime, /PAID_IMAGE_MODEL_FORBIDDEN/);
   assert.match(runtime, /configuredCatalogModel\(model\)/);
   assert.match(route, /await getVerifiedImageGenerationStatus\(\)/);
   assert.match(ui, /\/api\/image-status/);
