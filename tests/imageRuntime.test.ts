@@ -4,6 +4,7 @@ import {
   editImageResilient,
   generateImageResilient,
   getImageGenerationStatus,
+  getVerifiedImageGenerationStatus,
 } from '../api/_lib/imageRuntime';
 
 const originalFetch = globalThis.fetch;
@@ -37,26 +38,46 @@ afterEach(() => {
   else process.env.REAL_ESRGAN_ENDPOINT = originalEnv.esrgan;
 });
 
-function installOpenRouterImageMock(expectedBase64: string, cost = 0, expectedModel = 'example/free-image:free', paid = false) {
+function installOpenRouterImageMock(expectedBase64: string, cost = 0, expectedModel = 'example/free-image:free') {
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    assert.equal(String(input), 'https://openrouter.ai/api/v1/images');
+    const url = String(input);
+    if (url === 'https://openrouter.ai/api/v1/images/models') {
+      const headers = new Headers(init?.headers);
+      assert.equal(headers.get('authorization'), 'Bearer test-openrouter-key');
+      const supported_parameters = {
+        aspect_ratio: { type: 'enum', values: ['1:1', '4:3', '3:4', '16:9', '9:16', 'auto'] },
+        resolution: { type: 'enum', values: ['1K', '2K', '4K'] },
+        quality: { type: 'enum', values: ['auto', 'low', 'medium', 'high'] },
+        output_format: { type: 'enum', values: ['png', 'jpeg', 'webp'] },
+        input_references: { type: 'array' },
+      };
+      return new Response(JSON.stringify({
+        data: ['example/free-image:free', 'vendor/paid-image'].map((id) => ({
+          id,
+          architecture: { input_modalities: ['text', 'image'], output_modalities: ['image'] },
+          supported_parameters,
+        })),
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    assert.equal(url, 'https://openrouter.ai/api/v1/images');
     assert.equal(init?.method, 'POST');
     const headers = new Headers(init?.headers);
     assert.equal(headers.get('authorization'), 'Bearer test-openrouter-key');
     const body = JSON.parse(String(init?.body || '{}')) as {
       model?: string;
       quality?: string;
+      aspect_ratio?: string;
+      resolution?: string;
+      size?: string;
       provider?: { allow_fallbacks?: boolean; max_price?: { prompt?: number; completion?: number } };
       input_references?: unknown[];
     };
     assert.equal(body.model, expectedModel);
     assert.equal(body.provider?.allow_fallbacks, false);
-    if (paid) {
-      assert.equal(body.provider?.max_price, undefined);
-    } else {
-      assert.equal(body.provider?.max_price?.prompt, 0);
-      assert.equal(body.provider?.max_price?.completion, 0);
-    }
+    assert.equal(body.size, undefined);
+    assert.ok(body.aspect_ratio);
+    assert.ok(body.resolution);
+    assert.equal(body.provider?.max_price, undefined);
 
     return new Response(JSON.stringify({
       data: [{ b64_json: expectedBase64, media_type: 'image/png' }],
@@ -133,7 +154,7 @@ describe('Orbit image runtime', () => {
   test('allows a paid model only with explicit server opt-in and reports billing mode', async () => {
     process.env.OPENROUTER_IMAGE_MODEL = 'vendor/paid-image';
     process.env.ORBIT_IMAGE_BILLING_ENABLED = 'true';
-    installOpenRouterImageMock('cGFpZC1pbWFnZQ==', 0.02, 'vendor/paid-image', true);
+    installOpenRouterImageMock('cGFpZC1pbWFnZQ==', 0.02, 'vendor/paid-image');
 
     const result = await generateImageResilient({ prompt: 'Arte de teste.', quality: 'fast' });
     assert.equal(result.imageUrl, 'data:image/png;base64,cGFpZC1pbWFnZQ==');
@@ -141,6 +162,16 @@ describe('Orbit image runtime', () => {
     assert.equal(result.billingMode, 'paid');
     assert.equal(getImageGenerationStatus().mode, 'paid');
     assert.match(String(result.warning), /faturável/);
+  });
+
+  test('catalog status validates model support and never exposes API credentials', async () => {
+    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
+    installOpenRouterImageMock('c3RhdHVz');
+    const verified = await getVerifiedImageGenerationStatus();
+    assert.equal(verified.enabled, true);
+    assert.equal(verified.mode, 'free');
+    assert.equal(verified.editAvailable, true);
+    assert.equal(JSON.stringify(verified).includes('test-openrouter-key'), false);
   });
 
   test('status never exposes secrets and reports missing credentials', () => {
