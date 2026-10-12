@@ -1,6 +1,5 @@
 package app.orbidoc.workspace;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -22,7 +21,6 @@ import org.videolan.libvlc.Media;
 import org.videolan.libvlc.MediaPlayer;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 
 public final class OrbitVlcPlayerActivity extends Activity implements MediaPlayer.EventListener {
@@ -306,7 +304,7 @@ public final class OrbitVlcPlayerActivity extends Activity implements MediaPlaye
   }
 
   private boolean looksLikeAudio(String source) {
-    String lower = source.toLowerCase(java.util.Locale.ROOT).split("\\\\?", 2)[0];
+    String lower = source.toLowerCase(java.util.Locale.ROOT).split("\\?", 2)[0];
     return lower.matches(".*\\\\.(mp3|wav|ogg|flac|m4a|aac|opus|aiff|wma)(\\\\?.*)?$");
   }
 
