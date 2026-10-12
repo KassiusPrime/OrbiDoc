@@ -175,10 +175,10 @@ export const AIComposer: React.FC<{
               Colar da área de transferência
             </button>
             <button type="button" onClick={() => runPlusAction(() => onNavigate?.('reader'))} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] text-slate-300 hover:bg-white/5">
-              <i className="fi fi-rr-book-open text-sm text-blue-400" aria-hidden="true" />Abrir leitor de documentos
+              <i className="fi fi-rr-book text-sm text-blue-400" aria-hidden="true" />Abrir leitor de documentos
             </button>
             <button type="button" onClick={() => runPlusAction(() => onNavigate?.('projects'))} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] text-slate-300 hover:bg-white/5">
-              <i className="fi fi-rr-folder-open text-sm text-blue-400" aria-hidden="true" />Meus arquivos
+              <i className="fi fi-rr-folder text-sm text-blue-400" aria-hidden="true" />Meus arquivos
             </button>
           </div>
         ) : null}
@@ -388,7 +388,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, onNaviga
                 <Sparkles className="h-5 w-5" />
               </div>
               <h1 className="mt-3 text-xl font-medium tracking-tight">Como posso ajudar?</h1>
-              <p className="mx-auto mt-1.5 max-w-xl text-xs text-slate-500">Escreva, analise arquivos ou peça ações no Orbit.</p>
+              <p className="mx-auto mt-1.5 max-w-xl text-xs text-slate-500">Escreva, leia conteúdo selecionado e explore ideias com o Nexus AI.</p>
               <div className="mt-5 flex justify-center">
                 <SuggestionChips onSelect={(prompt) => void submit(prompt)} />
               </div>
