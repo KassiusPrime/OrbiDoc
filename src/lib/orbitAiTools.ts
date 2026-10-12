@@ -3,18 +3,6 @@ import { ORBIT_EXTENSIONS, type OrbitExtensionId } from './orbitExtensions';
 export type OrbitAiToolId =
   | 'nexus.summarize'
   | 'nexus.planWorkflow'
-  | 'writer.insertText'
-  | 'writer.applyStyle'
-  | 'writer.rewriteSelection'
-  | 'sheets.setRangeValues'
-  | 'sheets.createChart'
-  | 'sheets.explainFormula'
-  | 'slides.createDeck'
-  | 'slides.rewriteSlide'
-  | 'slides.suggestLayout'
-  | 'design.addLayer'
-  | 'design.adjustImage'
-  | 'design.generateLayout'
   | 'pdf.runOcr'
   | 'pdf.summarize'
   | 'pdf.extractTable'
@@ -138,18 +126,6 @@ const definition = (
 export const ORBIT_AI_TOOLS: readonly OrbitAiToolDefinition[] = [
   definition('nexus.summarize', 'orbit.nexus', 'context.read.selected', 'Summarize user-selected content.', validators.emptyOrText),
   definition('nexus.planWorkflow', 'orbit.nexus', 'context.read.selected', 'Plan a workflow from an explicit user request.', validators.emptyOrText),
-  definition('writer.insertText', 'orbit.writer', 'document.write.active', 'Insert text into the active document.', validators.insertText),
-  definition('writer.applyStyle', 'orbit.writer', 'document.write.active', 'Apply a named style to an explicit text range.', validators.applyStyle),
-  definition('writer.rewriteSelection', 'orbit.writer', 'document.read.active', 'Rewrite an explicit selection without mutating it.', validators.rewriteSelection),
-  definition('sheets.setRangeValues', 'orbit.sheets', 'workbook.write.active', 'Set values in an explicit spreadsheet range.', validators.setRangeValues),
-  definition('sheets.createChart', 'orbit.sheets', 'workbook.write.active', 'Create a chart from an explicit range.', validators.createChart),
-  definition('sheets.explainFormula', 'orbit.sheets', 'workbook.read.active', 'Explain a formula without changing the workbook.', validators.explainFormula),
-  definition('slides.createDeck', 'orbit.slides', 'deck.write.active', 'Create a presentation from a user-provided brief.', validators.createDeck),
-  definition('slides.rewriteSlide', 'orbit.slides', 'deck.write.active', 'Rewrite the content of an explicit slide.', validators.rewriteSlide),
-  definition('slides.suggestLayout', 'orbit.slides', 'deck.read.active', 'Suggest a layout for an explicit slide.', validators.suggestLayout),
-  definition('design.addLayer', 'orbit.design', 'design.write.active', 'Add a layer to the active design.', validators.addLayer),
-  definition('design.adjustImage', 'orbit.design', 'design.write.active', 'Adjust an explicitly selected image asset.', validators.adjustImage),
-  definition('design.generateLayout', 'orbit.design', 'design.write.active', 'Generate a layout from an explicit brief.', validators.generateLayout),
   definition('pdf.runOcr', 'orbit.pdf', 'file.read.selected', 'Run OCR on a user-selected file.', validators.runOcr),
   definition('pdf.summarize', 'orbit.pdf', 'file.read.selected', 'Summarize text from a user-selected PDF.', validators.runOcr),
   definition('pdf.extractTable', 'orbit.pdf', 'file.read.selected', 'Extract a table from a user-selected PDF page.', validators.extractTable),

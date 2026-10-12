@@ -2,7 +2,6 @@ import React, { Component, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconCopy as Copy,
   IconFileText as FileText,
-  IconHistory as History,
   IconPaperclip as Paperclip,
   IconPlayerStop as Stop,
   IconPlus as Plus,
@@ -16,7 +15,7 @@ import { sendToVercelStream, type AiMessage as ApiMessage } from '../api/chat';
 import { CleanMarkdown } from './CleanMarkdown';
 
 export type AiModelOption = { id: string; provider: string; label: string; enabled: boolean; recommended?: boolean; preview?: boolean; webSearch?: boolean };
-export interface AiWorkspaceProps { selectedModelKey?: string; onSelectedModelChange?: (modelKey: string) => void; onSendToWord?: (text: string) => void; showNotification?: (message: string, type?: 'success' | 'error') => void; }
+export interface AiWorkspaceProps { selectedModelKey?: string; onSelectedModelChange?: (modelKey: string) => void; onSendToWord?: (text: string) => void; onNavigate?: (view: 'reader' | 'projects' | 'history') => void; showNotification?: (message: string, type?: 'success' | 'error') => void; }
 type ChatRole = 'user' | 'assistant';
 type ChatEntry = { id: string; role: ChatRole; content: string; createdAt: string; streaming?: boolean; webSearch?: boolean };
 
@@ -54,13 +53,6 @@ function toApiMessages(messages: readonly ChatEntry[]): ApiMessage[] {
 
 function createEntry(role: ChatRole, content: string, extras?: Partial<Pick<ChatEntry, 'streaming' | 'webSearch'>>): ChatEntry {
   return { id: crypto.randomUUID(), role, content, createdAt: new Date().toISOString(), ...extras };
-}
-
-function clickNavigation(label: string): void {
-  const candidate = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-    (button) => button.textContent?.trim() === label || button.textContent?.trim().includes(label),
-  );
-  candidate?.click();
 }
 
 export const StreamingCursor: React.FC = () => (
@@ -101,7 +93,7 @@ export const AIMessage: React.FC<{ message: ChatEntry; onCopy: (text: string) =>
               <Refresh className="mr-1 inline h-3 w-3" />Refazer
             </button> : null}
             {onSendToWord ? <button type="button" onClick={() => onSendToWord(message.content)} className="min-h-7 rounded-lg border border-blue-500/20 px-2 text-[10px] font-medium text-blue-400 hover:bg-blue-500/10">
-              <FileText className="mr-1 inline h-3 w-3" />Documento
+              <FileText className="mr-1 inline h-3 w-3" />Abrir no leitor
             </button> : null}
           </div>
         ) : null}
@@ -141,24 +133,6 @@ export const SuggestionChips: React.FC<{ onSelect: (prompt: string) => void }> =
   </div>
 );
 
-const AIChatHeader: React.FC<{ busy: boolean; onClear: () => void }> = ({ busy, onClear }) => (
-  <header className="flex h-12 shrink-0 items-center border-b border-white/6 px-3 sm:px-5">
-    <div className="flex min-w-0 items-center gap-2">
-      <Sparkles className="h-4 w-4 text-[#8D7CFF]" />
-      <span className="text-sm font-medium tracking-tight">Nexus AI</span>
-      <span className="text-[10px] text-slate-500">Gratuito</span>
-    </div>
-    <div className="ml-auto flex items-center gap-1">
-      <button type="button" onClick={onClear} disabled={busy} className="h-8 rounded-lg px-2.5 text-[10px] font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 disabled:opacity-40">
-        <Plus className="mr-1 inline h-3.5 w-3.5" />Novo chat
-      </button>
-      <button type="button" onClick={() => clickNavigation('Histórico')} className="h-8 w-8 rounded-lg text-slate-500 hover:bg-white/5 hover:text-slate-300" aria-label="Abrir histórico">
-        <History className="mx-auto h-4 w-4" />
-      </button>
-    </div>
-  </header>
-);
-
 export const AIComposer: React.FC<{
   value: string;
   busy: boolean;
@@ -170,7 +144,8 @@ export const AIComposer: React.FC<{
   onWebSearchChange: (value: boolean) => void;
   onPasteClipboard: () => void;
   onReadLink: () => void;
-}> = ({ value, busy, webSearch, onChange, onSubmit, onStop, onAttach, onWebSearchChange, onPasteClipboard, onReadLink }) => {
+  onNavigate?: (view: 'reader' | 'projects') => void;
+}> = ({ value, busy, webSearch, onChange, onSubmit, onStop, onAttach, onWebSearchChange, onPasteClipboard, onReadLink, onNavigate }) => {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [plusOpen, setPlusOpen] = useState(false);
@@ -199,11 +174,11 @@ export const AIComposer: React.FC<{
             <button type="button" onClick={() => runPlusAction(onPasteClipboard)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] text-slate-300 hover:bg-white/5">
               Colar da área de transferência
             </button>
-            <button type="button" onClick={() => runPlusAction(() => clickNavigation('Documento'))} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] text-slate-300 hover:bg-white/5">
-              Documento atual
+            <button type="button" onClick={() => runPlusAction(() => onNavigate?.('reader'))} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] text-slate-300 hover:bg-white/5">
+              <i className="fi fi-rr-book text-sm text-blue-400" aria-hidden="true" />Abrir leitor de documentos
             </button>
-            <button type="button" onClick={() => runPlusAction(() => clickNavigation('Meus arquivos'))} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] text-slate-300 hover:bg-white/5">
-              Meus arquivos
+            <button type="button" onClick={() => runPlusAction(() => onNavigate?.('projects'))} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] text-slate-300 hover:bg-white/5">
+              <i className="fi fi-rr-folder text-sm text-blue-400" aria-hidden="true" />Meus arquivos
             </button>
           </div>
         ) : null}
@@ -273,7 +248,7 @@ export class ErrorBoundaryAI extends Component<{ children: React.ReactNode }, { 
   }
 }
 
-export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNotification = () => {} }) => {
+export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, onNavigate, showNotification = () => {} }) => {
   const [messages, setMessages] = useState<ChatEntry[]>(loadMessages);
   const [input, setInput] = useState(() => localStorage.getItem(DRAFT_STORAGE_KEY) || '');
   const [busy, setBusy] = useState(false);
@@ -404,8 +379,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
   };
 
   return (
-    <section className="orbidoc-ai-studio h-full min-h-0 overflow-hidden flex flex-col bg-transparent" aria-label="Nexus AI">
-      <AIChatHeader busy={busy} onClear={clear} />
+    <section className="orbidoc-ai-studio flex h-full min-h-[420px] min-w-0 flex-col overflow-hidden bg-transparent" aria-label="Nexus AI">
       <div className="relative flex min-h-0 flex-1 flex-col">
         {!hasMessages ? (
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-8">
@@ -414,7 +388,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
                 <Sparkles className="h-5 w-5" />
               </div>
               <h1 className="mt-3 text-xl font-medium tracking-tight">Como posso ajudar?</h1>
-              <p className="mx-auto mt-1.5 max-w-xl text-xs text-slate-500">Escreva, analise arquivos ou peça ações no Orbit.</p>
+              <p className="mx-auto mt-1.5 max-w-xl text-xs text-slate-500">Escreva, leia conteúdo selecionado e explore ideias com o Nexus AI.</p>
               <div className="mt-5 flex justify-center">
                 <SuggestionChips onSelect={(prompt) => void submit(prompt)} />
               </div>
@@ -446,6 +420,7 @@ export const AIChatPanel: React.FC<AiWorkspaceProps> = ({ onSendToWord, showNoti
           onWebSearchChange={setWebSearch}
           onPasteClipboard={() => void pasteClipboard()}
           onReadLink={readLink}
+          onNavigate={onNavigate}
         />
       </div>
     </section>

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconDownload as Download,
   IconEdit as Edit,
@@ -16,12 +16,12 @@ import { HistoryItem } from '../types';
 interface ImageWorkspaceProps {
   onSaveToHistory?: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => void;
   showNotification?: (message: string, type?: 'success' | 'error') => void;
-  onSendToCanva?: (imageDataUrl?: string) => void;
 }
 
 type Mode = 'generate' | 'edit' | 'enhance';
 type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif';
 type GenerationQuality = 'fast' | 'pro';
+type ImageGenerationStatus = { enabled: boolean; mode: 'free' | 'unavailable'; billingEnabled: false; modelConfigured: boolean; editAvailable?: boolean; enhancementAvailable?: boolean; message: string };
 type EnhancementMode = 'local' | 'ai';
 
 type ImageResult = {
@@ -85,7 +85,6 @@ async function imageDataToBlob(dataUrl: string, format: OutputFormat, quality = 
 export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
   onSaveToHistory,
   showNotification = () => {},
-  onSendToCanva,
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<Mode>('generate');
@@ -102,6 +101,30 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [downloadFormat, setDownloadFormat] = useState<OutputFormat>('png');
   const [comparePosition, setComparePosition] = useState(50);
+  const [imageStatus, setImageStatus] = useState<ImageGenerationStatus>({
+    enabled: false, mode: 'unavailable', billingEnabled: false, modelConfigured: false,
+    enhancementAvailable: false, message: 'Verificando a configuração do gerador de imagens…',
+  });
+  const [statusLoaded, setStatusLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/image-status', { cache: 'no-store' })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(String(data.error || 'Status indisponível.'));
+        return data as ImageGenerationStatus;
+      })
+      .then((data) => { if (!cancelled) setImageStatus(data); })
+      .catch(() => {
+        if (!cancelled) setImageStatus({
+          enabled: false, mode: 'unavailable', billingEnabled: false, modelConfigured: false,
+          enhancementAvailable: false, message: 'Não foi possível verificar a configuração remota. O aprimoramento local continua disponível.',
+        });
+      })
+      .finally(() => { if (!cancelled) setStatusLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
 
   const active = results.find((item) => item.id === activeId) || results[0] || null;
   const preset = PRESETS.find((item) => item.id === presetId) || PRESETS[0];
@@ -152,6 +175,8 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
   };
 
   const runGenerationOrEdit = async () => {
+    if (!imageStatus.enabled) { showNotification(imageStatus.message, 'error'); return; }
+    if (mode === 'edit' && !imageStatus.editAvailable) { showNotification('O modelo configurado não oferece edição por imagem de referência. Escolha um modelo que declare input_references no catálogo.', 'error'); return; }
     if (!prompt.trim()) {
       showNotification('Descreva a imagem ou a edição desejada.', 'error');
       return;
@@ -183,6 +208,8 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
   };
 
   const runEnhancement = async () => {
+    if (enhancementMode === 'ai' && !imageStatus.enhancementAvailable) { showNotification(imageStatus.message, 'error'); return; }
+    if (enhancementMode === 'ai' && !window.confirm('A restauração será executada por um processador remoto configurado. O resultado pode reconstruir detalhes. Continuar?')) return;
     if (!referenceImage) {
       showNotification('Envie uma imagem para aprimorar.', 'error');
       return;
@@ -233,25 +260,23 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
     }
   };
 
-  const sendToDesign = () => {
-    if (!active || !onSendToCanva) return;
-    try {
-      sessionStorage.setItem('orbidoc_design_import_image', active.imageUrl);
-      onSendToCanva(active.imageUrl);
-      showNotification('Imagem enviada para o Design.', 'success');
-    } catch {
-      showNotification('A imagem é grande demais para transferência direta. Baixe e importe no Design.', 'error');
-    }
-  };
+
 
   return (
     <div className="max-w-[1500px] mx-auto space-y-5">
       <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col xl:flex-row xl:items-center gap-5">
           <div className="flex-1">
-            <div className="inline-flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400"><Sparkles className="w-4 h-4" /> Estúdio de imagens</div>
+            <div className="inline-flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400"><i className="fi fi-rr-picture text-base" aria-hidden="true" /> Estúdio de imagens</div>
             <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Gerar, editar e restaurar em alta qualidade</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">Geração rápida ou Pro, edição por IA e aprimoramento 2×/4× com modo local fiel ou restauração IA.</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">Geração e edição remotas com configuração explícita, mais aprimoramento local que funciona sem créditos e sem enviar a imagem.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className={'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ' + (imageStatus.enabled ? (imageStatus.mode === 'free' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300') : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300')}>
+                <i className="fi fi-rr-shield-check" aria-hidden="true" />{!statusLoaded ? 'Verificando status…' : imageStatus.mode === 'free' ? 'Modelo gratuito configurado' : 'Geração remota não configurada'}
+              </span>
+              <a href="https://www.flaticon.com/uicons" target="_blank" rel="noreferrer" className="text-[10px] text-slate-400 hover:text-indigo-500">Uicons by Flaticon</a>
+            </div>
+            {!imageStatus.enabled ? <p className="mt-2 max-w-3xl text-xs leading-relaxed text-amber-700 dark:text-amber-300">{imageStatus.message} Modelos pagos são bloqueados pela política atual do Orbit.</p> : null}
           </div>
           <div className="flex bg-slate-100 dark:bg-slate-950 rounded-xl p-1 overflow-x-auto">
             <button onClick={() => setMode('generate')} className={`h-9 px-3 rounded-lg text-xs font-black inline-flex items-center gap-2 whitespace-nowrap ${mode === 'generate' ? 'bg-white dark:bg-slate-800 shadow-sm' : 'text-slate-500'}`}><PhotoPlus className="w-4 h-4" /> Gerar</button>
@@ -284,12 +309,12 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
               <div><div className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-2">Escala</div><div className="grid grid-cols-2 gap-2">{([2,4] as EnhancementScale[]).map((scale) => <button key={scale} onClick={() => setEnhancementScale(scale)} className={`h-9 rounded-xl border text-[10px] font-black ${enhancementScale === scale ? 'border-indigo-500 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/30' : 'border-slate-200 dark:border-slate-700'}`}>{scale}×</button>)}</div></div>
             </>}
 
-            <button onClick={mode === 'enhance' ? runEnhancement : runGenerationOrEdit} disabled={busy} className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-black inline-flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" />{busy ? 'Processando…' : mode === 'generate' ? 'Gerar imagem' : mode === 'edit' ? 'Aplicar edição' : 'Aprimorar imagem'}</button>
+            <button onClick={mode === 'enhance' ? runEnhancement : runGenerationOrEdit} disabled={busy || (mode === 'generate' && statusLoaded && !imageStatus.enabled) || (mode === 'edit' && statusLoaded && (!imageStatus.enabled || !imageStatus.editAvailable)) || (mode === 'enhance' && enhancementMode === 'ai' && statusLoaded && !imageStatus.enhancementAvailable)} className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-black inline-flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" />{busy ? 'Processando…' : mode === 'generate' ? 'Gerar imagem' : mode === 'edit' ? 'Aplicar edição' : 'Aprimorar imagem'}</button>
           </section>
         </aside>
 
         <section className="xl:col-span-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden flex flex-col min-h-[620px]">
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3"><div className="flex-1 min-w-[180px]"><h2 className="text-sm font-black">Resultado</h2><div className="text-[10px] text-slate-400 mt-0.5">{resultMeta}</div></div>{active && <><select value={downloadFormat} onChange={(event) => setDownloadFormat(event.target.value as OutputFormat)} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 text-[10px] font-bold"><option value="png">PNG</option><option value="jpg">JPG</option><option value="webp">WebP</option><option value="avif">AVIF</option></select><button onClick={download} className="h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black inline-flex items-center gap-2"><Download className="w-4 h-4" /> Baixar</button>{onSendToCanva && <button onClick={sendToDesign} className="h-9 px-3 rounded-xl bg-fuchsia-50 dark:bg-fuchsia-950/40 text-fuchsia-700 dark:text-fuchsia-300 text-[10px] font-black">Abrir no Design</button>}</>}</div>
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3"><div className="flex-1 min-w-[180px]"><h2 className="text-sm font-black">Resultado</h2><div className="text-[10px] text-slate-400 mt-0.5">{resultMeta}</div></div>{active && <><select value={downloadFormat} onChange={(event) => setDownloadFormat(event.target.value as OutputFormat)} className="h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 text-[10px] font-bold"><option value="png">PNG</option><option value="jpg">JPG</option><option value="webp">WebP</option><option value="avif">AVIF</option></select><button onClick={download} className="h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black inline-flex items-center gap-2"><Download className="w-4 h-4" /> Baixar</button></>}</div>
 
           <div className="flex-1 min-h-0 bg-slate-100 dark:bg-slate-950 p-4 sm:p-6 flex items-center justify-center overflow-hidden">
             {active ? (mode === 'enhance' && referenceImage ? <div className="w-full max-w-4xl space-y-3"><div className="relative mx-auto max-h-[650px] overflow-hidden rounded-2xl bg-black shadow-2xl select-none"><img src={referenceImage} alt="Original" className="block max-w-full max-h-[650px] mx-auto object-contain" /><div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}><img src={active.imageUrl} alt="Aprimorada" className="w-full h-full object-contain" /></div><div className="absolute top-0 bottom-0 w-0.5 bg-white shadow" style={{ left: `${comparePosition}%` }} /><div className="absolute left-3 top-3 px-2 py-1 rounded-lg bg-black/65 text-white text-[9px] font-black">ORIGINAL</div><div className="absolute right-3 top-3 px-2 py-1 rounded-lg bg-indigo-600/90 text-white text-[9px] font-black">APRIMORADA</div></div><input aria-label="Comparar imagem original e aprimorada" type="range" min={0} max={100} value={comparePosition} onChange={(event) => setComparePosition(Number(event.target.value))} className="w-full accent-indigo-600" />{active.warning && <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-[10px] text-amber-800 dark:text-amber-200">{active.warning}</div>}</div> : <img src={active.imageUrl} alt="Resultado" className="max-w-full max-h-[690px] object-contain rounded-2xl shadow-2xl" />) : <div className="text-center text-slate-400"><Photo className="w-16 h-16 mx-auto opacity-30" /><div className="mt-4 text-sm font-black text-slate-500 dark:text-slate-300">Nenhuma imagem ainda</div><div className="mt-1 text-xs">Gere, edite ou aprimore uma imagem para visualizar aqui.</div></div>}

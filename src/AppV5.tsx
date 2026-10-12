@@ -5,7 +5,6 @@ import {
   IconChevronLeft as ChevronLeft,
   IconCloud as Cloud,
   IconFileCheck as FileCheck,
-  IconFileSpreadsheet as FileSpreadsheet,
   IconFileText as FileText,
   IconFolder as Folder,
   IconHeadphones as Headphones,
@@ -14,7 +13,6 @@ import {
   IconMenu2 as Menu,
   IconMoon as Moon,
   IconPhoto as Photo,
-  IconPresentation as Presentation,
   IconSearch as Search,
   IconSparkles as Sparkles,
   IconSun as Sun,
@@ -28,17 +26,15 @@ import { BottomNavBar } from './components/BottomNavBar';
 import { BrowserGuideModal } from './components/BrowserGuideModal';
 import { CloudWorkspace } from './components/CloudWorkspace';
 import { CopilotShell } from './components/CopilotShell';
-import { DesignEditor } from './components/DesignEditor';
 import { OrbitSpeedDial } from './components/orbit/OrbitSpeedDial';
 import { FilesWorkspace } from './components/FilesWorkspace';
 import { GoogleProfileBadge } from './components/GoogleProfileBadge';
 import { HistoryVault } from './components/HistoryVault';
 import { HomeDashboard } from './components/HomeDashboard';
 import { ImageWorkspace } from './components/ImageWorkspace';
+import { DocumentReaderWorkspace } from './components/DocumentReaderWorkspace';
+import { MediaPlayerWorkspace } from './components/MediaPlayerWorkspace';
 import { OfficeSuiteHub } from './components/OfficeSuiteHub';
-import { DocumentEditor } from './components/DocumentEditor';
-import { SpreadsheetEditor } from './components/SpreadsheetEditor';
-import { PresentationEditor } from './components/PresentationEditor';
 import { OrbiDocLogo } from './components/OrbiDocLogo';
 import { PdfOcrWorkspace } from './components/PdfOcrWorkspace';
 import { convertFile } from './lib/fileConversion';
@@ -71,7 +67,8 @@ type DeferredInstallPrompt = Event & {
 const PROJECTS_KEY = 'orbidoc_projects_v1';
 const HISTORY_KEY = 'orbidoc_history_v2';
 const THEME_KEY = 'orbit_theme_v1';
-const PROJECT_VIEWS = new Set<AppView>(['word', 'excel', 'powerpoint', 'canva', 'extract']);
+const LEGACY_DOCUMENT_TYPES = new Set<SavedProject['type']>(['word', 'excel', 'powerpoint', 'canva']);
+const PROJECT_VIEWS = new Set<AppView>(['reader', 'extract']);
 
 // Compatibility adapter for editor props. The frontend never chooses an internal
 // model: src/api/chat.ts ignores these values and Nexus AI routes server-side.
@@ -80,14 +77,16 @@ const NEXUS_ENGINE = Object.freeze({ provider: 'openrouter', model: 'openrouter/
 const WORKSPACE_NAV: NavItem[] = [
   { id: 'home', label: 'Orbispace', icon: Home },
   { id: 'projects', label: 'Meus arquivos', icon: Folder },
-  { id: 'office', label: 'OrbiDoc', icon: Apps },
+  { id: 'office', label: 'Ferramentas', icon: Apps },
   { id: 'cloud', label: 'Nuvem', icon: Cloud },
 ];
 
 const TOOL_NAV: NavItem[] = [
   { id: 'chat', label: 'Nexus AI', icon: Sparkles },
-  { id: 'image', label: 'Imagens', icon: Photo },
-  { id: 'audio', label: 'Áudio', icon: Headphones },
+  { id: 'reader', label: 'Leitor de documentos', icon: FileText },
+  { id: 'player', label: 'Reprodutor', icon: Headphones },
+  { id: 'image', label: 'Estúdio de imagens', icon: Photo },
+  { id: 'audio', label: 'Áudio & voz', icon: Headphones },
   { id: 'analytics', label: 'Dashboards', icon: ChartBar },
   { id: 'history', label: 'Histórico', icon: History },
 ];
@@ -95,12 +94,12 @@ const TOOL_NAV: NavItem[] = [
 const ALL_NAV = [...WORKSPACE_NAV, ...TOOL_NAV];
 
 const CREATE_ITEMS: CreateItem[] = [
-  { id: 'word', label: 'Documento', icon: FileText, iconClass: 'text-blue-600' },
-  { id: 'excel', label: 'Planilha', icon: FileSpreadsheet, iconClass: 'text-emerald-600' },
-  { id: 'powerpoint', label: 'Apresentação', icon: Presentation, iconClass: 'text-orange-600' },
-  { id: 'canva', label: 'Design', icon: Apps, iconClass: 'text-fuchsia-600' },
-  { id: 'extract', label: 'PDF & OCR', icon: FileCheck, iconClass: 'text-cyan-600' },
+  { id: 'reader', label: 'Leitor', icon: FileText, iconClass: 'text-blue-600' },
+  { id: 'player', label: 'Reprodutor', icon: Headphones, iconClass: 'text-violet-600' },
+  { id: 'image', label: 'Gerar imagem', icon: Photo, iconClass: 'text-amber-600' },
+  { id: 'extract', label: 'PDF & OCR', icon: FileCheck, iconClass: 'text-emerald-600' },
 ];
+
 
 const VIEW_LABELS: Record<string, string> = {
   home: 'Orbispace',
@@ -110,15 +109,17 @@ const VIEW_LABELS: Record<string, string> = {
   chat: 'Nexus AI',
   ai: 'Nexus AI',
   compare: 'Nexus AI',
-  image: 'Imagens',
-  audio: 'Áudio',
+  image: 'Estúdio de imagens',
+  reader: 'Leitor de documentos',
+  player: 'Orbit Player',
+  audio: 'Áudio & voz',
   analytics: 'Dashboards',
   history: 'Histórico',
-  word: 'OrbiDoc · Documentos',
-  excel: 'OrbiDoc · Planilhas',
-  powerpoint: 'OrbiDoc · Apresentações',
-  canva: 'Design',
-  extract: 'OrbiDoc · PDF & OCR',
+  word: 'Leitor de documentos',
+  excel: 'Leitor de documentos',
+  powerpoint: 'Leitor de documentos',
+  canva: 'Leitor de documentos',
+  extract: 'PDF & OCR',
 };
 
 const readArray = <T,>(key: string): T[] => {
@@ -164,10 +165,7 @@ const createProjectRecord = (type: SavedProject['type'], content?: unknown): Sav
   };
 };
 
-const projectTypeForTab = (tab: AppView): SavedProject['type'] | null => {
-  if (tab === 'word' || tab === 'excel' || tab === 'powerpoint' || tab === 'canva' || tab === 'extract') return tab;
-  return null;
-};
+const projectTypeForTab = (tab: AppView): SavedProject['type'] | null => tab === 'extract' ? 'extract' : null;
 
 const readProjectOcrItems = (project: SavedProject | null | undefined): OcrItem[] => {
   if (project?.type !== 'extract') return [];
@@ -361,7 +359,7 @@ export default function AppV5() {
     setOcrItems(type === 'extract' ? readProjectOcrItems(project) : []);
     setProjects((current) => [project, ...current]);
     setActiveProject(project);
-    setView(type as AppView);
+    setView(LEGACY_DOCUMENT_TYPES.has(type) ? 'reader' : type as AppView);
     setMenuOpen(false);
     setFabOpen(false);
     return project;
@@ -370,7 +368,7 @@ export default function AppV5() {
   const openProject = useCallback((project: SavedProject) => {
     setOcrItems(readProjectOcrItems(project));
     setActiveProject(project);
-    setView(project.type === 'chat' ? 'chat' : project.type as AppView);
+    setView(project.type === 'chat' ? 'chat' : LEGACY_DOCUMENT_TYPES.has(project.type) ? 'reader' : project.type as AppView);
     setMenuOpen(false);
   }, []);
 
@@ -381,13 +379,15 @@ export default function AppV5() {
   }, []);
 
   const launchTool = useCallback((target: TabType) => {
-    const type = projectTypeForTab(target);
-    if (type) {
-      createProject(type);
+    if (target === 'word' || target === 'excel' || target === 'powerpoint' || target === 'canva') {
+      navigate('reader');
+      showNotification('O Orbit está em modo de leitura para documentos. Abra um arquivo existente no leitor.', 'success');
       return;
     }
+    const type = projectTypeForTab(target);
+    if (type) { createProject(type); return; }
     navigate(target);
-  }, [createProject, navigate]);
+  }, [createProject, navigate, showNotification]);
 
   const saveHistory = useCallback((item: Omit<HistoryItem, 'id' | 'timestamp'>) => {
     const record: HistoryItem = { ...item, id: crypto.randomUUID(), timestamp: new Date().toISOString() };
@@ -407,8 +407,8 @@ export default function AppV5() {
     setOcrItems([]);
     setProjects((current) => [updated, ...current]);
     setActiveProject(updated);
-    setView('word');
-    showNotification('Conteúdo aberto no OrbiDoc · Documentos.', 'success');
+    setView('reader');
+    showNotification('Conteúdo aberto no leitor do Orbit em modo somente leitura.', 'success');
   }, [showNotification]);
 
   const exportOcrText = useCallback(async (text: string, name: string, format: 'txt' | 'docx' | 'pdf' | 'html') => {
@@ -474,7 +474,7 @@ export default function AppV5() {
   }, [search]);
 
   const activeTitle = PROJECT_VIEWS.has(view) && activeProject ? activeProject.title : VIEW_LABELS[view] || 'Orbit';
-  const editorView = PROJECT_VIEWS.has(view) || view === 'chat' || view === 'ai' || view === 'compare' || view === 'image';
+  const editorView = PROJECT_VIEWS.has(view) || view === 'chat' || view === 'ai' || view === 'compare' || view === 'image' || view === 'reader' || view === 'player';
   const currentProject = (type: SavedProject['type']) => activeProject?.type === type ? activeProject : null;
 
   const renderProjectMissing = (type: SavedProject['type']) => (
@@ -488,25 +488,14 @@ export default function AppV5() {
 
   const renderContent = () => {
     if (view === 'home') return <HomeDashboard onNavigate={launchTool} onNewChat={() => navigate('chat')} recentHistory={history.slice(0, 6)} recentProjects={recentProjects} recentChats={[] as ChatSession[]} googleUser={googleUser} microsoftUser={microsoftUser} activeEngineLabel="Nexus AI" />;
-    if (view === 'projects') return <FilesWorkspace projects={projects} onOpenProject={openProject} onCreateProject={createProject} onUpdateProject={persistProject} onDeleteProject={deleteProject} showNotification={showNotification} />;
+    if (view === 'projects') return <FilesWorkspace projects={projects} onOpenProject={openProject} onCreateProject={(type) => { if (type === 'extract') createProject('extract'); else { navigate('reader'); showNotification('A criação de documentos foi desativada. Abra um arquivo para leitura.', 'success'); } }} onUpdateProject={persistProject} onDeleteProject={deleteProject} showNotification={showNotification} />;
     if (view === 'office') return <OfficeSuiteHub onSelectTool={launchTool} onOpenTool={launchTool} msUser={microsoftUser} setMsUser={setMicrosoftUser} showNotification={showNotification} />;
     if (view === 'cloud') return <CloudWorkspace googleUser={googleUser} microsoftUser={microsoftUser} showNotification={showNotification} />;
-    if (view === 'word') {
-      const project = currentProject('word');
-      return project ? <DocumentEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('word');
+    if (view === 'reader' || view === 'word' || view === 'excel' || view === 'powerpoint' || view === 'canva') {
+      const project = activeProject && LEGACY_DOCUMENT_TYPES.has(activeProject.type) ? activeProject : null;
+      return <DocumentReaderWorkspace key={project?.id || 'orbit-reader'} initialProject={project} showNotification={showNotification} />;
     }
-    if (view === 'excel') {
-      const project = currentProject('excel');
-      return project ? <SpreadsheetEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('excel');
-    }
-    if (view === 'powerpoint') {
-      const project = currentProject('powerpoint');
-      return project ? <PresentationEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('powerpoint');
-    }
-    if (view === 'canva') {
-      const project = currentProject('canva');
-      return project ? <DesignEditor key={project.id} project={project} onProjectChange={persistProject} onSaveToHistory={saveHistory} showNotification={showNotification} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} /> : renderProjectMissing('canva');
-    }
+    if (view === 'player') return <MediaPlayerWorkspace showNotification={showNotification} />;
     if (view === 'extract') {
       const project = currentProject('extract');
       if (!project) return renderProjectMissing('extract');
@@ -529,8 +518,8 @@ export default function AppV5() {
         />
       );
     }
-    if (view === 'chat' || view === 'ai' || view === 'compare') return <CopilotShell title="Nexus AI" contextTitle="Contexto do trabalho" contextItems={activeProject ? [{ id: activeProject.id, label: activeProject.title, detail: `Arquivo ${activeProject.type} · atualizado ${new Date(activeProject.updatedAt).toLocaleString('pt-BR')}` }] : []} onContextSelect={() => {}}><AiWorkspace onSendToWord={sendToDocument} showNotification={showNotification} /></CopilotShell>;
-    if (view === 'image') return <ImageWorkspace onSaveToHistory={saveHistory} showNotification={showNotification} onSendToCanva={() => createProject('canva')} />;
+    if (view === 'chat' || view === 'ai' || view === 'compare') return <CopilotShell title="Nexus AI" onNavigate={navigate}><AiWorkspace onSendToWord={sendToDocument} onNavigate={navigate} showNotification={showNotification} /></CopilotShell>;
+    if (view === 'image') return <ImageWorkspace onSaveToHistory={saveHistory} showNotification={showNotification} />;
     if (view === 'audio') return <AudioWorkspace showNotification={showNotification} onSaveToHistory={saveHistory} onSendToWord={sendToDocument} engineProvider={NEXUS_ENGINE.provider} engineModel={NEXUS_ENGINE.model} />;
     if (view === 'analytics') return <AnalyticsWorkspace projects={projects} history={history} />;
     if (view === 'history') {
@@ -573,7 +562,7 @@ export default function AppV5() {
           <SidebarSection label="Ferramentas" items={TOOL_NAV} view={view} onNavigate={navigate} />
 
           <div>
-            <div className="px-3 mb-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">OrbiDoc · Criar</div>
+            <div className="px-3 mb-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Espaços</div>
             <div className="space-y-1">
               {CREATE_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -607,12 +596,14 @@ export default function AppV5() {
             </button>
           ) : null}
 
-          <div className="min-w-0">
-            <div className="text-sm font-medium truncate">{activeTitle}</div>
-            <div className="text-[10px] text-slate-400 hidden sm:block">
-              {PROJECT_VIEWS.has(view) && activeProject ? 'Salvo localmente neste dispositivo' : online ? 'Online' : 'Modo offline'}
+          {view === 'chat' || view === 'ai' || view === 'compare' ? null : (
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate">{activeTitle}</div>
+              <div className="text-[10px] text-slate-400 hidden sm:block">
+                {PROJECT_VIEWS.has(view) && activeProject ? 'Salvo localmente neste dispositivo' : online ? 'Online' : 'Modo offline'}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="relative ml-auto hidden md:block w-[260px] xl:w-[380px]">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
@@ -659,8 +650,8 @@ export default function AppV5() {
           <GoogleProfileBadge user={googleUser} onUserChange={setGoogleUser} msUser={microsoftUser} setMsUser={setMicrosoftUser} onNotification={showNotification} />
         </header>
 
-        <main className={`flex-1 min-h-0 overflow-y-auto ${view === 'chat' || view === 'ai' || view === 'compare' ? 'p-2 sm:p-3' : 'p-3 sm:p-5 lg:p-6'} pb-24 lg:pb-6`}>
-          <div className={view === 'chat' || view === 'ai' || view === 'compare' ? '' : 'max-w-[1520px] mx-auto'}>{renderContent()}</div>
+        <main className={`flex-1 min-h-0 overflow-y-auto ${view === 'chat' || view === 'ai' || view === 'compare' ? 'flex flex-col p-2 sm:p-3' : 'p-3 sm:p-5 lg:p-6'} pb-24 lg:pb-6`}>
+          <div className={view === 'chat' || view === 'ai' || view === 'compare' ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'max-w-[1520px] mx-auto'}>{renderContent()}</div>
         </main>
 
         <BottomNavBar

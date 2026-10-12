@@ -9,29 +9,29 @@ test('every declared extension AI tool has a typed definition and declared permi
 
 test('dispatcher rejects unknown tools and malformed arguments before calling handlers', async () => {
   let called = false;
-  const context = { grantedPermissions: ['document.write.active'], handlers: { 'writer.insertText': () => { called = true; } } };
+  const context = { grantedPermissions: ['context.read.selected'], handlers: { 'nexus.summarize': () => { called = true; } } };
   assert.equal((await dispatchOrbitAiTool('unknown.tool', {}, context)).code, 'UNKNOWN_TOOL');
-  assert.equal((await dispatchOrbitAiTool('writer.insertText', { text: '' }, context)).code, 'INVALID_ARGUMENTS');
+  assert.equal((await dispatchOrbitAiTool('nexus.summarize', { text: '' }, context)).code, 'INVALID_ARGUMENTS');
   assert.equal(called, false);
 });
 
 test('dispatcher enforces explicit per-call permissions and requires a host handler', async () => {
-  const denied = await dispatchOrbitAiTool('writer.insertText', { text: 'Olá' }, { grantedPermissions: [], handlers: { 'writer.insertText': () => 'ok' } });
+  const denied = await dispatchOrbitAiTool('nexus.summarize', { text: 'Olá' }, { grantedPermissions: [], handlers: { 'nexus.summarize': () => 'ok' } });
   assert.equal(denied.code, 'PERMISSION_DENIED');
 
-  const missing = await dispatchOrbitAiTool('writer.insertText', { text: 'Olá' }, { grantedPermissions: ['document.write.active'], handlers: {} });
+  const missing = await dispatchOrbitAiTool('nexus.summarize', { text: 'Olá' }, { grantedPermissions: ['context.read.selected'], handlers: {} });
   assert.equal(missing.code, 'HANDLER_UNAVAILABLE');
 });
 
 test('dispatcher calls only a registered, validated handler and returns its result', async () => {
   let received: unknown;
   const result = await dispatchOrbitAiTool(
-    'sheets.setRangeValues',
-    { sheetId: 'sheet_1', range: 'A1:B2', values: [[1, 2], ['a', true]] },
-    { grantedPermissions: ['workbook.write.active'], handlers: { 'sheets.setRangeValues': (input) => { received = input; return { changed: true }; } } },
+    'nexus.summarize',
+    { text: 'Resumo explícito.' },
+    { grantedPermissions: ['context.read.selected'], handlers: { 'nexus.summarize': (input) => { received = input; return { summary: 'Resumo' }; } } },
   );
   assert.equal(result.ok, true);
-  assert.deepEqual(received, { sheetId: 'sheet_1', range: 'A1:B2', values: [[1, 2], ['a', true]] });
+  assert.deepEqual(received, { text: 'Resumo explícito.' });
 });
 
 test('dispatcher handles cancellation and does not leak internal handler errors', async () => {

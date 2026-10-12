@@ -63,6 +63,7 @@ jobs:
           node scripts/configure-native-android-network.mjs
           node scripts/fix-native-android-generated-java.mjs
           node scripts/configure-native-android-window.mjs
+          node scripts/configure-native-vlc-player.mjs
       - run: |
           rm -rf native-assets && mkdir -p native-assets
           cp public/brand/orbidoc-app-icon.svg native-assets/logo.svg

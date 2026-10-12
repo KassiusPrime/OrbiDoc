@@ -17,11 +17,18 @@ test('each extension declares capabilities, permissions, and a version', () => {
   }
 });
 
-test('Nexus is the core and Writer, Sheets, and Slides expose their native editor engines', () => {
+test('Nexus remains the core; reader, player, and image studio are first-class modules', () => {
   assert.equal(getOrbitExtension('orbit.nexus')?.stage, 'core');
-  assert.equal(getOrbitExtension('orbit.writer')?.stage, 'native-existing');
-  assert.equal(getOrbitExtension('orbit.sheets')?.stage, 'native-existing');
-  assert.equal(getOrbitExtension('orbit.slides')?.stage, 'native-existing');
+  assert.equal(getOrbitExtension('orbit.reader')?.route, 'reader');
+  assert.equal(getOrbitExtension('orbit.player')?.route, 'player');
+  assert.equal(getOrbitExtension('orbit.image')?.route, 'image');
+  assert.equal(getOrbitExtension('orbit.writer')?.stage, 'legacy-adapter');
+  assert.equal(getOrbitExtension('orbit.sheets')?.stage, 'legacy-adapter');
+  assert.equal(getOrbitExtension('orbit.slides')?.stage, 'legacy-adapter');
+  assert.equal(getOrbitExtension('orbit.design')?.stage, 'legacy-adapter');
+  for (const id of ['orbit.writer', 'orbit.sheets', 'orbit.slides', 'orbit.design'] as const) {
+    assert.deepEqual(getOrbitExtension(id)?.aiTools, [], `${id} must not expose mutating tools in reader-only mode`);
+  }
   assert.equal(getOrbitExtensionForRoute('canva')?.id, 'orbit.design');
 });
 

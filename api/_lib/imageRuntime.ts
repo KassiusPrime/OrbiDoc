@@ -1,5 +1,17 @@
 const OPENROUTER_IMAGE_URL = 'https://openrouter.ai/api/v1/images';
+const OPENROUTER_IMAGE_MODELS_URL = 'https://openrouter.ai/api/v1/images/models';
 const IMAGE_TIMEOUT_MS = 65_000;
+const IMAGE_CATALOG_TIMEOUT_MS = 10_000;
+const IMAGE_CATALOG_TTL_MS = 60_000;
+
+type ImageModelCatalogItem = {
+  id: string;
+  name?: string;
+  architecture?: { input_modalities?: unknown; output_modalities?: unknown };
+  supported_parameters?: Record<string, unknown>;
+};
+type ImageModelCatalog = { data?: unknown };
+let imageCatalogCache: { data: ImageModelCatalogItem[]; expiresAt: number } | null = null;
 
 type ImageBody = {
   prompt?: unknown;
@@ -27,34 +39,178 @@ function normalizeImageUrl(value: unknown): string {
   return /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value) ? value : '';
 }
 
-function configuredFreeImageModel(): string {
-  const model = String(process.env.OPENROUTER_FREE_IMAGE_MODEL ?? '').trim();
-  if (!model) {
-    throw new Error('Geração de imagem remota está desativada: em 2026-09-01 o OpenRouter não oferece modelo de imagem :free. O Orbit não fará fallback para um modelo pago.');
+type ImageModelConfig = { model: string; paid: boolean };
+
+function configuredImageModel(): ImageModelConfig {
+  const freeModel = String(process.env.OPENROUTER_FREE_IMAGE_MODEL ?? '').trim();
+  const paidModel = String(process.env.OPENROUTER_IMAGE_MODEL ?? '').trim();
+
+  if (paidModel) {
+    throw new Error(`PAID_IMAGE_MODEL_FORBIDDEN: Orbit's AI policy permits only image models explicitly configured with a :free variant; ${paidModel} will not be called.`);
   }
-  if (!model.endsWith(':free')) {
-    throw new Error(`PAID_IMAGE_MODEL_FORBIDDEN: ${model}`);
+  if (!freeModel) {
+    throw new Error('Geração de imagem remota não está configurada: o catálogo atual não fornece um modelo de imagem gratuito selecionado. O Orbit não fará fallback para um modelo pago.');
   }
+  if (!freeModel.endsWith(':free')) {
+    throw new Error('OPENROUTER_FREE_IMAGE_MODEL precisa terminar em :free.');
+  }
+  return { model: freeModel, paid: false };
+}
+export function getImageGenerationStatus() {
+  const freeModel = String(process.env.OPENROUTER_FREE_IMAGE_MODEL ?? '').trim();
+  const paidModel = String(process.env.OPENROUTER_IMAGE_MODEL ?? '').trim();
+  const hasKey = Boolean(String(process.env.OPENROUTER_API_KEY ?? '').trim());
+  const validFreeModel = freeModel.length > 0 && freeModel.endsWith(':free');
+  const enabled = validFreeModel && hasKey && !paidModel;
+  const message = paidModel
+    ? 'Modelo potencialmente pago detectado, mas bloqueado pela política de IA gratuita do Orbit.'
+    : !hasKey
+      ? 'A geração remota aguarda a configuração segura da chave OpenRouter no servidor.'
+      : freeModel && !validFreeModel
+        ? 'A configuração do modelo gratuito é inválida; o nome precisa terminar em :free.'
+        : 'Geração remota não configurada: não há um modelo de imagem gratuito selecionado e validado.';
+  return {
+    enabled,
+    mode: enabled ? 'free' as const : 'unavailable' as const,
+    billingEnabled: false,
+    modelConfigured: Boolean(freeModel),
+    enhancementAvailable: Boolean(String(process.env.REAL_ESRGAN_ENDPOINT ?? '').trim()),
+    editAvailable: false,
+    model: enabled ? freeModel : undefined,
+    message,
+  };
+}
+function parameterValues(model: ImageModelCatalogItem, name: string): string[] {
+  const parameter = model.supported_parameters?.[name];
+  if (!parameter || typeof parameter !== 'object' || !Array.isArray((parameter as { values?: unknown }).values)) return [];
+  return ((parameter as { values: unknown[] }).values).filter((value): value is string => typeof value === 'string');
+}
+
+function hasParameter(model: ImageModelCatalogItem, name: string): boolean {
+  return Boolean(model.supported_parameters && Object.prototype.hasOwnProperty.call(model.supported_parameters, name));
+}
+
+async function fetchImageCatalog(): Promise<ImageModelCatalogItem[]> {
+  if (imageCatalogCache && imageCatalogCache.expiresAt > Date.now()) return imageCatalogCache.data;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), IMAGE_CATALOG_TIMEOUT_MS);
+  try {
+    const response = await fetch(OPENROUTER_IMAGE_MODELS_URL, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey()}`, Accept: 'application/json' },
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Não foi possível consultar o catálogo OpenRouter (HTTP ${response.status}).`);
+    const root = await response.json() as ImageModelCatalog;
+    if (!Array.isArray(root.data)) throw new Error('O catálogo de imagens retornou uma resposta inválida.');
+    const data = root.data.filter((item): item is ImageModelCatalogItem =>
+      Boolean(item && typeof item === 'object' && typeof (item as ImageModelCatalogItem).id === 'string'),
+    );
+    imageCatalogCache = { data, expiresAt: Date.now() + IMAGE_CATALOG_TTL_MS };
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function configuredCatalogModel(modelId: string): Promise<ImageModelCatalogItem> {
+  const catalog = await fetchImageCatalog();
+  const model = catalog.find((item) => item.id === modelId);
+  if (!model) throw new Error(`O modelo de imagem “${modelId}” não aparece no catálogo atual do OpenRouter. Revise OPENROUTER_IMAGE_MODEL.`);
+  const architecture = model.architecture;
+  const outputs = architecture && Array.isArray(architecture.output_modalities) ? architecture.output_modalities : [];
+  if (!outputs.includes('image')) throw new Error('O modelo selecionado não declara saída de imagem no catálogo OpenRouter.');
   return model;
 }
 
+export async function getVerifiedImageGenerationStatus() {
+  const status = getImageGenerationStatus();
+  if (!status.enabled || !status.model) return status;
+  try {
+    const model = await configuredCatalogModel(status.model);
+    const editAvailable = hasParameter(model, 'input_references');
+    const isProcessorConfigured = Boolean(String(process.env.REAL_ESRGAN_ENDPOINT ?? '').trim());
+    return {
+      ...status,
+      enabled: true,
+      editAvailable,
+      enhancementAvailable: isProcessorConfigured || editAvailable,
+      message: `Modelo gratuito validado no catálogo (${status.model}).`,
+    };
+  } catch (error) {
+    const reason = compactError(error);
+    return {
+      ...status,
+      enabled: false,
+      mode: 'unavailable' as const,
+      billingEnabled: false,
+      editAvailable: false,
+      enhancementAvailable: Boolean(String(process.env.REAL_ESRGAN_ENDPOINT ?? '').trim()),
+      message: reason || 'Não foi possível validar o modelo de imagem no catálogo.',
+    };
+  }
+}
 function apiKey(): string {
   const key = String(process.env.OPENROUTER_API_KEY ?? '').trim();
   if (!key) throw new Error('OPENROUTER_API_KEY não está configurada.');
   return key;
 }
 
-function requestedSize(body: ImageBody): string | undefined {
+function ratioValue(value: string): number | null {
+  const match = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(value);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  return width > 0 && height > 0 ? width / height : null;
+}
+
+function requestedImageParameters(body: ImageBody, model: ImageModelCatalogItem): Record<string, unknown> {
+  const parameters: Record<string, unknown> = {};
   const width = Number(body.width);
   const height = Number(body.height);
-  if (!Number.isFinite(width) || !Number.isFinite(height)) return undefined;
-  const safeWidth = Math.max(256, Math.min(4096, Math.round(width)));
-  const safeHeight = Math.max(256, Math.min(4096, Math.round(height)));
-  return `${safeWidth}x${safeHeight}`;
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    const targetRatio = width / height;
+    const ratios = parameterValues(model, 'aspect_ratio').filter((value) => value === 'auto' || ratioValue(value) !== null);
+    if (ratios.length) {
+      const nearest = ratios
+        .map((value) => ({ value, ratio: ratioValue(value) }))
+        .filter((entry): entry is { value: string; ratio: number } => entry.ratio !== null)
+        .sort((a, b) => Math.abs(Math.log(a.ratio / targetRatio)) - Math.abs(Math.log(b.ratio / targetRatio)))[0];
+      parameters.aspect_ratio = nearest?.value || (ratios.includes('auto') ? 'auto' : ratios[0]);
+    }
+
+    const requestedLongEdge = Math.max(width, height);
+    const requestedTier = requestedLongEdge >= 3000 ? '4K' : requestedLongEdge >= 1400 ? '2K' : '1K';
+    const resolutionValues = parameterValues(model, 'resolution');
+    if (resolutionValues.length) {
+      const desiredIndex = ['512', '1K', '2K', '4K'].indexOf(requestedTier);
+      parameters.resolution = resolutionValues
+        .slice()
+        .sort((a, b) => Math.abs(['512', '1K', '2K', '4K'].indexOf(a) - desiredIndex) - Math.abs(['512', '1K', '2K', '4K'].indexOf(b) - desiredIndex))[0];
+    }
+  }
+
+  const requestedQuality = body.quality === 'high' || body.quality === 'pro'
+    ? 'high'
+    : body.quality === 'fast' ? 'low' : 'auto';
+  const qualities = parameterValues(model, 'quality');
+  if (qualities.length) {
+    parameters.quality = qualities.includes(requestedQuality) ? requestedQuality : qualities.includes('auto') ? 'auto' : qualities[0];
+  }
+  if (hasParameter(model, 'output_format')) {
+    const formats = parameterValues(model, 'output_format');
+    parameters.output_format = formats.includes('png') ? 'png' : formats[0] || 'png';
+  }
+  return parameters;
 }
 
 async function openRouterImageRequest(prompt: string, body: ImageBody, inputImage?: string) {
-  const model = configuredFreeImageModel();
+  const { model } = configuredImageModel();
+  const modelInfo = await configuredCatalogModel(model);
+  if (inputImage && !hasParameter(modelInfo, 'input_references')) {
+    throw new Error('O modelo está disponível para geração, mas não aceita edição por imagem de referência. Escolha um modelo com input_references no catálogo.');
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
   try {
@@ -62,15 +218,11 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
       model,
       prompt,
       n: 1,
-      output_format: 'png',
-      quality: body.quality === 'high' ? 'high' : 'auto',
+      ...requestedImageParameters(body, modelInfo),
       provider: {
         allow_fallbacks: false,
-        max_price: { prompt: 0, completion: 0 },
       },
     };
-    const size = requestedSize(body);
-    if (size) payload.size = size;
     if (inputImage) {
       payload.input_references = [{ type: 'image_url', image_url: { url: inputImage } }];
     }
@@ -103,7 +255,9 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
       imageUrl: `data:${mediaType};base64,${base64}`,
       provider: 'openrouter',
       assistant: 'Nexus AI',
+      model,
       freeOnly: true,
+      billingMode: 'free',
       fallbackUsed: false,
     };
   } finally {
@@ -140,7 +294,8 @@ async function configuredRealEsrgan(image: string, scale: 2 | 4, profile: string
       imageUrl,
       provider: 'local-media-processor',
       model: profile === 'anime' ? 'RealESRGAN_x4plus_anime_6B' : 'realesr-general-x4v3',
-      freeOnly: true,
+      billingMode: 'configured-processor',
+      warning: 'Processador remoto configurado pelo administrador. A política de custos desse serviço depende da implantação.',
       fallbackUsed: false,
     };
   } finally {

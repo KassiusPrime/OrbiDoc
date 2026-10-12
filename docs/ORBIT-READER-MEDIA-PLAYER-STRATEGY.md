@@ -1,0 +1,72 @@
+# Orbit Reader, Player & Image Studio — Direção de produto
+
+## Decisão de produto
+
+O Orbit não deve ser uma cópia gratuita de suítes comerciais. O núcleo de valor é **um espaço de trabalho com IA que entende o conteúdo local do usuário e o encaminha para a ferramenta correta**, com privacidade, transparência e operações que o usuário consegue revisar.
+
+Nesta direção, os apps Office editáveis deixam de ser destinos principais. Arquivos DOCX, XLSX, PPTX e projetos antigos continuam reconhecíveis, mas as rotas antigas os abrem no leitor e não alteram o conteúdo original.
+
+## Espaços principais
+
+- **Orbit Reader:** PDF, documentos Office, planilhas, apresentações, EPUB, texto, Markdown, imagens e entradas de arquivos ZIP quando o leitor consegue interpretar o formato. Busca dentro do conteúdo extraído. Não executa scripts embutidos nem salva por cima do original.
+- **PDF & OCR:** captura/extração explícita; saída é um novo arquivo ou conteúdo enviado ao Nexus, nunca uma mutação silenciosa do arquivo de origem.
+- **Orbit Player:** arquivos locais e URLs diretas, playlist por sessão, busca, retomada local, velocidade, atalhos, gestos móveis, legendas VTT/SRT, Picture-in-Picture quando disponível, tela cheia, loop A–B e informações da mídia.
+- **Orbit Image Studio:** geração/edição remota apenas com modelo configurado; aprimoramento local continua disponível. O status da integração fica visível. Geração remota não configurada é um estado explícito, não um botão que finge sucesso.
+- **Nexus AI:** interface única para perguntas, pesquisa, explicação e transformação de conteúdo. O usuário escolhe explicitamente o arquivo/contexto que quer compartilhar. Não deve usar seletores DOM para acionar navegação, nem apresentar cabeçalhos duplicados ou dizer “gratuito” quando o custo de uma operação depende da configuração.
+
+## VLC: engenharia reversa permitida e limites de implementação
+
+A análise de comportamento se baseia em documentação pública e no comportamento observável do VLC Android, sem copiar código, ícones, nome, marca ou design proprietários.
+
+Padrões úteis a reproduzir numa interface original:
+- controle de reprodução, posição, volume, velocidade e saltos de tempo;
+- fila/playlist, anterior/próximo, aleatório e repetição;
+- retomada de posição e atalhos;
+- carregamento de legendas externas, loop A–B e Picture-in-Picture;
+- gestos horizontais de busca e gestos laterais para brilho visual/volume;
+- informações do arquivo e mensagens claras de erro;
+- suporte para URLs diretas com limites documentados.
+
+### Limite técnico importante
+
+A implementação web usa os elementos de mídia do navegador/WebView. Ela **não** herda todos os codecs, contêineres, protocolos e recursos do VLC/LibVLC. Página de streaming, URL que exige autenticação, playlists HLS/DASH e formatos como MKV/AVI dependem do WebView, da origem e do codec disponível. A interface informa esse limite em vez de garantir suporte universal.
+
+O app Android passa a oferecer um caminho nativo independente que liga a playlist ao artefato oficial `org.videolan.android:libvlc-all:3.6.1`. O usuário pode selecionar múltiplos arquivos locais pelo seletor de documentos ou enviar uma URL HTTPS direta para uma atividade própria do Orbit. Essa atividade oferece seek, velocidade, repetição, aleatório e mudança de faixa. O player web continua sendo o fallback no navegador/PWA. A integração é gerada pelo script `scripts/configure-native-vlc-player.mjs` durante a construção Capacitor, pois o diretório `android/` é gerado no CI.
+
+O uso é da biblioteca publicada, não do aplicativo VLC. A UI, navegação, playlists e os fluxos de segurança são implementação original do Orbit. Atributos de tela, controles e texto não devem reutilizar marca, assets ou código do aplicativo VLC. Antes de publicar uma versão Android, valide o AAR exato, inclua as licenças e avisos pertinentes e cumpra as obrigações aplicáveis da LGPL; veja `THIRD_PARTY_NOTICES.md`.
+
+Ainda existe diferença entre suporte de codec e validação: o projeto precisa compilar o APK com LibVLC e testar MP4/H.264/AAC, MKV, WebM e streams HLS em aparelhos reais. Não declarar paridade universal antes desses testes; uma build de sucesso comprova compilação, não todos os codecs nem o comportamento em segundo plano.
+
+## Geração de imagens: estado honesto e proteção contra custos
+
+O Orbit não presume que exista um modelo de imagem gratuito. O endpoint verifica o catálogo OpenRouter no servidor, valida que a saída é imagem e só habilita um modelo explicitamente definido como gratuito (`:free`). A chave nunca é enviada ao cliente.
+
+- `OPENROUTER_FREE_IMAGE_MODEL`: deve apontar a um modelo real compatível com `:free`; a consulta de catálogo valida disponibilidade e parâmetros antes da geração.
+- `OPENROUTER_API_KEY` permanece apenas no servidor; não usar o prefixo `VITE_`.
+- Modelos pagos são bloqueados deliberadamente pelo runtime e por `scripts/verify-nexus-ai.mjs`. Não há fallback pago nem ativação oculta.
+- O aprimoramento local funciona no dispositivo sem enviar o arquivo. A restauração remota só fica disponível se um serviço real for configurado e requer confirmação explícita.
+
+**Limite conhecido:** o catálogo público consultado para esta mudança não oferece um modelo de geração de imagens `:free`. Por isso, se nenhum modelo gratuito elegível estiver configurado, o estúdio informa que a geração remota está indisponível e não simula sucesso. Permitir um modelo pago exigiria mudar explicitamente a política zero-cost do projeto com autorização do usuário; esta mudança não o faz.
+
+A interface não pode afirmar que está gerando quando faltam endpoint, modelo ou chave. A geração remota só deve ser declarada operacional depois de um teste no ambiente real com resposta válida e política de custo verificada.
+## Flaticon / Uicons
+
+Os ícones Uicons são fornecidos pela stylesheet oficial do Flaticon. Manter a atribuição visível “Uicons by Flaticon” conforme os termos de uso aplicáveis e não distribuir arquivos de fontes de ícones como se fossem ativos próprios. O layout mantém componentes de fallback com ícones Tabler para evitar áreas vazias caso o CDN do Flaticon não carregue.
+
+## Plano de validação
+
+1. bun run lint, bun run typecheck, bun run test e bun run build.
+2. Validar rotas antigas do Word/Excel/PowerPoint abrindo o leitor e não os editores.
+3. Usar fixtures DOCX/XLSX/PPTX/EPUB/PDF para confirmar conteúdo visualizado e origem preservada.
+4. Testar player com fixtures MP4/H.264/AAC e WebM/VP8/VP9, uma legenda VTT e SRT, playlist, retomar reprodução, PiP e URL remota autorizada; testes não devem alegar suporte a codecs que não foram testados.
+5. Testar o estúdio de imagens com credenciais e modelo reais em ambiente controlado; confirmar falha fechada sem configuração e confirmação antes de qualquer chamada faturável.
+6. Construir e instalar APK Android em dispositivo real. A montagem do APK não é teste suficiente da reprodução de cada codec.
+
+
+## Referências públicas para verificação
+
+- VLC Android, repositório oficial e licenciamento: https://github.com/videolan/vlc-android
+- Documentação do VLC para Android: https://docs.videolan.me/vlc-android/
+- OpenRouter, catálogo de modelos de geração de imagens: https://openrouter.ai/docs/api/api-reference/images/list-image-models
+- OpenRouter, geração de imagens e preços: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+- Flaticon Uicons, biblioteca e instruções de atribuição: https://www.flaticon.com/uicons

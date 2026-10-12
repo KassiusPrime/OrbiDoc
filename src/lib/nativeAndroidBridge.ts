@@ -5,6 +5,9 @@ type NativePlugin = {
   downloadUrl: (options: { url: string; fileName?: string; mimeType?: string }) => Promise<{ uri?: string; fileName?: string }>;
   openUri: (options: { uri: string; mimeType?: string }) => Promise<void>;
   consumeOpenFile: () => Promise<{ available?: boolean; name?: string; mimeType?: string; dataBase64?: string }>;
+  supportsNativeVlcPlayer?: () => Promise<{ available?: boolean; engine?: string; version?: string }>;
+  playWithLibVlc?: (options: { url: string; title?: string }) => Promise<void>;
+  pickAndPlayWithLibVlc?: () => Promise<void>;
 };
 
 type LaunchFile = { name: string; getFile: () => Promise<File> };
@@ -109,4 +112,35 @@ export function installNativeFileOpenBridge(): boolean {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) drain(); });
   window.setInterval(drain, 1800);
   return true;
+}
+
+
+export interface NativeVlcPlayerStatus {
+  available: boolean;
+  engine?: string;
+  version?: string;
+}
+
+export async function getNativeVlcPlayerStatus(): Promise<NativeVlcPlayerStatus> {
+  const bridge = plugin();
+  if (!bridge?.supportsNativeVlcPlayer) return { available: false };
+  try {
+    const result = await bridge.supportsNativeVlcPlayer();
+    return { available: result.available === true, engine: result.engine, version: result.version };
+  } catch {
+    return { available: false };
+  }
+}
+
+export async function openNativeVlcStream(url: string, title?: string): Promise<void> {
+  const bridge = plugin();
+  if (!bridge?.playWithLibVlc) throw new Error('O motor nativo LibVLC não está instalado nesta versão do app.');
+  if (!url.startsWith('https://')) throw new Error('O reprodutor nativo aceita URLs HTTPS diretas. Para outros links, use o reprodutor web.');
+  await bridge.playWithLibVlc({ url, title });
+}
+
+export async function pickNativeVlcMedia(): Promise<void> {
+  const bridge = plugin();
+  if (!bridge?.pickAndPlayWithLibVlc) throw new Error('A seleção de mídia nativa não está disponível nesta versão do app.');
+  await bridge.pickAndPlayWithLibVlc();
 }
