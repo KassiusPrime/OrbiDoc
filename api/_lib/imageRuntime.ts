@@ -68,7 +68,7 @@ export function getImageGenerationStatus() {
           : freeModel && !validFreeModel
             ? 'A configuração do modelo gratuito é inválida; o nome precisa terminar em :free.'
             : 'A geração remota ainda não está pronta. Configure um modelo de imagem real no servidor.';
-  return { enabled, mode, billingEnabled: enabledPaid, modelConfigured: Boolean(freeModel || paidModel), message };
+  return { enabled, mode, billingEnabled: enabledPaid, modelConfigured: Boolean(freeModel || paidModel), enhancementAvailable: Boolean(String(process.env.REAL_ESRGAN_ENDPOINT ?? '').trim()) || enabled, message };
 }
 
 function apiKey(): string {
