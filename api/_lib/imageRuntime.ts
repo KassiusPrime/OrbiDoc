@@ -44,54 +44,42 @@ type ImageModelConfig = { model: string; paid: boolean };
 function configuredImageModel(): ImageModelConfig {
   const freeModel = String(process.env.OPENROUTER_FREE_IMAGE_MODEL ?? '').trim();
   const paidModel = String(process.env.OPENROUTER_IMAGE_MODEL ?? '').trim();
-  const billingEnabled = String(process.env.ORBIT_IMAGE_BILLING_ENABLED ?? '').trim().toLowerCase() === 'true';
 
-  if (freeModel) {
-    if (!freeModel.endsWith(':free')) throw new Error('OPENROUTER_FREE_IMAGE_MODEL precisa terminar em :free.');
-    return { model: freeModel, paid: false };
+  if (paidModel) {
+    throw new Error(`PAID_IMAGE_MODEL_FORBIDDEN: Orbit's AI policy permits only image models explicitly configured with a :free variant; ${paidModel} will not be called.`);
   }
-  if (billingEnabled) {
-    if (!paidModel) throw new Error('ORBIT_IMAGE_BILLING_ENABLED está ativo, mas OPENROUTER_IMAGE_MODEL não foi configurado.');
-    if (paidModel.endsWith(':free')) return { model: paidModel, paid: false };
-    return { model: paidModel, paid: true };
+  if (!freeModel) {
+    throw new Error('Geração de imagem remota não está configurada: o catálogo atual não fornece um modelo de imagem gratuito selecionado. O Orbit não fará fallback para um modelo pago.');
   }
-  if (paidModel) throw new Error('O modelo de imagem configurado pode gerar custos. Defina ORBIT_IMAGE_BILLING_ENABLED=true no servidor somente após autorizar o uso faturável.');
-  throw new Error('Geração de imagem remota ainda não está configurada. Não há modelo gratuito selecionado; configure um OPENROUTER_FREE_IMAGE_MODEL real ou autorize explicitamente um modelo pago no servidor.');
+  if (!freeModel.endsWith(':free')) {
+    throw new Error('OPENROUTER_FREE_IMAGE_MODEL precisa terminar em :free.');
+  }
+  return { model: freeModel, paid: false };
 }
-
 export function getImageGenerationStatus() {
   const freeModel = String(process.env.OPENROUTER_FREE_IMAGE_MODEL ?? '').trim();
   const paidModel = String(process.env.OPENROUTER_IMAGE_MODEL ?? '').trim();
-  const billingEnabled = String(process.env.ORBIT_IMAGE_BILLING_ENABLED ?? '').trim().toLowerCase() === 'true';
   const hasKey = Boolean(String(process.env.OPENROUTER_API_KEY ?? '').trim());
   const validFreeModel = freeModel.length > 0 && freeModel.endsWith(':free');
-  const enabledFree = validFreeModel && hasKey;
-  const enabledPaid = !freeModel && Boolean(paidModel) && billingEnabled && hasKey;
-  const enabled = enabledFree || enabledPaid;
-  const mode = enabledFree ? 'free' : enabledPaid ? 'paid' : 'unavailable';
-  const message = enabledFree
-    ? 'Modelo de imagem definido como gratuito; a disponibilidade será verificada no catálogo do provedor.'
-    : enabledPaid
-      ? 'Modelo faturável configurado no servidor. Cada solicitação remota pode gerar custos.'
-      : !hasKey
-        ? 'A geração remota aguarda a configuração segura da chave OpenRouter no servidor.'
-        : paidModel && !billingEnabled
-          ? 'Há um modelo potencialmente pago configurado, mas o faturamento está bloqueado por segurança.'
-          : freeModel && !validFreeModel
-            ? 'A configuração do modelo gratuito é inválida; o nome precisa terminar em :free.'
-            : 'Geração remota não configurada. Escolha um modelo de imagem real ou continue com aprimoramento local.';
+  const enabled = validFreeModel && hasKey && !paidModel;
+  const message = paidModel
+    ? 'Modelo potencialmente pago detectado, mas bloqueado pela política de IA gratuita do Orbit.'
+    : !hasKey
+      ? 'A geração remota aguarda a configuração segura da chave OpenRouter no servidor.'
+      : freeModel && !validFreeModel
+        ? 'A configuração do modelo gratuito é inválida; o nome precisa terminar em :free.'
+        : 'Geração remota não configurada: não há um modelo de imagem gratuito selecionado e validado.';
   return {
     enabled,
-    mode,
-    billingEnabled: enabledPaid,
-    modelConfigured: Boolean(freeModel || paidModel),
+    mode: enabled ? 'free' as const : 'unavailable' as const,
+    billingEnabled: false,
+    modelConfigured: Boolean(freeModel),
     enhancementAvailable: Boolean(String(process.env.REAL_ESRGAN_ENDPOINT ?? '').trim()),
     editAvailable: false,
-    model: enabled ? (enabledFree ? freeModel : paidModel) : undefined,
+    model: enabled ? freeModel : undefined,
     message,
   };
 }
-
 function parameterValues(model: ImageModelCatalogItem, name: string): string[] {
   const parameter = model.supported_parameters?.[name];
   if (!parameter || typeof parameter !== 'object' || !Array.isArray((parameter as { values?: unknown }).values)) return [];
@@ -220,7 +208,7 @@ function requestedImageParameters(body: ImageBody, model: ImageModelCatalogItem)
 }
 
 async function openRouterImageRequest(prompt: string, body: ImageBody, inputImage?: string) {
-  const { model, paid } = configuredImageModel();
+  const { model } = configuredImageModel();
   const modelInfo = await configuredCatalogModel(model);
   if (inputImage && !hasParameter(modelInfo, 'input_references')) {
     throw new Error('O modelo está disponível para geração, mas não aceita edição por imagem de referência. Escolha um modelo com input_references no catálogo.');
@@ -258,7 +246,7 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
     const root = JSON.parse(text) as OpenRouterImageResponse;
     const rawCost = root.usage?.cost;
     const cost = typeof rawCost === 'number' ? rawCost : typeof rawCost === 'string' ? Number(rawCost) : 0;
-    if (!paid && Number.isFinite(cost) && cost > 0) {
+    if (Number.isFinite(cost) && cost > 0) {
       throw new Error(`ZERO_COST_INVARIANT_VIOLATED: OpenRouter reportou custo ${cost} para ${model}.`);
     }
     const first = root.data?.[0];
@@ -270,9 +258,8 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
       provider: 'openrouter',
       assistant: 'Nexus AI',
       model,
-      freeOnly: !paid,
-      billingMode: paid ? 'paid' : 'free',
-      warning: paid ? 'Este processamento foi roteado para um modelo faturável autorizado no servidor.' : undefined,
+      freeOnly: true,
+      billingMode: 'free',
       fallbackUsed: false,
     };
   } finally {
