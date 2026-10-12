@@ -48,8 +48,9 @@ const formatTime = (value: number) => {
 };
 const extensionOf = (name: string) => name.split(/[?#]/)[0].split('.').pop()?.toLowerCase() || '';
 const getMediaType = (name: string, type = '') => {
-  if (type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac|opus|aiff|wma)$/i.test(name)) return 'audio';
-  if (type.startsWith('video/') || /\.(mp4|webm|m4v|mov|mkv|avi|mpeg|mpg|m3u8|mpd|ogv|3gp)$/i.test(name)) return 'video';
+  const cleanName = name.split(/[?#]/)[0];
+  if (type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac|opus|aiff|wma)$/i.test(cleanName)) return 'audio';
+  if (type.startsWith('video/') || /\.(mp4|webm|m4v|mov|mkv|avi|mpeg|mpg|m3u8|mpd|ogv|3gp)$/i.test(cleanName)) return 'video';
   return 'unknown';
 };
 const isVideoItem = (item: PlaylistItem | null) => Boolean(item && getMediaType(item.url, item.type) !== 'audio');
@@ -377,7 +378,6 @@ export const MediaPlayerWorkspace: React.FC<{
     media.loop = loop && !ab;
   };
 
-  const isVideo = isVideoItem(active);
   const mediaElement = active ? (
     isVideo ? (
       <video
