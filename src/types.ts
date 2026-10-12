@@ -2,6 +2,8 @@ export type TabType =
   | 'home'
   | 'projects'
   | 'office'
+  | 'reader'
+  | 'player'
   | 'extract' 
   | 'word' 
   | 'excel' 
