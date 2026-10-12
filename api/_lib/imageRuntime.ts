@@ -190,7 +190,7 @@ function requestedImageParameters(body: ImageBody, model: ImageModelCatalogItem)
       const nearest = ratios
         .map((value) => ({ value, ratio: ratioValue(value) }))
         .filter((entry): entry is { value: string; ratio: number } => entry.ratio !== null)
-        .sort((a, b) => Math.abs(Math.log(a.ratio / targetRatio)) - Math.abs(Math.log(b.ratio / targetRatio))[0];
+        .sort((a, b) => Math.abs(Math.log(a.ratio / targetRatio)) - Math.abs(Math.log(b.ratio / targetRatio)))[0];
       parameters.aspect_ratio = nearest?.value || (ratios.includes('auto') ? 'auto' : ratios[0]);
     }
 
