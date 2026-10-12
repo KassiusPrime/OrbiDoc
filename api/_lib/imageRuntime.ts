@@ -136,9 +136,7 @@ export async function getVerifiedImageGenerationStatus() {
       enabled: true,
       editAvailable,
       enhancementAvailable: isProcessorConfigured || editAvailable,
-      message: status.mode === 'paid'
-        ? `Modelo de imagem validado no catálogo (${status.model}). Geração remota é faturável e exige confirmação.`
-        : `Modelo gratuito validado no catálogo (${status.model}).`,
+      message: `Modelo gratuito validado no catálogo (${status.model}).`,
     };
   } catch (error) {
     const reason = compactError(error);
