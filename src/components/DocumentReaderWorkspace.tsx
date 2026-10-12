@@ -2,13 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconBook2,
   IconChevronLeft,
-  IconChevronRight,
   IconFile,
   IconFileTypePdf,
   IconFolderOpen,
   IconSearch,
-  IconTextScan2,
-  IconTrash,
   IconUpload,
   IconX,
 } from '@tabler/icons-react';
