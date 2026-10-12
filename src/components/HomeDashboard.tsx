@@ -3,11 +3,10 @@ import {
   IconArrowRight as ArrowRight,
   IconCloud as Cloud,
   IconFileCheck as FileCheck,
-  IconFileSpreadsheet as FileSpreadsheet,
   IconFileText as FileText,
   IconFolder as Folder,
-  IconPalette as Palette,
-  IconPresentation as Presentation,
+  IconHeadphones as Headphones,
+  IconPhoto as Photo,
   IconSparkles as Sparkles,
   IconWifiOff as WifiOff,
 } from '@tabler/icons-react';
@@ -58,12 +57,11 @@ const projectIcon = (type: SavedProject['type']) => {
   return FileText;
 };
 
-const quickCreate: Array<{ type: SavedProject['type']; label: string; tab: TabType; icon: React.ComponentType<{ className?: string }>; tone: string }> = [
-  { type: 'word', label: 'Documento', tab: 'word', icon: FileText, tone: 'text-blue-400' },
-  { type: 'excel', label: 'Planilha', tab: 'excel', icon: FileSpreadsheet, tone: 'text-emerald-400' },
-  { type: 'powerpoint', label: 'Apresentação', tab: 'powerpoint', icon: Presentation, tone: 'text-orange-400' },
-  { type: 'canva', label: 'Design', tab: 'canva', icon: Palette, tone: 'text-fuchsia-400' },
-  { type: 'extract', label: 'PDF & OCR', tab: 'extract', icon: FileCheck, tone: 'text-cyan-400' },
+const quickCreate: Array<{ id: string; label: string; tab: TabType; icon: React.ComponentType<{ className?: string }>; tone: string }> = [
+  { id: 'reader', label: 'Leitor', tab: 'reader', icon: FileText, tone: 'text-blue-400' },
+  { id: 'player', label: 'Reprodutor', tab: 'player', icon: Headphones, tone: 'text-violet-400' },
+  { id: 'image', label: 'Estúdio de imagens', tab: 'image', icon: Photo, tone: 'text-amber-400' },
+  { id: 'extract', label: 'PDF & OCR', tab: 'extract', icon: FileCheck, tone: 'text-cyan-400' },
 ];
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({ onNavigate, onNewChat, recentProjects, googleUser, microsoftUser }) => {
@@ -80,7 +78,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({ onNavigate, onNewC
         <div className="min-w-0">
           <div className="text-[11px] font-medium text-slate-500">Orbispace</div>
           <h1 className="mt-1 text-xl font-medium tracking-tight">{firstName ? `Olá, ${firstName}` : 'Seu Orbispace'}</h1>
-          <p className="mt-1 text-xs text-slate-500">Continue de onde parou ou crie um arquivo.</p>
+          <p className="mt-1 text-xs text-slate-500">Retome um projeto, leia documentos ou abra uma ferramenta.</p>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => onNavigate('office')} className="h-9 rounded-lg border border-slate-700/60 px-3 text-xs font-medium text-slate-300 hover:bg-white/5">
@@ -103,7 +101,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({ onNavigate, onNewC
             <h3 className="mt-3 text-sm font-medium">Nenhum arquivo</h3>
             <p className="mt-1 text-xs text-slate-500">Crie um documento para começar.</p>
             <button type="button" onClick={() => onNavigate('word')} className="mt-4 h-9 rounded-lg bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-500">
-              Criar documento
+              Abrir leitor
             </button>
           </div>
         ) : (
@@ -127,12 +125,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({ onNavigate, onNewC
       </section>
 
       <section>
-        <div className="mb-3 text-sm font-medium">Criar rápido</div>
+        <div className="mb-3 text-sm font-medium">Acessos rápidos</div>
         <div className="flex max-w-full flex-wrap gap-2">
           {quickCreate.map((item) => {
             const Icon = item.icon;
             return (
-              <button key={item.type} type="button" onClick={() => onNavigate(item.tab)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700/60 px-3 text-[11px] font-medium text-slate-400 transition-colors duration-150 hover:border-slate-600 hover:bg-white/5 hover:text-slate-200">
+              <button key={item.id} type="button" onClick={() => onNavigate(item.tab)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700/60 px-3 text-[11px] font-medium text-slate-400 transition-colors duration-150 hover:border-slate-600 hover:bg-white/5 hover:text-slate-200">
                 <Icon className={`h-3.5 w-3.5 ${item.tone}`} />{item.label}
               </button>
             );
