@@ -110,6 +110,7 @@ export const DocumentReaderWorkspace: React.FC<DocumentReaderWorkspaceProps> = (
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
+  const documentsRef = useRef<ReaderDocument[]>([]);
   const [documents, setDocuments] = useState<ReaderDocument[]>([]);
   const [activeId, setActiveId] = useState('');
   const [query, setQuery] = useState('');
@@ -142,7 +143,8 @@ export const DocumentReaderWorkspace: React.FC<DocumentReaderWorkspaceProps> = (
     setArchivePreview(null);
   }, [initialProject?.id, initialProject?.updatedAt]);
 
-  useEffect(() => () => documents.forEach((document) => releaseReaderDocument(document)), []);
+  useEffect(() => { documentsRef.current = documents; }, [documents]);
+  useEffect(() => () => documentsRef.current.forEach((document) => releaseReaderDocument(document)), []);
 
   const openFiles = useCallback(async (files: FileList | File[]) => {
     const selected = Array.from(files);
