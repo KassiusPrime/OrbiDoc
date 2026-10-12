@@ -49,9 +49,6 @@ const relativeDate = (iso?: string): string => {
 };
 
 const projectIcon = (type: SavedProject['type']) => {
-  if (type === 'excel') return FileSpreadsheet;
-  if (type === 'powerpoint') return Presentation;
-  if (type === 'canva') return Palette;
   if (type === 'extract') return FileCheck;
   if (type === 'chat') return Sparkles;
   return FileText;
