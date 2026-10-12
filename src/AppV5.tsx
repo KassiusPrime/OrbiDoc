@@ -596,12 +596,14 @@ export default function AppV5() {
             </button>
           ) : null}
 
-          <div className="min-w-0">
-            <div className="text-sm font-medium truncate">{activeTitle}</div>
-            <div className="text-[10px] text-slate-400 hidden sm:block">
-              {PROJECT_VIEWS.has(view) && activeProject ? 'Salvo localmente neste dispositivo' : online ? 'Online' : 'Modo offline'}
+          {view === 'chat' || view === 'ai' || view === 'compare' ? null : (
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate">{activeTitle}</div>
+              <div className="text-[10px] text-slate-400 hidden sm:block">
+                {PROJECT_VIEWS.has(view) && activeProject ? 'Salvo localmente neste dispositivo' : online ? 'Online' : 'Modo offline'}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="relative ml-auto hidden md:block w-[260px] xl:w-[380px]">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
