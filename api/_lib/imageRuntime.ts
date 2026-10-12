@@ -27,15 +27,48 @@ function normalizeImageUrl(value: unknown): string {
   return /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value) ? value : '';
 }
 
-function configuredFreeImageModel(): string {
-  const model = String(process.env.OPENROUTER_FREE_IMAGE_MODEL ?? '').trim();
-  if (!model) {
-    throw new Error('Geração de imagem remota está desativada: em 2026-09-01 o OpenRouter não oferece modelo de imagem :free. O Orbit não fará fallback para um modelo pago.');
+type ImageModelConfig = { model: string; paid: boolean };
+
+function configuredImageModel(): ImageModelConfig {
+  const freeModel = String(process.env.OPENROUTER_FREE_IMAGE_MODEL ?? '').trim();
+  const paidModel = String(process.env.OPENROUTER_IMAGE_MODEL ?? '').trim();
+  const billingEnabled = String(process.env.ORBIT_IMAGE_BILLING_ENABLED ?? '').trim().toLowerCase() === 'true';
+
+  if (freeModel) {
+    if (!freeModel.endsWith(':free')) throw new Error('OPENROUTER_FREE_IMAGE_MODEL precisa terminar em :free.');
+    return { model: freeModel, paid: false };
   }
-  if (!model.endsWith(':free')) {
-    throw new Error(`PAID_IMAGE_MODEL_FORBIDDEN: ${model}`);
+  if (billingEnabled) {
+    if (!paidModel) throw new Error('ORBIT_IMAGE_BILLING_ENABLED está ativo, mas OPENROUTER_IMAGE_MODEL não foi configurado.');
+    if (paidModel.endsWith(':free')) return { model: paidModel, paid: false };
+    return { model: paidModel, paid: true };
   }
-  return model;
+  if (paidModel) throw new Error('O modelo de imagem configurado pode gerar custos. Defina ORBIT_IMAGE_BILLING_ENABLED=true no servidor somente após autorizar o uso faturável.');
+  throw new Error('Geração de imagem remota ainda não está configurada. Não há modelo gratuito selecionado; configure um OPENROUTER_FREE_IMAGE_MODEL real ou autorize explicitamente um modelo pago no servidor.');
+}
+
+export function getImageGenerationStatus() {
+  const freeModel = String(process.env.OPENROUTER_FREE_IMAGE_MODEL ?? '').trim();
+  const paidModel = String(process.env.OPENROUTER_IMAGE_MODEL ?? '').trim();
+  const billingEnabled = String(process.env.ORBIT_IMAGE_BILLING_ENABLED ?? '').trim().toLowerCase() === 'true';
+  const hasKey = Boolean(String(process.env.OPENROUTER_API_KEY ?? '').trim());
+  const validFreeModel = freeModel.length > 0 && freeModel.endsWith(':free');
+  const enabledFree = validFreeModel && hasKey;
+  const enabledPaid = !freeModel && Boolean(paidModel) && billingEnabled && hasKey;
+  const enabled = enabledFree || enabledPaid;
+  const mode = enabledFree ? 'free' : enabledPaid ? 'paid' : 'unavailable';
+  const message = enabledFree
+    ? 'Geração remota configurada no modo gratuito.'
+    : enabledPaid
+      ? 'Geração remota configurada com modelo faturável. Cada solicitação pode gerar custos.'
+      : !hasKey
+        ? 'A geração remota aguarda a configuração segura da chave OpenRouter no servidor.'
+        : paidModel && !billingEnabled
+          ? 'Há um modelo potencialmente pago configurado, mas o faturamento está bloqueado por segurança.'
+          : freeModel && !validFreeModel
+            ? 'A configuração do modelo gratuito é inválida; o nome precisa terminar em :free.'
+            : 'A geração remota ainda não está pronta. Configure um modelo de imagem real no servidor.';
+  return { enabled, mode, billingEnabled: enabledPaid, modelConfigured: Boolean(freeModel || paidModel), message };
 }
 
 function apiKey(): string {
@@ -54,7 +87,7 @@ function requestedSize(body: ImageBody): string | undefined {
 }
 
 async function openRouterImageRequest(prompt: string, body: ImageBody, inputImage?: string) {
-  const model = configuredFreeImageModel();
+  const { model, paid } = configuredImageModel();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
   try {
@@ -63,10 +96,10 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
       prompt,
       n: 1,
       output_format: 'png',
-      quality: body.quality === 'high' ? 'high' : 'auto',
+      quality: body.quality === 'high' || body.quality === 'pro' ? 'high' : body.quality === 'fast' ? 'low' : 'auto',
       provider: {
         allow_fallbacks: false,
-        max_price: { prompt: 0, completion: 0 },
+        ...(paid ? {} : { max_price: { prompt: 0, completion: 0 } }),
       },
     };
     const size = requestedSize(body);
@@ -92,7 +125,7 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
     const root = JSON.parse(text) as OpenRouterImageResponse;
     const rawCost = root.usage?.cost;
     const cost = typeof rawCost === 'number' ? rawCost : typeof rawCost === 'string' ? Number(rawCost) : 0;
-    if (Number.isFinite(cost) && cost > 0) {
+    if (!paid && Number.isFinite(cost) && cost > 0) {
       throw new Error(`ZERO_COST_INVARIANT_VIOLATED: OpenRouter reportou custo ${cost} para ${model}.`);
     }
     const first = root.data?.[0];
@@ -103,7 +136,10 @@ async function openRouterImageRequest(prompt: string, body: ImageBody, inputImag
       imageUrl: `data:${mediaType};base64,${base64}`,
       provider: 'openrouter',
       assistant: 'Nexus AI',
-      freeOnly: true,
+      model,
+      freeOnly: !paid,
+      billingMode: paid ? 'paid' : 'free',
+      warning: paid ? 'Este processamento foi roteado para um modelo faturável autorizado no servidor.' : undefined,
       fallbackUsed: false,
     };
   } finally {
@@ -140,6 +176,7 @@ async function configuredRealEsrgan(image: string, scale: 2 | 4, profile: string
       imageUrl,
       provider: 'local-media-processor',
       model: profile === 'anime' ? 'RealESRGAN_x4plus_anime_6B' : 'realesr-general-x4v3',
+      billingMode: 'local-processor',
       freeOnly: true,
       fallbackUsed: false,
     };
