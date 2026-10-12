@@ -21,7 +21,7 @@ interface ImageWorkspaceProps {
 type Mode = 'generate' | 'edit' | 'enhance';
 type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif';
 type GenerationQuality = 'fast' | 'pro';
-type ImageGenerationStatus = { enabled: boolean; mode: 'free' | 'paid' | 'unavailable'; billingEnabled: boolean; modelConfigured: boolean; enhancementAvailable?: boolean; message: string };
+type ImageGenerationStatus = { enabled: boolean; mode: 'free' | 'paid' | 'unavailable'; billingEnabled: boolean; modelConfigured: boolean; editAvailable?: boolean; enhancementAvailable?: boolean; message: string };
 type EnhancementMode = 'local' | 'ai';
 
 type ImageResult = {
@@ -176,6 +176,7 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
 
   const runGenerationOrEdit = async () => {
     if (!imageStatus.enabled) { showNotification(imageStatus.message, 'error'); return; }
+    if (mode === 'edit' && !imageStatus.editAvailable) { showNotification('O modelo configurado não oferece edição por imagem de referência. Escolha um modelo que declare input_references no catálogo.', 'error'); return; }
     if (imageStatus.mode === 'paid' && !window.confirm('Este pedido usa um modelo de imagem faturável. A cobrança depende do modelo e das dimensões. Continuar?')) return;
     if (!prompt.trim()) {
       showNotification('Descreva a imagem ou a edição desejada.', 'error');
@@ -309,7 +310,7 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
               <div><div className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-2">Escala</div><div className="grid grid-cols-2 gap-2">{([2,4] as EnhancementScale[]).map((scale) => <button key={scale} onClick={() => setEnhancementScale(scale)} className={`h-9 rounded-xl border text-[10px] font-black ${enhancementScale === scale ? 'border-indigo-500 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/30' : 'border-slate-200 dark:border-slate-700'}`}>{scale}×</button>)}</div></div>
             </>}
 
-            <button onClick={mode === 'enhance' ? runEnhancement : runGenerationOrEdit} disabled={busy || (mode !== 'enhance' && statusLoaded && !imageStatus.enabled) || (mode === 'enhance' && enhancementMode === 'ai' && statusLoaded && !imageStatus.enhancementAvailable)} className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-black inline-flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" />{busy ? 'Processando…' : mode === 'generate' ? 'Gerar imagem' : mode === 'edit' ? 'Aplicar edição' : 'Aprimorar imagem'}</button>
+            <button onClick={mode === 'enhance' ? runEnhancement : runGenerationOrEdit} disabled={busy || (mode === 'generate' && statusLoaded && !imageStatus.enabled) || (mode === 'edit' && statusLoaded && (!imageStatus.enabled || !imageStatus.editAvailable)) || (mode === 'enhance' && enhancementMode === 'ai' && statusLoaded && !imageStatus.enhancementAvailable)} className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-black inline-flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" />{busy ? 'Processando…' : mode === 'generate' ? 'Gerar imagem' : mode === 'edit' ? 'Aplicar edição' : 'Aprimorar imagem'}</button>
           </section>
         </aside>
 
