@@ -20,7 +20,7 @@ export const CopilotShell: React.FC<CopilotShellProps> = ({
         <div className="h-12 shrink-0 border-b border-white/6 flex items-center px-3 sm:px-4 gap-2.5">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-500/10 text-violet-500"><i className="fi fi-rr-sparkles text-base" aria-hidden="true" /><IconSparkles className="hidden h-4 w-4" /></span>
           <span className="min-w-0 truncate text-sm font-semibold">{title}</span>
-          <span className="ml-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">Nexus</span>
+          <span className="ml-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">Texto gratuito · chat</span>
           <div className="ml-auto flex items-center gap-1">
           <button type="button" onClick={() => onNavigate?.('history')} className="hidden h-8 w-8 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:inline-flex items-center justify-center" aria-label="Abrir histórico" title="Histórico"><IconHistory className="h-4 w-4" /></button>
           <button type="button" onClick={() => window.dispatchEvent(new Event('orbidoc:nexus-new-chat'))} className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-semibold inline-flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800" aria-label="Novo chat">
