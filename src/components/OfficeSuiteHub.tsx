@@ -33,7 +33,7 @@ const MODULES: Array<{
     detail: 'Leia PDF, DOCX, XLSX, PPTX, EPUB, Markdown, texto, imagens e arquivos ZIP sem editar o original.',
     eyebrow: 'DOCUMENTOS',
     icon: IconBook2,
-    glyph: 'fi-rr-book-open',
+    glyph: 'fi-rr-book',
     tone: 'from-sky-500/15 to-blue-500/5 border-sky-500/20',
     size: 'md:col-span-2',
   },
@@ -93,9 +93,9 @@ export const OfficeSuiteHub: React.FC<OfficeSuiteHubProps> = ({ onOpenTool, onSe
           return (
             <button key={module.id} type="button" onClick={() => open(module.id)} className={`group relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${module.tone} ${module.size}`}>
               <div className="flex items-start gap-4">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/40 bg-white/70 text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-100">
+                <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/40 bg-white/70 text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-100">
                   <i className={`fi ${module.glyph} text-xl`} aria-hidden="true" />
-                  <Icon className="hidden h-5 w-5" aria-hidden="true" />
+                  <Icon className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded bg-white/80 p-0.5 dark:bg-slate-900/80" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[9px] font-semibold tracking-[0.16em] text-slate-500 dark:text-slate-400">{module.eyebrow}</span>
