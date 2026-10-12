@@ -7,5 +7,5 @@ export default async function handler(req: any, res: any) {
     return;
   }
   res.setHeader('Cache-Control', 'no-store');
-  res.status(200).json(getImageGenerationStatus());
+  res.status(200).json(await getVerifiedImageGenerationStatus());
 }
