@@ -33,8 +33,14 @@ test('Orbit Player exposes its playback controls while clearly documenting brows
   for (const feature of ['setABPoint', 'requestPictureInPicture', 'SPEEDS', 'orbit_player_resume_v1', 'orbit_player_recent_streams_v2', 'onTouchStart', 'onDoubleClick', 'Subtitles', 'setActionHandler']) {
     assert.ok(player.includes(feature), `missing player feature: ${feature}`);
   }
-  assert.match(player, /não incorpora LibVLC/);
+  assert.match(player, /LibVLC/);
   assert.match(player, /codec|codecs/);
+  const nativeBridge = read('src/lib/nativeAndroidBridge.ts');
+  const nativeScript = read('scripts/configure-native-vlc-player.mjs');
+  const nativeActivity = read('native/android/OrbitVlcPlayerActivity.java');
+  assert.match(nativeBridge, /playWithLibVlc/);
+  assert.match(nativeScript, /libvlc-all:3\.6\.1/);
+  assert.match(nativeActivity, /MediaPlayer\.Event\.EndReached/);
 });
 
 test('image generation stays unavailable without configured credentials and validates the live model catalog', () => {
