@@ -6,12 +6,14 @@ const read = (path: string) => readFileSync(path, 'utf8');
 
 test('Nexus AI exposes one assistant without provider or model selectors', () => {
   const workspace = read('src/components/AiWorkspace.tsx');
+  const shell = read('src/components/CopilotShell.tsx');
   const client = read('src/api/chat.ts');
   const runtime = read('api/_lib/nexusFreeAI.ts');
 
-  assert.match(workspace, /Nexus AI/);
-  assert.match(workspace, /Nexus AI/);
-  assert.match(workspace, /Gratuito/);
+  assert.match(shell, /Nexus/);
+  assert.match(shell, /Novo chat/);
+  assert.match(shell, /Texto.*gratuito|Gratuito/);
+  assert.doesNotMatch(workspace, /<AIChatHeader/);
   assert.match(workspace, /Como posso ajudar\?/);
   assert.match(workspace, /Virtuoso/);
   assert.match(workspace, /Pesquisar|Web/);
