@@ -1,25 +1,43 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { editImageResilient, generateImageResilient } from '../api/_lib/imageRuntime';
+import {
+  editImageResilient,
+  generateImageResilient,
+  getImageGenerationStatus,
+} from '../api/_lib/imageRuntime';
 
 const originalFetch = globalThis.fetch;
-const originalKey = process.env.OPENROUTER_API_KEY;
-const originalImageModel = process.env.OPENROUTER_FREE_IMAGE_MODEL;
+const originalEnv = {
+  key: process.env.OPENROUTER_API_KEY,
+  freeModel: process.env.OPENROUTER_FREE_IMAGE_MODEL,
+  paidModel: process.env.OPENROUTER_IMAGE_MODEL,
+  billing: process.env.ORBIT_IMAGE_BILLING_ENABLED,
+  esrgan: process.env.REAL_ESRGAN_ENDPOINT,
+};
 
 beforeEach(() => {
   process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
   delete process.env.OPENROUTER_FREE_IMAGE_MODEL;
+  delete process.env.OPENROUTER_IMAGE_MODEL;
+  delete process.env.ORBIT_IMAGE_BILLING_ENABLED;
+  delete process.env.REAL_ESRGAN_ENDPOINT;
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  if (originalKey === undefined) delete process.env.OPENROUTER_API_KEY;
-  else process.env.OPENROUTER_API_KEY = originalKey;
-  if (originalImageModel === undefined) delete process.env.OPENROUTER_FREE_IMAGE_MODEL;
-  else process.env.OPENROUTER_FREE_IMAGE_MODEL = originalImageModel;
+  if (originalEnv.key === undefined) delete process.env.OPENROUTER_API_KEY;
+  else process.env.OPENROUTER_API_KEY = originalEnv.key;
+  if (originalEnv.freeModel === undefined) delete process.env.OPENROUTER_FREE_IMAGE_MODEL;
+  else process.env.OPENROUTER_FREE_IMAGE_MODEL = originalEnv.freeModel;
+  if (originalEnv.paidModel === undefined) delete process.env.OPENROUTER_IMAGE_MODEL;
+  else process.env.OPENROUTER_IMAGE_MODEL = originalEnv.paidModel;
+  if (originalEnv.billing === undefined) delete process.env.ORBIT_IMAGE_BILLING_ENABLED;
+  else process.env.ORBIT_IMAGE_BILLING_ENABLED = originalEnv.billing;
+  if (originalEnv.esrgan === undefined) delete process.env.REAL_ESRGAN_ENDPOINT;
+  else process.env.REAL_ESRGAN_ENDPOINT = originalEnv.esrgan;
 });
 
-function installOpenRouterImageMock(expectedBase64: string, cost = 0) {
+function installOpenRouterImageMock(expectedBase64: string, cost = 0, expectedModel = 'example/free-image:free', paid = false) {
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     assert.equal(String(input), 'https://openrouter.ai/api/v1/images');
     assert.equal(init?.method, 'POST');
@@ -27,13 +45,18 @@ function installOpenRouterImageMock(expectedBase64: string, cost = 0) {
     assert.equal(headers.get('authorization'), 'Bearer test-openrouter-key');
     const body = JSON.parse(String(init?.body || '{}')) as {
       model?: string;
+      quality?: string;
       provider?: { allow_fallbacks?: boolean; max_price?: { prompt?: number; completion?: number } };
       input_references?: unknown[];
     };
-    assert.equal(body.model, 'example/free-image:free');
+    assert.equal(body.model, expectedModel);
     assert.equal(body.provider?.allow_fallbacks, false);
-    assert.equal(body.provider?.max_price?.prompt, 0);
-    assert.equal(body.provider?.max_price?.completion, 0);
+    if (paid) {
+      assert.equal(body.provider?.max_price, undefined);
+    } else {
+      assert.equal(body.provider?.max_price?.prompt, 0);
+      assert.equal(body.provider?.max_price?.completion, 0);
+    }
 
     return new Response(JSON.stringify({
       data: [{ b64_json: expectedBase64, media_type: 'image/png' }],
@@ -46,30 +69,32 @@ function installOpenRouterImageMock(expectedBase64: string, cost = 0) {
 }
 
 describe('Orbit image runtime', () => {
-  test('fails closed when no free image model is configured', async () => {
+  test('fails closed when no model is configured', async () => {
     await assert.rejects(
       generateImageResilient({ prompt: 'Crie uma órbita minimalista.' }),
-      /não oferece modelo de imagem :free|não fará fallback para um modelo pago/,
+      /Geração de imagem remota ainda não está configurada/,
     );
   });
 
-  test('rejects a configured paid image model before any network call', async () => {
+  test('rejects a malformed free model instead of treating it as paid', async () => {
     process.env.OPENROUTER_FREE_IMAGE_MODEL = 'vendor/paid-image';
     await assert.rejects(
       generateImageResilient({ prompt: 'Crie uma órbita minimalista.' }),
-      /PAID_IMAGE_MODEL_FORBIDDEN/,
+      /precisa terminar em :free/,
     );
   });
 
-  test('uses OpenRouter only when an explicit :free image route is configured', async () => {
+  test('uses OpenRouter only when a verified free model route is configured', async () => {
     process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
     installOpenRouterImageMock('ZmFrZS1pbWFnZQ==');
 
-    const result = await generateImageResilient({ prompt: 'Crie uma órbita minimalista.' });
+    const result = await generateImageResilient({ prompt: 'Crie uma órbita minimalista.', quality: 'pro' });
     assert.equal(result.imageUrl, 'data:image/png;base64,ZmFrZS1pbWFnZQ==');
     assert.equal(result.provider, 'openrouter');
     assert.equal(result.assistant, 'Nexus AI');
     assert.equal(result.freeOnly, true);
+    assert.equal(result.billingMode, 'free');
+    assert.equal(getImageGenerationStatus().mode, 'free');
   });
 
   test('image edits use the same free-only OpenRouter guardrails', async () => {
@@ -83,9 +108,10 @@ describe('Orbit image runtime', () => {
 
     assert.equal(result.imageUrl, 'data:image/png;base64,ZWRpdGVkLWltYWdl');
     assert.equal(result.provider, 'openrouter');
+    assert.equal(result.freeOnly, true);
   });
 
-  test('rejects a non-zero provider-reported image cost', async () => {
+  test('rejects provider-reported cost in free-only mode', async () => {
     process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
     installOpenRouterImageMock('ZmFrZQ==', 0.01);
 
@@ -93,5 +119,36 @@ describe('Orbit image runtime', () => {
       generateImageResilient({ prompt: 'Teste de custo.' }),
       /ZERO_COST_INVARIANT_VIOLATED/,
     );
+  });
+
+  test('never selects a paid model unless server billing opt-in is explicit', async () => {
+    process.env.OPENROUTER_IMAGE_MODEL = 'vendor/paid-image';
+    await assert.rejects(
+      generateImageResilient({ prompt: 'Imagem paga sem autorização.' }),
+      /faturável.*autorizado|ORBIT_IMAGE_BILLING_ENABLED=true/,
+    );
+    assert.equal(getImageGenerationStatus().enabled, false);
+  });
+
+  test('allows a paid model only with explicit server opt-in and reports billing mode', async () => {
+    process.env.OPENROUTER_IMAGE_MODEL = 'vendor/paid-image';
+    process.env.ORBIT_IMAGE_BILLING_ENABLED = 'true';
+    installOpenRouterImageMock('cGFpZC1pbWFnZQ==', 0.02, 'vendor/paid-image', true);
+
+    const result = await generateImageResilient({ prompt: 'Arte de teste.', quality: 'fast' });
+    assert.equal(result.imageUrl, 'data:image/png;base64,cGFpZC1pbWFnZQ==');
+    assert.equal(result.freeOnly, false);
+    assert.equal(result.billingMode, 'paid');
+    assert.equal(getImageGenerationStatus().mode, 'paid');
+    assert.match(String(result.warning), /faturável/);
+  });
+
+  test('status never exposes secrets and reports missing credentials', () => {
+    delete process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
+    const status = getImageGenerationStatus();
+    assert.equal(status.enabled, false);
+    assert.equal(status.mode, 'unavailable');
+    assert.equal(JSON.stringify(status).includes('test-openrouter-key'), false);
   });
 });
