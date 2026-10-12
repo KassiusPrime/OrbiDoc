@@ -60,9 +60,9 @@ for (const token of ['@tesseract.js-data', "['por', 'eng']", 'tesseract.js-core'
 const vlcActivity = read('native/android/OrbitVlcPlayerActivity.java');
 for (const token of ['LibVLC', 'MediaPlayer', 'setRate', 'EndReached', 'Orbit Player']) if (!vlcActivity.includes(token)) failures.push(`OrbitVlcPlayerActivity.java não contém ${token}.`);
 const vlcScript = read('scripts/configure-native-vlc-player.mjs');
-for (const token of ['libvlc-all:3.6.1', 'OrbitVlcPlayerActivity.java', 'onVlcMediaPicked']) if (!vlcScript.includes(token)) failures.push(`configure-native-vlc-player.mjs não contém ${token}.`);
+for (const token of ['libvlc-all:3.6.1', 'OrbitVlcPlayerActivity.java']) if (!vlcScript.includes(token)) failures.push(`configure-native-vlc-player.mjs não contém ${token}.`);
 const vlcMethods = read('native/android/OrbitVlcPluginMethods.java');
-for (const token of ['playWithLibVlc', 'pickAndPlayWithLibVlc', 'supportsNativeVlcPlayer', 'https://']) if (!vlcMethods.includes(token)) failures.push(`OrbitVlcPluginMethods.java não contém ${token}.`);
+for (const token of ['playWithLibVlc', 'pickAndPlayWithLibVlc', 'supportsNativeVlcPlayer', 'onVlcMediaPicked', 'https://']) if (!vlcMethods.includes(token)) failures.push(`OrbitVlcPluginMethods.java não contém ${token}.`);
 const bridgeScript = read('scripts/configure-native-android-bridge.mjs');
 for (const token of ['MediaStore.Downloads', 'OrbiDocNativePlugin', 'android.intent.action.VIEW', 'android.intent.action.SEND']) if (!bridgeScript.includes(token)) failures.push(`configure-native-android-bridge.mjs não contém ${token}.`);
 const networkScript = read('scripts/configure-native-android-network.mjs');
