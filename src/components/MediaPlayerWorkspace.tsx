@@ -481,8 +481,12 @@ export const MediaPlayerWorkspace: React.FC<{
             <input ref={fileRef} type="file" multiple accept="audio/*,video/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.mp4,.webm,.m4v,.mov,.mkv,.avi,.m3u8,.mpd" className="hidden" onChange={(event) => { if (event.target.files) addFiles(event.target.files); event.currentTarget.value = ''; }} />
             <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-3.5 text-xs font-semibold text-white hover:bg-violet-700"><Upload className="h-4 w-4" /> Abrir mídia</button>
             {nativeVlcAvailable ? (
-              active?.source === 'network' && active.url.startsWith('https://') ? (
-                <button type="button" disabled={nativeVlcBusy} onClick={() => void openNativeStream()} className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-700 hover:bg-violet-500/15 disabled:opacity-50 dark:text-violet-200"><i className="fi fi-rr-screen text-sm" aria-hidden="true" /> {nativeVlcBusy ? 'Abrindo…' : 'Decodificador nativo'}</button>
+              active?.source === 'network' ? (
+                active.url.startsWith('https://') ? (
+                  <button type="button" disabled={nativeVlcBusy} onClick={() => void openNativeStream()} className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-700 hover:bg-violet-500/15 disabled:opacity-50 dark:text-violet-200"><i className="fi fi-rr-screen text-sm" aria-hidden="true" /> {nativeVlcBusy ? 'Abrindo…' : 'Decodificador nativo'}</button>
+                ) : (
+                  <span title="O motor nativo exige URL HTTPS" className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-500 dark:border-slate-700"><i className="fi fi-rr-shield-exclamation text-sm" aria-hidden="true" /> URL HTTP não aceita no motor nativo</span>
+                )
               ) : (
                 <button type="button" disabled={nativeVlcBusy} onClick={() => void openNativeLocal()} className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-700 hover:bg-violet-500/15 disabled:opacity-50 dark:text-violet-200"><i className="fi fi-rr-mobile text-sm" aria-hidden="true" /> {nativeVlcBusy ? 'Abrindo…' : 'Escolher arquivos no Android'}</button>
               )
