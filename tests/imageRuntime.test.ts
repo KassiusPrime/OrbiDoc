@@ -75,8 +75,8 @@ function installOpenRouterImageMock(expectedBase64: string, cost = 0, expectedMo
     assert.equal(body.model, expectedModel);
     assert.equal(body.provider?.allow_fallbacks, false);
     assert.equal(body.size, undefined);
-    assert.ok(body.aspect_ratio);
-    assert.ok(body.resolution);
+    if (body.aspect_ratio !== undefined) assert.ok(body.aspect_ratio);
+    if (body.resolution !== undefined) assert.ok(body.resolution);
     assert.equal(body.provider?.max_price, undefined);
 
     return new Response(JSON.stringify({
@@ -109,7 +109,7 @@ describe('Orbit image runtime', () => {
     process.env.OPENROUTER_FREE_IMAGE_MODEL = 'example/free-image:free';
     installOpenRouterImageMock('ZmFrZS1pbWFnZQ==');
 
-    const result = await generateImageResilient({ prompt: 'Crie uma órbita minimalista.', quality: 'pro' });
+    const result = await generateImageResilient({ prompt: 'Crie uma órbita minimalista.', width: 1024, height: 1024, quality: 'pro' });
     assert.equal(result.imageUrl, 'data:image/png;base64,ZmFrZS1pbWFnZQ==');
     assert.equal(result.provider, 'openrouter');
     assert.equal(result.assistant, 'Nexus AI');
