@@ -77,7 +77,8 @@ function installOpenRouterImageMock(expectedBase64: string, cost = 0, expectedMo
     assert.equal(body.size, undefined);
     if (body.aspect_ratio !== undefined) assert.ok(body.aspect_ratio);
     if (body.resolution !== undefined) assert.ok(body.resolution);
-    assert.equal(body.provider?.max_price, undefined);
+    assert.equal(body.provider?.max_price?.prompt, 0);
+    assert.equal(body.provider?.max_price?.completion, 0);
 
     return new Response(JSON.stringify({
       data: [{ b64_json: expectedBase64, media_type: 'image/png' }],
