@@ -20,6 +20,7 @@ import {
   IconWorld as World,
   IconX as Close,
 } from '@tabler/icons-react';
+import { getNativeVlcPlayerStatus, openNativeVlcStream, pickNativeVlcMedia } from '../lib/nativeAndroidBridge';
 
 type PlaylistItem = {
   id: string;
@@ -86,6 +87,8 @@ export const MediaPlayerWorkspace: React.FC<{
   const [streamUrl, setStreamUrl] = useState('');
   const [query, setQuery] = useState('');
   const [recentStreams, setRecentStreams] = useState<string[]>(() => safeLoadJson(STREAMS_KEY, []));
+  const [nativeVlcAvailable, setNativeVlcAvailable] = useState(false);
+  const [nativeVlcBusy, setNativeVlcBusy] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -110,6 +113,14 @@ export const MediaPlayerWorkspace: React.FC<{
   }, [playlist, query]);
 
   useEffect(() => { playlistRef.current = playlist; }, [playlist]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getNativeVlcPlayerStatus().then((status) => {
+      if (!cancelled) setNativeVlcAvailable(status.available);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => () => {
     playlistRef.current.filter((item) => item.source === 'local').forEach((item) => URL.revokeObjectURL(item.url));
@@ -231,6 +242,35 @@ export const MediaPlayerWorkspace: React.FC<{
     const next = [canonical, ...recentStreams.filter((entry) => entry !== canonical)].slice(0, 12);
     setRecentStreams(next);
     try { localStorage.setItem(STREAMS_KEY, JSON.stringify(next)); } catch { /* Recent links are an optional convenience. */ }
+  };
+
+  const openNativeLocal = async () => {
+    if (!nativeVlcAvailable) return;
+    setNativeVlcBusy(true);
+    try {
+      await pickNativeVlcMedia();
+      showNotification('Seletor nativo aberto. Escolha um ou mais arquivos para reproduzir com LibVLC.', 'success');
+    } catch (cause) {
+      showNotification(cause instanceof Error ? cause.message : 'Não foi possível abrir o seletor nativo.', 'error');
+    } finally {
+      setNativeVlcBusy(false);
+    }
+  };
+
+  const openNativeStream = async () => {
+    if (!active || active.source !== 'network') {
+      showNotification('Para usar LibVLC com um arquivo local, escolha “Escolher arquivos no Android”.', 'error');
+      return;
+    }
+    setNativeVlcBusy(true);
+    try {
+      await openNativeVlcStream(active.url, active.name);
+      showNotification('Mídia enviada ao motor nativo LibVLC.', 'success');
+    } catch (cause) {
+      showNotification(cause instanceof Error ? cause.message : 'Não foi possível abrir a mídia com LibVLC.', 'error');
+    } finally {
+      setNativeVlcBusy(false);
+    }
   };
 
   const togglePlay = async () => {
@@ -435,11 +475,18 @@ export const MediaPlayerWorkspace: React.FC<{
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-600 dark:text-violet-300">Orbit Player · reprodução</div>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Mídia sem complicação.</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">Playlist local, links diretos, legendas, retomada, gestos, velocidade de 0,25× a 4×, PiP e loop A–B. A compatibilidade depende do mecanismo de mídia do dispositivo; este modo web não incorpora LibVLC.</p>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">Playlist local, links diretos, legendas, retomada, gestos, velocidade de 0,25× a 4×, PiP e loop A–B. A reprodução web depende dos codecs do navegador. No app Android, o botão de decodificação nativa abre o LibVLC para arquivos escolhidos pelo seletor do sistema ou URLs HTTPS diretas.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <input ref={fileRef} type="file" multiple accept="audio/*,video/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.mp4,.webm,.m4v,.mov,.mkv,.avi,.m3u8,.mpd" className="hidden" onChange={(event) => { if (event.target.files) addFiles(event.target.files); event.currentTarget.value = ''; }} />
             <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-3.5 text-xs font-semibold text-white hover:bg-violet-700"><Upload className="h-4 w-4" /> Abrir mídia</button>
+            {nativeVlcAvailable ? (
+              active?.source === 'network' && active.url.startsWith('https://') ? (
+                <button type="button" disabled={nativeVlcBusy} onClick={() => void openNativeStream()} className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-700 hover:bg-violet-500/15 disabled:opacity-50 dark:text-violet-200"><i className="fi fi-rr-screen text-sm" aria-hidden="true" /> {nativeVlcBusy ? 'Abrindo…' : 'Decodificador nativo'}</button>
+              ) : (
+                <button type="button" disabled={nativeVlcBusy} onClick={() => void openNativeLocal()} className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-700 hover:bg-violet-500/15 disabled:opacity-50 dark:text-violet-200"><i className="fi fi-rr-mobile text-sm" aria-hidden="true" /> {nativeVlcBusy ? 'Abrindo…' : 'Escolher arquivos no Android'}</button>
+              )
+            ) : null}
             <input ref={subtitleRef} type="file" accept=".vtt,.srt,text/vtt,application/x-subrip" className="hidden" onChange={(event) => { void loadSubtitle(event.target.files?.[0]); event.currentTarget.value = ''; }} />
             <button type="button" onClick={() => subtitleRef.current?.click()} disabled={!isVideo || !active} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold hover:bg-slate-50 disabled:opacity-35 dark:border-slate-700 dark:hover:bg-slate-800"><Subtitles className="h-4 w-4" /> Legenda</button>
           </div>
