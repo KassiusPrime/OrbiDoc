@@ -35,17 +35,16 @@ Para obter paridade ampla de codecs, o próximo passo seria avaliar uma implemen
 
 ## Geração de imagens: estado honesto e proteção contra custos
 
-O código não presume que exista um modelo de imagens gratuito. O endpoint verifica a configuração no servidor e expõe um estado sem revelar chaves.
+O Orbit não presume que exista um modelo de imagem gratuito. O endpoint verifica o catálogo OpenRouter no servidor, valida que a saída é imagem e só habilita um modelo explicitamente definido como gratuito (`:free`). A chave nunca é enviada ao cliente.
 
-- OPENROUTER_FREE_IMAGE_MODEL: somente um modelo real confirmado como compatível com :free; custo positivo retornado pelo provedor faz a requisição falhar.
-- OPENROUTER_IMAGE_MODEL: modelo remoto configurado opcionalmente.
-- ORBIT_IMAGE_BILLING_ENABLED=false: padrão. Mesmo que um modelo pago esteja definido, ele não será chamado.
-- Para autorizar modelos faturáveis, o administrador precisa definir ORBIT_IMAGE_BILLING_ENABLED=true no servidor. Na interface, cada geração/edição remota ainda exige uma confirmação visível ao usuário.
-- OPENROUTER_API_KEY permanece exclusivamente no servidor. Não usar prefixo VITE_.
-- REAL_ESRGAN_ENDPOINT é opcional; precisa apontar para um processador realmente implantado. O endpoint de aprimoramento local do navegador é independente e não requer esse serviço.
+- `OPENROUTER_FREE_IMAGE_MODEL`: deve apontar a um modelo real compatível com `:free`; a consulta de catálogo valida disponibilidade e parâmetros antes da geração.
+- `OPENROUTER_API_KEY` permanece apenas no servidor; não usar o prefixo `VITE_`.
+- Modelos pagos são bloqueados deliberadamente pelo runtime e por `scripts/verify-nexus-ai.mjs`. Não há fallback pago nem ativação oculta.
+- O aprimoramento local funciona no dispositivo sem enviar o arquivo. A restauração remota só fica disponível se um serviço real for configurado e requer confirmação explícita.
 
-A UI não pode afirmar “gerando perfeitamente” quando falta endpoint/modelo/chave. Ela deve explicar a configuração ausente. A equipe deve testar ao menos uma geração real no ambiente implantado, verificar o modelo de resposta/limites e observar logs de custo antes de declarar a integração pronta.
+**Limite conhecido:** o catálogo público consultado para esta mudança não oferece um modelo de geração de imagens `:free`. Por isso, se nenhum modelo gratuito elegível estiver configurado, o estúdio informa que a geração remota está indisponível e não simula sucesso. Permitir um modelo pago exigiria mudar explicitamente a política zero-cost do projeto com autorização do usuário; esta mudança não o faz.
 
+A interface não pode afirmar que está gerando quando faltam endpoint, modelo ou chave. A geração remota só deve ser declarada operacional depois de um teste no ambiente real com resposta válida e política de custo verificada.
 ## Flaticon / Uicons
 
 Os ícones Uicons são fornecidos pela stylesheet oficial do Flaticon. Manter a atribuição visível “Uicons by Flaticon” conforme os termos de uso aplicáveis e não distribuir arquivos de fontes de ícones como se fossem ativos próprios. O layout mantém componentes de fallback com ícones Tabler para evitar áreas vazias caso o CDN do Flaticon não carregue.
