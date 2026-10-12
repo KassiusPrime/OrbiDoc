@@ -2,7 +2,6 @@ import React, { Component, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconCopy as Copy,
   IconFileText as FileText,
-  IconHistory as History,
   IconPaperclip as Paperclip,
   IconPlayerStop as Stop,
   IconPlus as Plus,
@@ -132,21 +131,6 @@ export const SuggestionChips: React.FC<{ onSelect: (prompt: string) => void }> =
       </button>
     ))}
   </div>
-);
-
-const AIChatHeader: React.FC<{ busy: boolean; onClear: () => void }> = ({ busy, onClear }) => (
-  <header className="flex h-12 shrink-0 items-center border-b border-white/6 px-3 sm:px-5">
-    <div className="flex min-w-0 items-center gap-2">
-      <Sparkles className="h-4 w-4 text-[#8D7CFF]" />
-      <span className="text-sm font-medium tracking-tight">Nexus AI</span>
-      <span className="text-[10px] text-slate-500">Gratuito</span>
-    </div>
-    <div className="ml-auto flex items-center gap-1">
-      <button type="button" onClick={onClear} disabled={busy} className="h-8 rounded-lg px-2.5 text-[10px] font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 disabled:opacity-40">
-        <Plus className="mr-1 inline h-3.5 w-3.5" />Novo chat
-      </button>
-    </div>
-  </header>
 );
 
 export const AIComposer: React.FC<{
