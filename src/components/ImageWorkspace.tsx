@@ -277,7 +277,7 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
               </span>
               <a href="https://www.flaticon.com/uicons" target="_blank" rel="noreferrer" className="text-[10px] text-slate-400 hover:text-indigo-500">Uicons by Flaticon</a>
             </div>
-            {!imageStatus.enabled ? <p className="mt-2 max-w-3xl text-xs leading-relaxed text-amber-700 dark:text-amber-300">{imageStatus.message} Nenhum modelo pago será ativado silenciosamente. A integração precisa ser configurada no servidor.</p> : imageStatus.mode === 'paid' ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">O servidor está autorizado a chamar um modelo faturável; cada pedido exige confirmação.</p> : null
+            {!imageStatus.enabled ? <p className="mt-2 max-w-3xl text-xs leading-relaxed text-amber-700 dark:text-amber-300">{imageStatus.message} Nenhum modelo pago será ativado silenciosamente. A integração precisa ser configurada no servidor.</p> : imageStatus.mode === 'paid' ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">O servidor está autorizado a chamar um modelo faturável; cada pedido exige confirmação.</p> : null}
           </div>
           <div className="flex bg-slate-100 dark:bg-slate-950 rounded-xl p-1 overflow-x-auto">
             <button onClick={() => setMode('generate')} className={`h-9 px-3 rounded-lg text-xs font-black inline-flex items-center gap-2 whitespace-nowrap ${mode === 'generate' ? 'bg-white dark:bg-slate-800 shadow-sm' : 'text-slate-500'}`}><PhotoPlus className="w-4 h-4" /> Gerar</button>
