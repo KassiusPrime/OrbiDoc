@@ -58,3 +58,12 @@ Os ícones Uicons são fornecidos pela stylesheet oficial do Flaticon. Manter a 
 4. Testar player com fixtures MP4/H.264/AAC e WebM/VP8/VP9, uma legenda VTT e SRT, playlist, retomar reprodução, PiP e URL remota autorizada; testes não devem alegar suporte a codecs que não foram testados.
 5. Testar o estúdio de imagens com credenciais e modelo reais em ambiente controlado; confirmar falha fechada sem configuração e confirmação antes de qualquer chamada faturável.
 6. Construir e instalar APK Android em dispositivo real. A montagem do APK não é teste suficiente da reprodução de cada codec.
+
+
+## Referências públicas para verificação
+
+- VLC Android, repositório oficial e licenciamento: https://github.com/videolan/vlc-android
+- Documentação do VLC para Android: https://docs.videolan.me/vlc-android/
+- OpenRouter, catálogo de modelos de geração de imagens: https://openrouter.ai/docs/api/api-reference/images/list-image-models
+- OpenRouter, geração de imagens e preços: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+- Flaticon Uicons, biblioteca e instruções de atribuição: https://www.flaticon.com/uicons
