@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { NEXUS_FREE_MODELS, nexusAI, type NexusBody } from './api/_lib/nexusAI.js';
-import { editImageResilient, enhanceImageResilient, generateImageResilient, getImageGenerationStatus } from './api/_lib/imageRuntime.js';
+import { editImageResilient, enhanceImageResilient, generateImageResilient, getVerifiedImageGenerationStatus } from './api/_lib/imageRuntime.js';
 import onlyOfficeConfigHandler from './api/_lib/onlyofficeConfigHandler.js';
 import onlyOfficeDocumentHandler from './api/_lib/onlyofficeDocumentHandler.js';
 import onlyOfficeCallbackHandler from './api/_lib/onlyofficeCallbackHandler.js';
@@ -244,9 +244,9 @@ async function startServer(): Promise<void> {
   app.post('/api/chat', rateLimit(RATE_MAX_REQUESTS), chatHandler);
   app.post('/api/chats', rateLimit(RATE_MAX_REQUESTS), chatHandler);
 
-  app.get('/api/image-status', rateLimit(120), (_req, res) => {
+  app.get('/api/image-status', rateLimit(120), async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json(getImageGenerationStatus());
+    res.json(await getVerifiedImageGenerationStatus());
   });
 
   app.post('/api/generate-image', rateLimit(IMAGE_RATE_MAX_REQUESTS), async (req, res) => {
