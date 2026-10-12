@@ -4,15 +4,17 @@ import { readFileSync } from 'node:fs';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('Word, Sheets, and Slides route to Orbit-owned editor engines', () => {
+test('Office legacy routes open the read-only document reader instead of editor engines', () => {
   const app = read('src/AppV5.tsx');
-  assert.ok(app.includes("import { DocumentEditor } from './components/DocumentEditor'"));
-  assert.ok(app.includes("import { SpreadsheetEditor } from './components/SpreadsheetEditor'"));
-  assert.ok(app.includes("import { PresentationEditor } from './components/PresentationEditor'"));
-  assert.ok(app.includes('<DocumentEditor key={project.id}'));
-  assert.ok(app.includes('<SpreadsheetEditor key={project.id}'));
-  assert.ok(app.includes('<PresentationEditor key={project.id}'));
-  assert.ok(!app.includes('OnlyOfficeEditor'));
+  assert.ok(app.includes("import { DocumentReaderWorkspace } from './components/DocumentReaderWorkspace'"));
+  assert.ok(app.includes("if (view === 'reader' || view === 'word' || view === 'excel' || view === 'powerpoint' || view === 'canva')"));
+  assert.ok(app.includes('<DocumentReaderWorkspace'));
+  assert.ok(!app.includes("import { DocumentEditor } from './components/DocumentEditor'"));
+  assert.ok(!app.includes("import { SpreadsheetEditor } from './components/SpreadsheetEditor'"));
+  assert.ok(!app.includes("import { PresentationEditor } from './components/PresentationEditor'"));
+  assert.ok(!app.includes('<DocumentEditor key={project.id}'));
+  assert.ok(!app.includes('<SpreadsheetEditor key={project.id}'));
+  assert.ok(!app.includes('<PresentationEditor key={project.id}'));
 });
 test('ONLYOFFICE routes are registered before JSON body parsing in the shared Express server', () => {
   const server = read('server.ts');
