@@ -3,9 +3,6 @@ import { ORBIT_EXTENSIONS, type OrbitExtensionId } from './orbitExtensions';
 export type OrbitAiToolId =
   | 'nexus.summarize'
   | 'nexus.planWorkflow'
-  | 'design.addLayer'
-  | 'design.adjustImage'
-  | 'design.generateLayout'
   | 'pdf.runOcr'
   | 'pdf.summarize'
   | 'pdf.extractTable'
@@ -129,9 +126,6 @@ const definition = (
 export const ORBIT_AI_TOOLS: readonly OrbitAiToolDefinition[] = [
   definition('nexus.summarize', 'orbit.nexus', 'context.read.selected', 'Summarize user-selected content.', validators.emptyOrText),
   definition('nexus.planWorkflow', 'orbit.nexus', 'context.read.selected', 'Plan a workflow from an explicit user request.', validators.emptyOrText),
-  definition('design.addLayer', 'orbit.design', 'design.write.active', 'Add a layer to the active design.', validators.addLayer),
-  definition('design.adjustImage', 'orbit.design', 'design.write.active', 'Adjust an explicitly selected image asset.', validators.adjustImage),
-  definition('design.generateLayout', 'orbit.design', 'design.write.active', 'Generate a layout from an explicit brief.', validators.generateLayout),
   definition('pdf.runOcr', 'orbit.pdf', 'file.read.selected', 'Run OCR on a user-selected file.', validators.runOcr),
   definition('pdf.summarize', 'orbit.pdf', 'file.read.selected', 'Summarize text from a user-selected PDF.', validators.runOcr),
   definition('pdf.extractTable', 'orbit.pdf', 'file.read.selected', 'Extract a table from a user-selected PDF page.', validators.extractTable),
