@@ -21,7 +21,7 @@ interface ImageWorkspaceProps {
 type Mode = 'generate' | 'edit' | 'enhance';
 type OutputFormat = 'png' | 'jpg' | 'webp' | 'avif';
 type GenerationQuality = 'fast' | 'pro';
-type ImageGenerationStatus = { enabled: boolean; mode: 'free' | 'paid' | 'unavailable'; billingEnabled: boolean; modelConfigured: boolean; editAvailable?: boolean; enhancementAvailable?: boolean; message: string };
+type ImageGenerationStatus = { enabled: boolean; mode: 'free' | 'unavailable'; billingEnabled: false; modelConfigured: boolean; editAvailable?: boolean; enhancementAvailable?: boolean; message: string };
 type EnhancementMode = 'local' | 'ai';
 
 type ImageResult = {
@@ -177,7 +177,6 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
   const runGenerationOrEdit = async () => {
     if (!imageStatus.enabled) { showNotification(imageStatus.message, 'error'); return; }
     if (mode === 'edit' && !imageStatus.editAvailable) { showNotification('O modelo configurado não oferece edição por imagem de referência. Escolha um modelo que declare input_references no catálogo.', 'error'); return; }
-    if (imageStatus.mode === 'paid' && !window.confirm('Este pedido usa um modelo de imagem faturável. A cobrança depende do modelo e das dimensões. Continuar?')) return;
     if (!prompt.trim()) {
       showNotification('Descreva a imagem ou a edição desejada.', 'error');
       return;
@@ -210,7 +209,7 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
 
   const runEnhancement = async () => {
     if (enhancementMode === 'ai' && !imageStatus.enhancementAvailable) { showNotification(imageStatus.message, 'error'); return; }
-    if (enhancementMode === 'ai' && !window.confirm('A restauração será executada por um serviço remoto configurado, que pode gerar custos ou alterar detalhes. Continuar?')) return;
+    if (enhancementMode === 'ai' && !window.confirm('A restauração será executada por um processador remoto configurado. O resultado pode reconstruir detalhes. Continuar?')) return;
     if (!referenceImage) {
       showNotification('Envie uma imagem para aprimorar.', 'error');
       return;
@@ -272,12 +271,12 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
             <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Gerar, editar e restaurar em alta qualidade</h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">Geração e edição remotas com configuração explícita, mais aprimoramento local que funciona sem créditos e sem enviar a imagem.</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className={'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ' + (imageStatus.enabled ? (imageStatus.mode === 'paid' ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300') : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300')}>
-                <i className="fi fi-rr-shield-check" aria-hidden="true" />{!statusLoaded ? 'Verificando status…' : imageStatus.mode === 'paid' ? 'Modelo faturável · confirmação por pedido' : imageStatus.mode === 'free' ? 'Modelo gratuito configurado' : 'Geração remota não configurada'}
+              <span className={'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ' + (imageStatus.enabled ? (imageStatus.mode === 'free' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300') : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300')}>
+                <i className="fi fi-rr-shield-check" aria-hidden="true" />{!statusLoaded ? 'Verificando status…' : imageStatus.mode === 'free' ? 'Modelo gratuito configurado' : 'Geração remota não configurada'}
               </span>
               <a href="https://www.flaticon.com/uicons" target="_blank" rel="noreferrer" className="text-[10px] text-slate-400 hover:text-indigo-500">Uicons by Flaticon</a>
             </div>
-            {!imageStatus.enabled ? <p className="mt-2 max-w-3xl text-xs leading-relaxed text-amber-700 dark:text-amber-300">{imageStatus.message} Nenhum modelo pago será ativado silenciosamente. A integração precisa ser configurada no servidor.</p> : imageStatus.mode === 'paid' ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">O servidor está autorizado a chamar um modelo faturável; cada pedido exige confirmação.</p> : null}
+            {!imageStatus.enabled ? <p className="mt-2 max-w-3xl text-xs leading-relaxed text-amber-700 dark:text-amber-300">{imageStatus.message} Modelos pagos são bloqueados pela política atual do Orbit.</p> : null}
           </div>
           <div className="flex bg-slate-100 dark:bg-slate-950 rounded-xl p-1 overflow-x-auto">
             <button onClick={() => setMode('generate')} className={`h-9 px-3 rounded-lg text-xs font-black inline-flex items-center gap-2 whitespace-nowrap ${mode === 'generate' ? 'bg-white dark:bg-slate-800 shadow-sm' : 'text-slate-500'}`}><PhotoPlus className="w-4 h-4" /> Gerar</button>
