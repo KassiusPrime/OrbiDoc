@@ -93,7 +93,7 @@ describe('Orbit image runtime', () => {
   test('fails closed when no model is configured', async () => {
     await assert.rejects(
       generateImageResilient({ prompt: 'Crie uma órbita minimalista.' }),
-      /Geração de imagem remota ainda não está configurada/,
+      /Geração de imagem remota não está configurada/,
     );
   });
 
