@@ -208,7 +208,7 @@ export const DocumentReaderWorkspace: React.FC<DocumentReaderWorkspaceProps> = (
         <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200">
-            <i className="fi fi-rr-book-open text-[27px]" aria-hidden="true" />
+            <i className="fi fi-rr-book text-[27px]" aria-hidden="true" />
             <IconBook2 className="hidden h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
