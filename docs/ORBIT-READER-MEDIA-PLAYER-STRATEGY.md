@@ -31,7 +31,11 @@ Padrões úteis a reproduzir numa interface original:
 
 A implementação web usa os elementos de mídia do navegador/WebView. Ela **não** herda todos os codecs, contêineres, protocolos e recursos do VLC/LibVLC. Página de streaming, URL que exige autenticação, playlists HLS/DASH e formatos como MKV/AVI dependem do WebView, da origem e do codec disponível. A interface informa esse limite em vez de garantir suporte universal.
 
-Para obter paridade ampla de codecs, o próximo passo seria avaliar uma implementação nativa baseada em LibVLC, com análise de licenças, dependências, distribuição, atribuições e implicações de copyleft antes de integrar qualquer biblioteca. O VLC Android é GPLv2-or-later; o repositório do VLC declara LibVLC Android como LGPLv2, enquanto o aplicativo completo permanece sob GPL. Não se deve copiar ou incorporar componentes sem avaliar a obrigação aplicável ao produto e à distribuição.
+O app Android passa a oferecer um caminho nativo independente que liga a playlist ao artefato oficial `org.videolan.android:libvlc-all:3.6.1`. O usuário pode selecionar múltiplos arquivos locais pelo seletor de documentos ou enviar uma URL HTTPS direta para uma atividade própria do Orbit. Essa atividade oferece seek, velocidade, repetição, aleatório e mudança de faixa. O player web continua sendo o fallback no navegador/PWA. A integração é gerada pelo script `scripts/configure-native-vlc-player.mjs` durante a construção Capacitor, pois o diretório `android/` é gerado no CI.
+
+O uso é da biblioteca publicada, não do aplicativo VLC. A UI, navegação, playlists e os fluxos de segurança são implementação original do Orbit. Atributos de tela, controles e texto não devem reutilizar marca, assets ou código do aplicativo VLC. Antes de publicar uma versão Android, valide o AAR exato, inclua as licenças e avisos pertinentes e cumpra as obrigações aplicáveis da LGPL; veja `THIRD_PARTY_NOTICES.md`.
+
+Ainda existe diferença entre suporte de codec e validação: o projeto precisa compilar o APK com LibVLC e testar MP4/H.264/AAC, MKV, WebM e streams HLS em aparelhos reais. Não declarar paridade universal antes desses testes; uma build de sucesso comprova compilação, não todos os codecs nem o comportamento em segundo plano.
 
 ## Geração de imagens: estado honesto e proteção contra custos
 
