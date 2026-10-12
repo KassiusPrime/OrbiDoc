@@ -142,26 +142,15 @@ describe('Orbit image runtime', () => {
     );
   });
 
-  test('never selects a paid model unless server billing opt-in is explicit', async () => {
-    process.env.OPENROUTER_IMAGE_MODEL = 'vendor/paid-image';
-    await assert.rejects(
-      generateImageResilient({ prompt: 'Imagem paga sem autorização.' }),
-      /faturável.*autorizado|ORBIT_IMAGE_BILLING_ENABLED=true/,
-    );
-    assert.equal(getImageGenerationStatus().enabled, false);
-  });
-
-  test('allows a paid model only with explicit server opt-in and reports billing mode', async () => {
+  test('blocks paid image models even when an environment flag attempts to opt in', async () => {
     process.env.OPENROUTER_IMAGE_MODEL = 'vendor/paid-image';
     process.env.ORBIT_IMAGE_BILLING_ENABLED = 'true';
-    installOpenRouterImageMock('cGFpZC1pbWFnZQ==', 0.02, 'vendor/paid-image');
-
-    const result = await generateImageResilient({ prompt: 'Arte de teste.', quality: 'fast' });
-    assert.equal(result.imageUrl, 'data:image/png;base64,cGFpZC1pbWFnZQ==');
-    assert.equal(result.freeOnly, false);
-    assert.equal(result.billingMode, 'paid');
-    assert.equal(getImageGenerationStatus().mode, 'paid');
-    assert.match(String(result.warning), /faturável/);
+    await assert.rejects(
+      generateImageResilient({ prompt: 'Imagem paga bloqueada.' }),
+      /PAID_IMAGE_MODEL_FORBIDDEN/,
+    );
+    assert.equal(getImageGenerationStatus().enabled, false);
+    assert.equal(getImageGenerationStatus().mode, 'unavailable');
   });
 
   test('catalog status validates model support and never exposes API credentials', async () => {
