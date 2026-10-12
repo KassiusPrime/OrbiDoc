@@ -46,7 +46,6 @@ const formatTime = (value: number) => {
   const ss = String(seconds).padStart(2, '0');
   return hours ? String(hours) + ':' + mm + ':' + ss : String(minutes) + ':' + ss;
 };
-const extensionOf = (name: string) => name.split(/[?#]/)[0].split('.').pop()?.toLowerCase() || '';
 const getMediaType = (name: string, type = '') => {
   const cleanName = name.split(/[?#]/)[0];
   if (type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac|opus|aiff|wma)$/i.test(cleanName)) return 'audio';
