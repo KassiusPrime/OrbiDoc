@@ -209,7 +209,7 @@ export const ImageWorkspace: React.FC<ImageWorkspaceProps> = ({
 
   const runEnhancement = async () => {
     if (enhancementMode === 'ai' && !imageStatus.enhancementAvailable) { showNotification(imageStatus.message, 'error'); return; }
-    if (enhancementMode === 'ai' && imageStatus.mode === 'paid' && !window.confirm('A restauração remota poderá gerar cobrança. Continuar?')) return;
+    if (enhancementMode === 'ai' && !window.confirm('A restauração será executada por um serviço remoto configurado, que pode gerar custos ou alterar detalhes. Continuar?')) return;
     if (!referenceImage) {
       showNotification('Envie uma imagem para aprimorar.', 'error');
       return;
