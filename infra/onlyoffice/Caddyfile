@@ -1,0 +1,4 @@
+{$ONLYOFFICE_DOMAIN} {
+  encode zstd gzip
+  reverse_proxy documentserver:80
+}
